@@ -1,0 +1,50 @@
+package store
+
+import (
+	"context"
+
+	"github.com/ajitpratap0/cortex/internal/models"
+)
+
+// Store defines the interface for memory persistence with vector search.
+type Store interface {
+	// EnsureCollection creates the vector collection if it doesn't exist.
+	EnsureCollection(ctx context.Context) error
+
+	// Upsert inserts or updates a memory with its embedding vector.
+	Upsert(ctx context.Context, memory models.Memory, vector []float32) error
+
+	// Search finds memories similar to the query vector.
+	Search(ctx context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error)
+
+	// Get retrieves a single memory by ID.
+	Get(ctx context.Context, id string) (*models.Memory, error)
+
+	// Delete removes a memory by ID.
+	Delete(ctx context.Context, id string) error
+
+	// List returns memories matching the given filters.
+	List(ctx context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error)
+
+	// FindDuplicates returns memories with cosine similarity above the threshold.
+	FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error)
+
+	// UpdateAccessMetadata increments access count and updates last_accessed time.
+	UpdateAccessMetadata(ctx context.Context, id string) error
+
+	// Stats returns collection statistics.
+	Stats(ctx context.Context) (*models.CollectionStats, error)
+
+	// Close cleans up resources.
+	Close() error
+}
+
+// SearchFilters allows filtering search results.
+type SearchFilters struct {
+	Type       *models.MemoryType       `json:"type,omitempty"`
+	Scope      *models.MemoryScope      `json:"scope,omitempty"`
+	Visibility *models.MemoryVisibility `json:"visibility,omitempty"`
+	Project    *string                  `json:"project,omitempty"`
+	Tags       []string                 `json:"tags,omitempty"`
+	Source     *string                  `json:"source,omitempty"`
+}
