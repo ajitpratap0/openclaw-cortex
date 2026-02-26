@@ -3,8 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,36 +33,13 @@ func TestCapturedMemoryJSON(t *testing.T) {
 	assert.Equal(t, mem.Tags, decoded.Tags)
 }
 
-// TestCaptureExtraction tests the Claude extraction with a mock HTTP server.
-func TestCaptureExtraction(t *testing.T) {
-	// Create a mock Anthropic API server
-	mockResp := `{
-		"id": "msg_test",
-		"type": "message",
-		"role": "assistant",
-		"content": [
-			{
-				"type": "text",
-				"text": "[{\"content\":\"Go uses goroutines for concurrency\",\"type\":\"fact\",\"confidence\":0.9,\"tags\":[\"go\",\"concurrency\"]},{\"content\":\"Always handle errors explicitly in Go\",\"type\":\"rule\",\"confidence\":0.85,\"tags\":[\"go\",\"error-handling\"]}]"
-			}
-		],
-		"model": "claude-haiku-4-5-20241022",
-		"stop_reason": "end_turn",
-		"usage": {"input_tokens": 100, "output_tokens": 50}
-	}`
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(mockResp))
-	}))
-	defer server.Close()
-
-	// We can't easily test the full Claude client without injecting the base URL.
-	// Instead, test the JSON parsing logic directly.
-	var memories []models.CapturedMemory
+// TestCaptureExtractionParsing tests the JSON parsing logic used by the capturer.
+// The Claude HTTP client cannot be easily injected with a mock base URL, so we
+// test the JSON unmarshalling and confidence filtering independently.
+func TestCaptureExtractionParsing(t *testing.T) {
 	responseText := `[{"content":"Go uses goroutines for concurrency","type":"fact","confidence":0.9,"tags":["go","concurrency"]},{"content":"Always handle errors explicitly in Go","type":"rule","confidence":0.85,"tags":["go","error-handling"]}]`
 
+	var memories []models.CapturedMemory
 	err := json.Unmarshal([]byte(responseText), &memories)
 	require.NoError(t, err)
 	require.Len(t, memories, 2)
@@ -76,7 +51,7 @@ func TestCaptureExtraction(t *testing.T) {
 	assert.Equal(t, "Always handle errors explicitly in Go", memories[1].Content)
 	assert.Equal(t, models.MemoryTypeRule, memories[1].Type)
 
-	// Test low-confidence filtering
+	// Test low-confidence filtering (same logic as capturer.Extract).
 	_ = context.Background()
 	var filtered []models.CapturedMemory
 	for _, m := range memories {
@@ -85,4 +60,14 @@ func TestCaptureExtraction(t *testing.T) {
 		}
 	}
 	assert.Len(t, filtered, 2, "both should pass 0.5 threshold")
+
+	// Verify that a low-confidence memory would be filtered out.
+	lowConf := models.CapturedMemory{Content: "maybe", Confidence: 0.3}
+	var filtered2 []models.CapturedMemory
+	for _, m := range append(memories, lowConf) {
+		if m.Confidence >= 0.5 {
+			filtered2 = append(filtered2, m)
+		}
+	}
+	assert.Len(t, filtered2, 2, "low-confidence memory should be filtered")
 }

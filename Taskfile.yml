@@ -30,9 +30,9 @@ tasks:
       - go test -short -count=1 ./...
 
   test:cover:
-    desc: Run tests with coverage report
+    desc: Run tests with coverage report (includes black-box test packages)
     cmds:
-      - go test -coverprofile=coverage.out ./...
+      - go test -coverprofile=coverage.out -coverpkg=./... ./...
       - go tool cover -html=coverage.out -o coverage.html
 
   ## Lint

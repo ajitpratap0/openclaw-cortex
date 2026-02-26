@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -194,16 +195,5 @@ func cosineSimilarity(a, b []float32) float64 {
 	if normA == 0 || normB == 0 {
 		return 0
 	}
-	return dot / (sqrt(normA) * sqrt(normB))
-}
-
-func sqrt(x float64) float64 {
-	if x <= 0 {
-		return 0
-	}
-	z := x
-	for i := 0; i < 100; i++ {
-		z = (z + x/z) / 2
-	}
-	return z
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }

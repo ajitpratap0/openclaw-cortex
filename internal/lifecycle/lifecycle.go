@@ -10,6 +10,8 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
+const pageSize uint64 = 500
+
 // Report summarizes the results of a lifecycle run.
 type Report struct {
 	Expired      int `json:"expired"`
@@ -31,25 +33,45 @@ func NewManager(st store.Store, logger *slog.Logger) *Manager {
 	}
 }
 
-// Run executes all lifecycle operations.
+// Run executes all lifecycle operations and returns the first error encountered.
 func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 	report := &Report{}
 
 	// 1. TTL expiry
 	expired, err := m.expireTTL(ctx, dryRun)
 	if err != nil {
-		m.logger.Error("TTL expiry failed", "error", err)
+		return report, fmt.Errorf("lifecycle: TTL expiry: %w", err)
 	}
 	report.Expired = expired
 
 	// 2. Decay old session memories
 	decayed, err := m.decaySessions(ctx, dryRun)
 	if err != nil {
-		m.logger.Error("session decay failed", "error", err)
+		return report, fmt.Errorf("lifecycle: session decay: %w", err)
 	}
 	report.Decayed = decayed
 
 	return report, nil
+}
+
+// listAll paginates through all memories matching filters.
+func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]models.Memory, error) {
+	var all []models.Memory
+	var offset uint64
+
+	for {
+		page, err := m.store.List(ctx, filters, pageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if uint64(len(page)) < pageSize {
+			break
+		}
+		offset += uint64(len(page))
+	}
+
+	return all, nil
 }
 
 // expireTTL removes memories past their TTL.
@@ -57,7 +79,7 @@ func (m *Manager) expireTTL(ctx context.Context, dryRun bool) (int, error) {
 	scope := models.ScopeTTL
 	filters := &store.SearchFilters{Scope: &scope}
 
-	memories, err := m.store.List(ctx, filters, 1000, 0)
+	memories, err := m.listAll(ctx, filters)
 	if err != nil {
 		return 0, fmt.Errorf("listing TTL memories: %w", err)
 	}
@@ -91,7 +113,7 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 	scope := models.ScopeSession
 	filters := &store.SearchFilters{Scope: &scope}
 
-	memories, err := m.store.List(ctx, filters, 1000, 0)
+	memories, err := m.listAll(ctx, filters)
 	if err != nil {
 		return 0, fmt.Errorf("listing session memories: %w", err)
 	}

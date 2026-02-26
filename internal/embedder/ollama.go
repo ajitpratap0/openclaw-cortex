@@ -8,6 +8,15 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
+	"time"
+
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	ollamaHTTPTimeout   = 30 * time.Second
+	embedBatchConcLimit = 5
 )
 
 // OllamaEmbedder implements Embedder using the Ollama HTTP API.
@@ -34,7 +43,7 @@ func NewOllamaEmbedder(baseURL, model string, dimension int, logger *slog.Logger
 		baseURL:   baseURL,
 		model:     model,
 		dimension: dimension,
-		client:    &http.Client{},
+		client:    &http.Client{Timeout: ollamaHTTPTimeout},
 		logger:    logger,
 	}
 }
@@ -87,14 +96,33 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	return vec, nil
 }
 
+// EmbedBatch embeds multiple texts concurrently (up to embedBatchConcLimit goroutines).
 func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	results := make([][]float32, 0, len(texts))
-	for _, text := range texts {
-		vec, err := o.Embed(ctx, text)
-		if err != nil {
-			return nil, fmt.Errorf("embedding text: %w", err)
-		}
-		results = append(results, vec)
+	results := make([][]float32, len(texts))
+	sem := make(chan struct{}, embedBatchConcLimit)
+
+	g, gctx := errgroup.WithContext(ctx)
+	var mu sync.Mutex
+
+	for i, text := range texts {
+		i, text := i, text // capture loop vars
+		g.Go(func() error {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			vec, err := o.Embed(gctx, text)
+			if err != nil {
+				return fmt.Errorf("embedding text at index %d: %w", i, err)
+			}
+			mu.Lock()
+			results[i] = vec
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 	return results, nil
 }

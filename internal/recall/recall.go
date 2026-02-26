@@ -9,6 +9,9 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
+// maxBoostMultiplier is the maximum raw boost value — used to normalize to [0,1].
+const maxBoostMultiplier = 1.5
+
 // Weights controls the relative importance of each ranking factor.
 type Weights struct {
 	Similarity float64 `json:"similarity" mapstructure:"similarity"`
@@ -29,7 +32,7 @@ func DefaultWeights() Weights {
 	}
 }
 
-// TypePriority maps memory types to their priority multipliers.
+// TypePriority maps memory types to their raw priority multipliers (before normalization).
 var TypePriority = map[models.MemoryType]float64{
 	models.MemoryTypeRule:       1.5,
 	models.MemoryTypeProcedure:  1.3,
@@ -53,6 +56,7 @@ func NewRecaller(weights Weights, logger *slog.Logger) *Recaller {
 }
 
 // Rank re-ranks search results using multi-factor scoring.
+// All component scores are normalized to [0,1] before weighting.
 func (r *Recaller) Rank(results []models.SearchResult, project string) []models.RecallResult {
 	now := time.Now().UTC()
 	ranked := make([]models.RecallResult, 0, len(results))
@@ -84,7 +88,7 @@ func (r *Recaller) Rank(results []models.SearchResult, project string) []models.
 	return ranked
 }
 
-// recencyScore uses exponential decay. Half-life of 7 days.
+// recencyScore uses exponential decay. Half-life of 7 days. Returns [0,1].
 func recencyScore(lastAccessed time.Time, now time.Time) float64 {
 	if lastAccessed.IsZero() {
 		return 0.1
@@ -98,7 +102,7 @@ func recencyScore(lastAccessed time.Time, now time.Time) float64 {
 	return math.Exp(-0.693 * hoursAgo / halfLife)
 }
 
-// frequencyScore uses log scale on access count.
+// frequencyScore uses log scale on access count. Returns [0,1].
 func frequencyScore(accessCount int64) float64 {
 	if accessCount <= 0 {
 		return 0.0
@@ -107,27 +111,28 @@ func frequencyScore(accessCount int64) float64 {
 	return math.Min(1.0, math.Log2(float64(accessCount)+1)/10.0)
 }
 
-// typeBoostScore returns the priority multiplier for the memory type.
+// typeBoostScore returns the normalized priority for the memory type. Returns [0,1].
 func typeBoostScore(mt models.MemoryType) float64 {
-	if boost, ok := TypePriority[mt]; ok {
-		return boost
+	raw, ok := TypePriority[mt]
+	if !ok {
+		raw = 1.0
 	}
-	return 1.0
+	return raw / maxBoostMultiplier
 }
 
 // scopeBoostScore boosts project-scoped memories when a project context is provided.
+// Raw values ≤ maxBoostMultiplier; normalized to [0,1].
 func scopeBoostScore(mem models.Memory, project string) float64 {
-	if project == "" {
-		return 1.0
+	var raw float64
+	switch {
+	case project == "":
+		raw = 1.0
+	case mem.Scope == models.ScopeProject && mem.Project == project:
+		raw = 1.5
+	case mem.Scope == models.ScopePermanent:
+		raw = 1.0
+	default:
+		raw = 0.8
 	}
-
-	if mem.Scope == models.ScopeProject && mem.Project == project {
-		return 1.5
-	}
-
-	if mem.Scope == models.ScopePermanent {
-		return 1.0
-	}
-
-	return 0.8
+	return raw / maxBoostMultiplier
 }

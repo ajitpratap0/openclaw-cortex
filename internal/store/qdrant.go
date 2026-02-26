@@ -8,11 +8,14 @@ import (
 	"time"
 
 	pb "github.com/qdrant/go-client/qdrant"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
+
+const qdrantDialTimeout = 10 * time.Second
 
 // QdrantStore implements Store using Qdrant's gRPC API.
 type QdrantStore struct {
@@ -30,12 +33,21 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 
 	opts := []grpc.DialOption{}
 	if !useTLS {
+		slog.Warn("Qdrant connection using insecure credentials (no TLS)")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to Qdrant at %s: %w", addr, err)
+	}
+
+	// Verify the connection with a timeout by issuing a lightweight RPC.
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), qdrantDialTimeout)
+	defer dialCancel()
+	if _, err := pb.NewCollectionsClient(conn).List(dialCtx, &pb.ListCollectionsRequest{}); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("verifying Qdrant connection at %s: %w", addr, err)
 	}
 
 	logger.Info("connected to Qdrant", "addr", addr, "collection", collection)
@@ -256,10 +268,19 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 	return results, nil
 }
 
+// UpdateAccessMetadata reads the current access_count and increments it, then
+// persists both last_accessed and the incremented access_count.
 func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error {
-	now := time.Now().UTC().Format(time.RFC3339)
+	// Read current point to get existing access_count.
+	mem, err := q.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("update access metadata: reading point %s: %w", id, err)
+	}
 
-	_, err := q.points.SetPayload(ctx, &pb.SetPayloadPoints{
+	now := time.Now().UTC().Format(time.RFC3339)
+	newCount := mem.AccessCount + 1
+
+	_, err = q.points.SetPayload(ctx, &pb.SetPayloadPoints{
 		CollectionName: q.collName,
 		PointsSelector: &pb.PointsSelector{
 			PointsSelectorOneOf: &pb.PointsSelector_Points{
@@ -272,15 +293,17 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 		},
 		Payload: map[string]*pb.Value{
 			"last_accessed": {Kind: &pb.Value_StringValue{StringValue: now}},
+			"access_count":  {Kind: &pb.Value_IntegerValue{IntegerValue: newCount}},
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("updating access metadata for %s: %w", id, err)
+		return fmt.Errorf("update access metadata: setting payload for %s: %w", id, err)
 	}
 
 	return nil
 }
 
+// Stats returns collection statistics. Type and scope counts are fetched concurrently.
 func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error) {
 	info, err := q.collection.Get(ctx, &pb.GetCollectionInfoRequest{
 		CollectionName: q.collName,
@@ -295,55 +318,70 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 		ByScope:       make(map[string]int64),
 	}
 
-	// Count by type
-	for _, mt := range models.ValidMemoryTypes {
-		typeStr := string(mt)
-		countResp, err := q.points.Count(ctx, &pb.CountPoints{
-			CollectionName: q.collName,
-			Filter: &pb.Filter{
-				Must: []*pb.Condition{
-					{
-						ConditionOneOf: &pb.Condition_Field{
-							Field: &pb.FieldCondition{
-								Key: "type",
-								Match: &pb.Match{
-									MatchValue: &pb.Match_Keyword{Keyword: typeStr},
-								},
-							},
-						},
-					},
-				},
-			},
-			Exact: boolPtr(true),
-		})
-		if err == nil {
-			stats.ByType[typeStr] = int64(countResp.GetResult().GetCount())
-		}
+	type countResult struct {
+		key   string
+		field string
+		count int64
 	}
 
-	// Count by scope
-	for _, scope := range []models.MemoryScope{models.ScopePermanent, models.ScopeProject, models.ScopeSession, models.ScopeTTL} {
-		scopeStr := string(scope)
-		countResp, err := q.points.Count(ctx, &pb.CountPoints{
-			CollectionName: q.collName,
-			Filter: &pb.Filter{
-				Must: []*pb.Condition{
-					{
-						ConditionOneOf: &pb.Condition_Field{
-							Field: &pb.FieldCondition{
-								Key: "scope",
-								Match: &pb.Match{
-									MatchValue: &pb.Match_Keyword{Keyword: scopeStr},
+	// Build all count tasks (types + scopes).
+	type task struct {
+		field string
+		key   string
+	}
+	var tasks []task
+	for _, mt := range models.ValidMemoryTypes {
+		tasks = append(tasks, task{field: "type", key: string(mt)})
+	}
+	for _, sc := range []models.MemoryScope{models.ScopePermanent, models.ScopeProject, models.ScopeSession, models.ScopeTTL} {
+		tasks = append(tasks, task{field: "scope", key: string(sc)})
+	}
+
+	results := make([]countResult, len(tasks))
+	g, gctx := errgroup.WithContext(ctx)
+
+	for i, t := range tasks {
+		i, t := i, t
+		g.Go(func() error {
+			countResp, err := q.points.Count(gctx, &pb.CountPoints{
+				CollectionName: q.collName,
+				Filter: &pb.Filter{
+					Must: []*pb.Condition{
+						{
+							ConditionOneOf: &pb.Condition_Field{
+								Field: &pb.FieldCondition{
+									Key: t.field,
+									Match: &pb.Match{
+										MatchValue: &pb.Match_Keyword{Keyword: t.key},
+									},
 								},
 							},
 						},
 					},
 				},
-			},
-			Exact: boolPtr(true),
+				Exact: boolPtr(true),
+			})
+			if err != nil {
+				// Non-fatal: log and continue with 0 count.
+				q.logger.Warn("counting by field", "field", t.field, "key", t.key, "error", err)
+				results[i] = countResult{field: t.field, key: t.key, count: 0}
+				return nil
+			}
+			results[i] = countResult{field: t.field, key: t.key, count: int64(countResp.GetResult().GetCount())}
+			return nil
 		})
-		if err == nil {
-			stats.ByScope[scopeStr] = int64(countResp.GetResult().GetCount())
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("counting stats: %w", err)
+	}
+
+	for _, r := range results {
+		switch r.field {
+		case "type":
+			stats.ByType[r.key] = r.count
+		case "scope":
+			stats.ByScope[r.key] = r.count
 		}
 	}
 

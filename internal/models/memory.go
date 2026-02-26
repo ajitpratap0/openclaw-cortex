@@ -102,6 +102,4 @@ type CollectionStats struct {
 	TotalMemories int64            `json:"total_memories"`
 	ByType        map[string]int64 `json:"by_type"`
 	ByScope       map[string]int64 `json:"by_scope"`
-	OldestMemory  time.Time        `json:"oldest_memory"`
-	NewestMemory  time.Time        `json:"newest_memory"`
 }

@@ -34,7 +34,9 @@ func NewCapturer(apiKey, model string, logger *slog.Logger) *ClaudeCapturer {
 	}
 }
 
-const extractionPrompt = `You are a memory extraction system. Analyze the conversation and extract discrete, reusable memories.
+// extractionPromptTemplate is the base prompt; user/assistant content is injected via XML tags
+// to prevent prompt injection attacks.
+const extractionPromptTemplate = `You are a memory extraction system. Analyze the conversation and extract discrete, reusable memories.
 
 For each memory, provide:
 - content: The memory text (concise, standalone, factual)
@@ -49,9 +51,9 @@ For each memory, provide:
 
 Return JSON array. If no memories worth extracting, return empty array [].
 
-User message: %s
+<user_message>%s</user_message>
 
-Assistant response: %s
+<assistant_message>%s</assistant_message>
 
 Extract memories as JSON array:`
 
@@ -60,7 +62,8 @@ type extractionResponse struct {
 }
 
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
-	prompt := fmt.Sprintf(extractionPrompt, userMsg, assistantMsg)
+	// Use XML delimiters to prevent prompt injection from user/assistant content.
+	prompt := fmt.Sprintf(extractionPromptTemplate, userMsg, assistantMsg)
 
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),

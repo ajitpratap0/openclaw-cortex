@@ -35,6 +35,21 @@ type ClaudeConfig struct {
 	Model  string `mapstructure:"model"`
 }
 
+// String returns a safe representation of ClaudeConfig with the API key masked.
+func (c ClaudeConfig) String() string {
+	masked := maskAPIKey(c.APIKey)
+	return fmt.Sprintf("ClaudeConfig{APIKey:%s, Model:%s}", masked, c.Model)
+}
+
+// maskAPIKey shows first 4 + last 4 chars, replacing the middle with asterisks.
+func maskAPIKey(key string) string {
+	const visible = 4
+	if len(key) <= visible*2 {
+		return "***"
+	}
+	return key[:visible] + "****" + key[len(key)-visible:]
+}
+
 type MemoryConfig struct {
 	MemoryDir       string  `mapstructure:"memory_dir"`
 	ChunkSize       int     `mapstructure:"chunk_size"`
