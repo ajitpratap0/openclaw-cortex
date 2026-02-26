@@ -17,13 +17,13 @@ task build                   # Build binary
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Index memory files
-cortex index --path ~/.openclaw/workspace/memory/
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
 
 # Search
-cortex search "deployment best practices"
+openclaw-cortex search "deployment best practices"
 
 # Interactive usage
-cortex recall "How do I handle errors?" --budget 2000
+openclaw-cortex recall "How do I handle errors?" --budget 2000
 ```
 
 ## Docker
@@ -34,8 +34,8 @@ cortex recall "How do I handle errors?" --budget 2000
 task docker:build
 docker run --rm \
   -e ANTHROPIC_API_KEY=sk-ant-... \
-  -e CORTEX_QDRANT_HOST=host.docker.internal \
-  cortex:latest search "query"
+  -e OPENCLAW_CORTEX_QDRANT_HOST=host.docker.internal \
+  openclaw-cortex:latest search "query"
 ```
 
 ### Docker Compose (Full Stack)
@@ -74,7 +74,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: cortex-consolidate
-  namespace: cortex
+  namespace: openclaw-cortex
 spec:
   schedule: "0 */6 * * *"  # Every 6 hours
   jobTemplate:
@@ -83,10 +83,10 @@ spec:
         spec:
           containers:
           - name: cortex
-            image: cortex:latest
+            image: openclaw-cortex:latest
             args: ["consolidate"]
             env:
-            - name: CORTEX_QDRANT_HOST
+            - name: OPENCLAW_CORTEX_QDRANT_HOST
               value: qdrant.cortex.svc.cluster.local
             - name: ANTHROPIC_API_KEY
               valueFrom:
@@ -103,15 +103,15 @@ spec:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | — | Required for capture |
-| `CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
-| `CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
-| `CORTEX_QDRANT_HTTP_PORT` | `6333` | Qdrant HTTP port |
-| `CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
-| `CORTEX_MEMORY_DIR` | `~/.openclaw/workspace/memory/` | Memory files path |
+| `OPENCLAW_CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
+| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
+| `OPENCLAW_CORTEX_QDRANT_HTTP_PORT` | `6333` | Qdrant HTTP port |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
+| `OPENCLAW_CORTEX_MEMORY_DIR` | `~/.openclaw/workspace/memory/` | Memory files path |
 
 ### Config File
 
-Place at `~/.cortex/config.yaml`. See [README](../README.md#configuration) for full schema.
+Place at `~/.openclaw-cortex/config.yaml`. See [README](../README.md#configuration) for full schema.
 
 ## Health Checks
 
@@ -122,8 +122,8 @@ curl http://localhost:6333/healthz
 # Verify Ollama model is available
 ollama list | grep nomic-embed-text
 
-# Verify cortex connectivity
-cortex stats
+# Verify openclaw-cortex connectivity
+openclaw-cortex stats
 ```
 
 ## Backup & Restore

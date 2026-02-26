@@ -1,4 +1,4 @@
-module github.com/ajitpratap0/cortex
+module github.com/ajitpratap0/openclaw-cortex
 
 go 1.25.0
 

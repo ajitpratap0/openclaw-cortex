@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // Weights controls the relative importance of each ranking factor.

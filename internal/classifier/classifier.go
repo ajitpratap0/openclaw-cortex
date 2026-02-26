@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // Classifier determines the type of a memory.

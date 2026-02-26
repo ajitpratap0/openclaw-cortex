@@ -9,7 +9,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // Capturer extracts structured memories from conversation text.

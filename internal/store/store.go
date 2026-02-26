@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // Store defines the interface for memory persistence with vector search.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ajitpratap0/cortex/pkg/tokenizer"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
 func TestEstimateTokens(t *testing.T) {

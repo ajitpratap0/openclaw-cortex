@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/ajitpratap0/cortex/internal/embedder"
-	"github.com/ajitpratap0/cortex/internal/models"
-	"github.com/ajitpratap0/cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 // Indexer scans markdown files, chunks them, generates embeddings, and stores them.

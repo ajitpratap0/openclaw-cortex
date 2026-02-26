@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ajitpratap0/cortex/internal/indexer"
-	"github.com/ajitpratap0/cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/indexer"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 // mockEmbedder returns deterministic vectors for testing.

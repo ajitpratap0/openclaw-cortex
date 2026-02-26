@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // TestCapturedMemoryJSON tests that CapturedMemory serializes correctly.

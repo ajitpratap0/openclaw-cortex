@@ -1,7 +1,7 @@
-# Cortex — Semantic Memory Skill
+# OpenClaw Cortex — Semantic Memory Skill
 
 ## Description
-Cortex provides hybrid layered memory for OpenClaw AI agents. It combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory across sessions.
+OpenClaw Cortex provides hybrid layered memory for OpenClaw AI agents. It combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory across sessions.
 
 ## Capabilities
 - **Index**: Scan and embed markdown memory files into vector store
@@ -16,20 +16,20 @@ Cortex provides hybrid layered memory for OpenClaw AI agents. It combines file-b
 ### Pre-Turn Hook
 Before each agent turn, recall relevant memories:
 ```bash
-cortex recall "$CURRENT_MESSAGE" --budget 2000 --project "$PROJECT" --context json
+openclaw-cortex recall "$CURRENT_MESSAGE" --budget 2000 --project "$PROJECT" --context json
 ```
 Inject the output into the system prompt as context.
 
 ### Post-Turn Hook
 After each agent turn, capture new memories:
 ```bash
-cortex capture --user "$USER_MSG" --assistant "$ASSISTANT_MSG" --session-id "$SESSION_ID"
+openclaw-cortex capture --user "$USER_MSG" --assistant "$ASSISTANT_MSG" --session-id "$SESSION_ID"
 ```
 
 ### Periodic Maintenance
 Run lifecycle management periodically:
 ```bash
-cortex consolidate
+openclaw-cortex consolidate
 ```
 
 ## Memory Types
@@ -50,7 +50,7 @@ cortex consolidate
 | ttl | Expires after configured time |
 
 ## Configuration
-Set via environment variables or `~/.cortex/config.yaml`:
+Set via environment variables or `~/.openclaw-cortex/config.yaml`:
 ```yaml
 qdrant:
   host: localhost

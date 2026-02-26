@@ -1,4 +1,4 @@
-# Cortex
+# OpenClaw Cortex
 
 Hybrid layered memory system for OpenClaw AI agents. Combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.
 
@@ -66,41 +66,41 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 ```bash
 # Index existing memory files
-cortex index --path ~/.openclaw/workspace/memory/
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
 
 # Search memories
-cortex search "how to deploy to production"
-cortex search "error handling" --type rule --limit 5
+openclaw-cortex search "how to deploy to production"
+openclaw-cortex search "error handling" --type rule --limit 5
 
 # Store a new memory
-cortex store "Always run tests before deploying" --type rule --scope permanent --tags ci,deployment
+openclaw-cortex store "Always run tests before deploying" --type rule --scope permanent --tags ci,deployment
 
 # Recall memories for a conversation turn (with token budget)
-cortex recall "How should I structure the database schema?" --budget 2000 --project myapp
+openclaw-cortex recall "How should I structure the database schema?" --budget 2000 --project myapp
 
 # Capture memories from a conversation
-cortex capture --user "What's the best way to handle errors in Go?" \
+openclaw-cortex capture --user "What's the best way to handle errors in Go?" \
                --assistant "In Go, always check error returns explicitly..."
 
 # View stats
-cortex stats
+openclaw-cortex stats
 
 # Run lifecycle management
-cortex consolidate
-cortex consolidate --dry-run
+openclaw-cortex consolidate
+openclaw-cortex consolidate --dry-run
 
 # Delete a memory
-cortex forget <memory-id>
+openclaw-cortex forget <memory-id>
 
 # List memories with filters
-cortex list --type rule --scope permanent --limit 20
+openclaw-cortex list --type rule --scope permanent --limit 20
 ```
 
 ## Configuration
 
 Configuration is loaded from (in order of precedence):
-1. Environment variables (prefixed with `CORTEX_`)
-2. `~/.cortex/config.yaml`
+1. Environment variables (prefixed with `OPENCLAW_CORTEX_`)
+2. `~/.openclaw-cortex/config.yaml`
 3. Built-in defaults
 
 ### Config File
@@ -110,7 +110,7 @@ qdrant:
   host: localhost
   grpc_port: 6334
   http_port: 6333
-  collection: cortex_memories
+  collection: openclaw_cortex_memories
   use_tls: false
 
 ollama:
@@ -138,9 +138,9 @@ logging:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ANTHROPIC_API_KEY` | Anthropic API key for capture | — |
-| `CORTEX_QDRANT_HOST` | Qdrant hostname | `localhost` |
-| `CORTEX_QDRANT_GRPC_PORT` | Qdrant gRPC port | `6334` |
-| `CORTEX_OLLAMA_BASE_URL` | Ollama base URL | `http://localhost:11434` |
+| `OPENCLAW_CORTEX_QDRANT_HOST` | Qdrant hostname | `localhost` |
+| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | Qdrant gRPC port | `6334` |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | Ollama base URL | `http://localhost:11434` |
 
 ## Memory Model
 
@@ -180,11 +180,11 @@ Final score = weighted combination of:
 # Run Qdrant
 docker compose up -d
 
-# Build cortex image
-docker build -t cortex:latest .
+# Build openclaw-cortex image
+docker build -t openclaw-cortex:latest .
 
 # Run cortex
-docker run --rm cortex:latest search "query"
+docker run --rm openclaw-cortex:latest search "query"
 ```
 
 ### Kubernetes
@@ -218,7 +218,7 @@ task build
 
 ```
 cortex/
-├── cmd/cortex/main.go          # CLI entrypoint (cobra)
+├── cmd/openclaw-cortex/main.go          # CLI entrypoint (cobra)
 ├── internal/
 │   ├── config/config.go        # Viper-based configuration
 │   ├── models/memory.go        # Memory types, scopes, data structures

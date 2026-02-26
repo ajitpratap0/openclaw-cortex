@@ -1,6 +1,6 @@
-# Contributing to Cortex
+# Contributing to OpenClaw Cortex
 
-Thanks for your interest in contributing to Cortex! Here's how to get started.
+Thanks for your interest in contributing to OpenClaw Cortex! Here's how to get started.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ Thanks for your interest in contributing to Cortex! Here's how to get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/ajitpratap0/cortex.git
-cd cortex
+git clone https://github.com/ajitpratap0/openclaw-cortex.git
+cd openclaw-cortex
 
 # Start Qdrant
 task docker:up
@@ -69,7 +69,7 @@ Run `task` to see all available commands:
 
 ```
 cortex/
-├── cmd/cortex/          # CLI entrypoint (cobra)
+├── cmd/openclaw-cortex/          # CLI entrypoint (cobra)
 ├── internal/            # Private application code
 │   ├── config/          # Viper-based configuration
 │   ├── models/          # Memory types, data structures

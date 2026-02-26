@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ajitpratap0/cortex/internal/models"
-	"github.com/ajitpratap0/cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
 
 func TestRecaller_Rank(t *testing.T) {

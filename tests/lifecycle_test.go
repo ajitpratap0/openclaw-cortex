@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ajitpratap0/cortex/internal/lifecycle"
-	"github.com/ajitpratap0/cortex/internal/models"
-	"github.com/ajitpratap0/cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/lifecycle"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 func TestLifecycle_ExpireTTL(t *testing.T) {

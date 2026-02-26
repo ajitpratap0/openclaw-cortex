@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ajitpratap0/cortex/internal/classifier"
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 func TestClassifier_ClassifyRules(t *testing.T) {

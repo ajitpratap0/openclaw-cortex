@@ -1,4 +1,4 @@
-# Cortex — Implementation Plan (Go)
+# OpenClaw Cortex — Implementation Plan (Go)
 
 ## Overview
 Hybrid layered memory system for OpenClaw agents. Combines file-based structured memory (existing) with vector-based semantic memory (new) for compaction-proof, searchable, classified memory.
@@ -30,7 +30,7 @@ cortex/
 │       └── main.go             # CLI entrypoint
 ├── internal/
 │   ├── config/
-│   │   └── config.go           # Viper-based config (env vars + ~/.cortex/config.yaml)
+│   │   └── config.go           # Viper-based config (env vars + ~/.openclaw-cortex/config.yaml)
 │   ├── models/
 │   │   └── memory.go           # Memory types, scopes, visibility, data structures
 │   ├── embedder/
@@ -111,14 +111,14 @@ type Memory struct {
 ```
 
 ## Phase 1: Foundation
-1. `go mod init github.com/ajitpratap0/cortex`
+1. `go mod init github.com/ajitpratap0/openclaw-cortex`
 2. Deploy infrastructure (docker-compose.yml for Qdrant, k8s/qdrant.yaml)
 3. Config management (internal/config/) — viper with env vars + config file
 4. Memory data models (internal/models/)
 5. Ollama embedder (internal/embedder/) — HTTP client for /api/embeddings
 6. Qdrant store (internal/store/) — create collection, upsert, search, delete, filter
 7. File indexer (internal/indexer/) — scan markdown dir, chunk by headers, embed, store
-8. CLI scaffold with cobra (cmd/cortex/) — `cortex index`, `cortex search`
+8. CLI scaffold with cobra (cmd/openclaw-cortex/) — `cortex index`, `cortex search`
 9. Unit tests for all
 
 ## Phase 2: Smart Capture

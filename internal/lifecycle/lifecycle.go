@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ajitpratap0/cortex/internal/models"
-	"github.com/ajitpratap0/cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 // Report summarizes the results of a lifecycle run.

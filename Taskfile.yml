@@ -1,21 +1,21 @@
 version: "3"
 
 vars:
-  BINARY: cortex
+  BINARY: openclaw-cortex
   GOFLAGS: -ldflags="-s -w"
 
 tasks:
   ## Build
 
   build:
-    desc: Build the cortex binary
+    desc: Build the openclaw-cortex binary
     cmds:
-      - go build {{.GOFLAGS}} -o bin/{{.BINARY}} ./cmd/cortex
+      - go build {{.GOFLAGS}} -o bin/{{.BINARY}} ./cmd/openclaw-cortex
 
   install:
-    desc: Install cortex to GOPATH/bin
+    desc: Install openclaw-cortex to GOPATH/bin
     cmds:
-      - go install {{.GOFLAGS}} ./cmd/cortex
+      - go install {{.GOFLAGS}} ./cmd/openclaw-cortex
 
   ## Test
 
@@ -61,41 +61,41 @@ tasks:
       - docker compose down
 
   docker:build:
-    desc: Build cortex Docker image
+    desc: Build openclaw-cortex Docker image
     cmds:
-      - docker build -t cortex:latest .
+      - docker build -t openclaw-cortex:latest .
 
   ## Cortex commands (requires Qdrant running)
 
   index:
-    desc: Run cortex index command
+    desc: Run openclaw-cortex index command
     cmds:
-      - go run ./cmd/cortex index {{.CLI_ARGS}}
+      - go run ./cmd/openclaw-cortex index {{.CLI_ARGS}}
 
   search:
-    desc: Run cortex search command
+    desc: Run openclaw-cortex search command
     cmds:
-      - go run ./cmd/cortex search {{.CLI_ARGS}}
+      - go run ./cmd/openclaw-cortex search {{.CLI_ARGS}}
 
   recall:
-    desc: Run cortex recall command
+    desc: Run openclaw-cortex recall command
     cmds:
-      - go run ./cmd/cortex recall {{.CLI_ARGS}}
+      - go run ./cmd/openclaw-cortex recall {{.CLI_ARGS}}
 
   capture:
-    desc: Run cortex capture command
+    desc: Run openclaw-cortex capture command
     cmds:
-      - go run ./cmd/cortex capture {{.CLI_ARGS}}
+      - go run ./cmd/openclaw-cortex capture {{.CLI_ARGS}}
 
   stats:
     desc: Show memory stats
     cmds:
-      - go run ./cmd/cortex stats
+      - go run ./cmd/openclaw-cortex stats
 
   consolidate:
     desc: Run lifecycle management
     cmds:
-      - go run ./cmd/cortex consolidate {{.CLI_ARGS}}
+      - go run ./cmd/openclaw-cortex consolidate {{.CLI_ARGS}}
 
   ## Cleanup
 

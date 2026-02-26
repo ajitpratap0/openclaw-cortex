@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ajitpratap0/cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 // MockStore is an in-memory implementation of Store for testing.

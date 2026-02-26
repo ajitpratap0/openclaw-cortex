@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/ajitpratap0/cortex/internal/embedder"
-	"github.com/ajitpratap0/cortex/internal/models"
-	"github.com/ajitpratap0/cortex/internal/recall"
-	"github.com/ajitpratap0/cortex/internal/store"
-	"github.com/ajitpratap0/cortex/pkg/tokenizer"
+	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
 // PreTurnHook retrieves relevant memories before an agent turn.

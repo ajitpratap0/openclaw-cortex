@@ -87,9 +87,9 @@ func Load() (*Config, error) {
 
 	// Map specific env vars
 	_ = v.BindEnv("claude.api_key", "ANTHROPIC_API_KEY")
-	_ = v.BindEnv("qdrant.host", "CORTEX_QDRANT_HOST")
-	_ = v.BindEnv("qdrant.grpc_port", "CORTEX_QDRANT_GRPC_PORT")
-	_ = v.BindEnv("ollama.base_url", "CORTEX_OLLAMA_BASE_URL")
+	_ = v.BindEnv("qdrant.host", "OPENCLAW_CORTEX_QDRANT_HOST")
+	_ = v.BindEnv("qdrant.grpc_port", "OPENCLAW_CORTEX_QDRANT_GRPC_PORT")
+	_ = v.BindEnv("ollama.base_url", "OPENCLAW_CORTEX_OLLAMA_BASE_URL")
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

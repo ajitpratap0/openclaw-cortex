@@ -1,8 +1,8 @@
-# Architecture
+# Architecture — OpenClaw Cortex
 
 ## Overview
 
-Cortex is a hybrid layered memory system that augments OpenClaw AI agents with persistent, semantically searchable memory. It bridges file-based structured memory (markdown files, git-backed) with vector-based semantic memory (Qdrant).
+OpenClaw Cortex is a hybrid layered memory system that augments OpenClaw AI agents with persistent, semantically searchable memory. It bridges file-based structured memory (markdown files, git-backed) with vector-based semantic memory (Qdrant).
 
 ## System Diagram
 
