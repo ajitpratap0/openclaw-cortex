@@ -1,0 +1,45 @@
+# OpenClaw Cortex
+
+> Hybrid semantic memory system for AI agents — vector search, smart capture, multi-factor recall
+
+OpenClaw Cortex gives AI agents persistent, semantically searchable memory across sessions. It combines file-based structured memory (markdown, git-backed) with vector-based semantic memory (Qdrant) for compaction-proof recall.
+
+## Core Capabilities
+
+- **Semantic Search**: Vector similarity search over all memories via Qdrant gRPC
+- **Smart Capture**: LLM-powered extraction of structured memories from conversations (Claude Haiku)
+- **Classification**: Auto-categorization into rules, facts, episodes, procedures, preferences
+- **Multi-Factor Recall**: Ranking by similarity, recency, frequency, type priority, and scope
+- **Token Budgeting**: Fit recalled memories within configurable token limits
+- **Deduplication**: Cosine similarity-based duplicate detection (threshold: 0.92)
+- **Lifecycle Management**: TTL expiry, session decay, consolidation
+- **OpenClaw Integration**: Pre/post-turn hooks for seamless agent memory
+
+## Tech Stack
+
+- Go 1.25+, Qdrant (gRPC), Ollama (nomic-embed-text, 768-dim), Claude Haiku, Cobra CLI, Viper config
+
+## Quick Start
+
+```bash
+task docker:up                # Start Qdrant
+ollama pull nomic-embed-text  # Pull embedding model
+task build                    # Build binary
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
+openclaw-cortex search "how to deploy"
+openclaw-cortex recall "database schema question" --budget 2000
+```
+
+## Documentation
+
+- [README](https://github.com/ajitpratap0/openclaw-cortex/blob/main/README.md): Full usage, config, CLI reference
+- [Architecture](https://github.com/ajitpratap0/openclaw-cortex/blob/main/docs/ARCHITECTURE.md): System design, data flows, design decisions
+- [Deployment](https://github.com/ajitpratap0/openclaw-cortex/blob/main/docs/DEPLOYMENT.md): Docker, Kubernetes, configuration, backup
+- [Contributing](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CONTRIBUTING.md): Development setup, workflow, code style
+- [Changelog](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CHANGELOG.md): Version history
+- [OpenClaw Skill](https://github.com/ajitpratap0/openclaw-cortex/blob/main/skill/SKILL.md): Agent integration hooks
+
+## Optional
+
+- [Implementation Plan](https://github.com/ajitpratap0/openclaw-cortex/blob/main/IMPLEMENTATION.md): Original design document
+- [Go Package Docs](https://pkg.go.dev/github.com/ajitpratap0/openclaw-cortex): API reference

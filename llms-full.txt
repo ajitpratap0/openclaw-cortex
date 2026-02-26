@@ -1,0 +1,247 @@
+# OpenClaw Cortex — Full Documentation
+
+> Hybrid semantic memory system for AI agents — vector search, smart capture, multi-factor recall
+
+---
+
+## Overview
+
+OpenClaw Cortex gives AI agents persistent, semantically searchable memory across sessions. It combines file-based structured memory (markdown, git-backed) with vector-based semantic memory (Qdrant) for compaction-proof recall.
+
+**Key Features:**
+- Semantic search via Qdrant gRPC + Ollama embeddings (nomic-embed-text, 768-dim)
+- Smart capture: Claude Haiku extraction with heuristic classification
+- Multi-factor recall: similarity (50%), recency (20%), frequency (10%), type boost (10%), scope boost (10%)
+- Token-budgeted context injection for agent turns
+- Lifecycle management: TTL, session decay, consolidation
+- CLI (Cobra): index, search, recall, capture, store, stats, consolidate
+- OpenClaw skill integration with pre/post-turn hooks
+
+**Tech Stack:** Go 1.25+, Qdrant, Ollama, Claude Haiku, Cobra, Viper, Testify
+
+---
+
+## Installation
+
+### Prerequisites
+- Go 1.25+
+- Task (https://taskfile.dev/) — `brew install go-task`
+- Docker (for Qdrant)
+- Ollama with `nomic-embed-text` model
+- Anthropic API key (for capture feature)
+
+### Setup
+
+```bash
+task docker:up
+ollama pull nomic-embed-text
+task build
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+---
+
+## CLI Usage
+
+```bash
+# Index existing memory files
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
+
+# Search memories
+openclaw-cortex search "how to deploy to production"
+openclaw-cortex search "error handling" --type rule --limit 5
+
+# Store a new memory
+openclaw-cortex store "Always run tests before deploying" --type rule --scope permanent --tags ci,deployment
+
+# Recall memories for a conversation turn (with token budget)
+openclaw-cortex recall "How should I structure the database schema?" --budget 2000 --project myapp
+
+# Capture memories from a conversation
+openclaw-cortex capture --user "What's the best way to handle errors in Go?" \
+               --assistant "In Go, always check error returns explicitly..."
+
+# View stats
+openclaw-cortex stats
+
+# Run lifecycle management
+openclaw-cortex consolidate
+openclaw-cortex consolidate --dry-run
+```
+
+---
+
+## Configuration
+
+Config loaded from (in order): environment variables → `~/.openclaw-cortex/config.yaml` → built-in defaults.
+
+```yaml
+qdrant:
+  host: localhost
+  grpc_port: 6334
+  http_port: 6333
+  collection: openclaw_cortex_memories
+  use_tls: false
+
+ollama:
+  base_url: http://localhost:11434
+  model: nomic-embed-text
+
+claude:
+  model: claude-haiku-4-5-20241022
+
+memory:
+  memory_dir: ~/.openclaw/workspace/memory/
+  chunk_size: 512
+  chunk_overlap: 64
+  dedup_threshold: 0.92
+  default_ttl_hours: 720
+  vector_dimension: 768
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Required for capture |
+| `OPENCLAW_CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
+| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
+
+---
+
+## Memory Model
+
+### Types
+
+| Type | Description | Recall Priority |
+|------|-------------|-----------------|
+| `rule` | Operating principles, hard constraints | 1.5x |
+| `procedure` | How-to steps, processes, workflows | 1.3x |
+| `fact` | Declarative knowledge, definitions | 1.0x |
+| `episode` | Specific events with temporal context | 0.8x |
+| `preference` | User preferences, style choices | 0.7x |
+
+### Scopes
+
+| Scope | Behavior |
+|-------|----------|
+| `permanent` | Persists indefinitely |
+| `project` | Boosted when project context matches |
+| `session` | Auto-expires after 24h without access |
+| `ttl` | Expires after configured TTL |
+
+### Recall Scoring
+
+Final score = weighted combination of:
+- **Similarity** (0.5): Cosine distance from Qdrant
+- **Recency** (0.2): Exponential decay, 7-day half-life
+- **Frequency** (0.1): Log-scale access count
+- **Type Boost** (0.1): Priority multiplier per type
+- **Scope Boost** (0.1): Project-match bonus
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    CLI / Hooks                       │
+│  index  search  recall  capture  store  consolidate  │
+├─────────────┬──────────────┬────────────────────────┤
+│   Indexer   │   Capturer   │      Recaller          │
+│  (markdown  │  (Claude     │  (multi-factor         │
+│   scanner)  │   Haiku)     │   ranking)             │
+├─────────────┴──────┬───────┴────────────────────────┤
+│     Classifier     │         Lifecycle              │
+│  (heuristic +      │  (TTL, decay,                  │
+│   LLM typing)      │   consolidation)               │
+├────────────────────┴────────────────────────────────┤
+│                   Embedder                           │
+│            (Ollama / nomic-embed-text)               │
+├─────────────────────────────────────────────────────┤
+│                     Store                            │
+│              (Qdrant gRPC client)                    │
+└─────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+**Indexing:** Markdown files → chunk (512 tokens) → classify → embed (768-dim) → upsert to Qdrant
+**Capture:** User+assistant messages → Claude Haiku extraction → classify → dedup check (0.92 threshold) → embed → store
+**Recall:** Current message → embed → Qdrant top-K → multi-factor scoring → token budget → return context
+**Lifecycle:** TTL expiry → session decay → consolidation (merge similar, promote frequent)
+
+---
+
+## OpenClaw Integration
+
+### Pre-Turn Hook (inject memories)
+```bash
+openclaw-cortex recall "$CURRENT_MESSAGE" --budget 2000 --project "$PROJECT" --context json
+```
+
+### Post-Turn Hook (capture memories)
+```bash
+openclaw-cortex capture --user "$USER_MSG" --assistant "$ASSISTANT_MSG" --session-id "$SESSION_ID"
+```
+
+### Periodic Maintenance
+```bash
+openclaw-cortex consolidate
+```
+
+---
+
+## Deployment
+
+### Docker
+```bash
+task docker:up          # Start Qdrant (persistent volume)
+task docker:build       # Build openclaw-cortex image
+```
+
+### Kubernetes
+```bash
+kubectl apply -f k8s/qdrant.yaml   # StatefulSet + PVC in openclaw-cortex namespace
+```
+
+---
+
+## Development
+
+```bash
+task test         # Run all tests with race detection
+task test:cover   # Generate coverage report
+task lint         # Run golangci-lint
+task fmt          # Format code
+task build        # Build binary
+```
+
+## Project Structure
+
+```
+openclaw-cortex/
+├── cmd/openclaw-cortex/main.go   # CLI entrypoint (cobra)
+├── internal/
+│   ├── config/          # Viper-based configuration
+│   ├── models/          # Memory types, data structures
+│   ├── embedder/        # Ollama HTTP embedding client
+│   ├── store/           # Qdrant gRPC store + mock
+│   ├── indexer/         # Markdown scanner + chunker
+│   ├── capture/         # Claude Haiku memory extraction
+│   ├── classifier/      # Heuristic memory classification
+│   ├── recall/          # Multi-factor ranked recall
+│   ├── lifecycle/       # TTL, decay, consolidation
+│   └── hooks/           # OpenClaw hook integration
+├── pkg/tokenizer/       # Token estimation + budgeting
+├── skill/SKILL.md       # OpenClaw skill definition
+├── k8s/qdrant.yaml      # Kubernetes manifests
+├── Taskfile.yml         # Build, test, lint targets
+├── Dockerfile           # Multi-stage production build
+└── docker-compose.yml   # Local Qdrant
+```
+
+## License
+
+MIT License — Copyright (c) 2026 Ajit Pratap Singh

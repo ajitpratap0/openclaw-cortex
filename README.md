@@ -1,6 +1,11 @@
 # OpenClaw Cortex
 
-Hybrid layered memory system for OpenClaw AI agents. Combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.
+[![Go Version](https://img.shields.io/github/go-mod/go-version/ajitpratap0/openclaw-cortex)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ajitpratap0/openclaw-cortex)](https://goreportcard.com/report/github.com/ajitpratap0/openclaw-cortex)
+[![GoDoc](https://pkg.go.dev/badge/github.com/ajitpratap0/openclaw-cortex)](https://pkg.go.dev/github.com/ajitpratap0/openclaw-cortex)
+
+Hybrid semantic memory system for AI agents. Combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.
 
 ## Architecture
 

@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: OpenClaw Cortex
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - given-names: Ajit Pratap
+    family-names: Singh
+    orcid: ""
+repository-code: "https://github.com/ajitpratap0/openclaw-cortex"
+url: "https://github.com/ajitpratap0/openclaw-cortex"
+license: MIT
+version: 0.1.0
+date-released: "2026-02-25"
+keywords:
+  - ai-memory
+  - semantic-search
+  - vector-database
+  - ai-agents
+  - golang
+  - qdrant
+  - ollama
+  - embeddings
+  - retrieval-augmented-generation
+abstract: >-
+  Hybrid semantic memory system for AI agents combining
+  file-based structured memory with vector-based semantic
+  memory for compaction-proof, searchable, classified recall.
+  Features smart capture via Claude Haiku, multi-factor
+  ranked recall, token budgeting, and lifecycle management.
