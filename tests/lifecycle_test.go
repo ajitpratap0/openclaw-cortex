@@ -32,7 +32,7 @@ func TestLifecycle_ExpireTTL(t *testing.T) {
 		UpdatedAt:    time.Now().UTC().Add(-2 * time.Hour),
 		LastAccessed: time.Now().UTC().Add(-2 * time.Hour),
 	}
-	_ = s.Upsert(ctx, expired, testVector(768, 0.1))
+	_ = s.Upsert(ctx, expired, testVector(0.1))
 
 	// Create a TTL memory that has NOT expired (created 10 min ago with 1 hour TTL)
 	fresh := models.Memory{
@@ -46,7 +46,7 @@ func TestLifecycle_ExpireTTL(t *testing.T) {
 		UpdatedAt:    time.Now().UTC().Add(-10 * time.Minute),
 		LastAccessed: time.Now().UTC().Add(-10 * time.Minute),
 	}
-	_ = s.Upsert(ctx, fresh, testVector(768, 0.2))
+	_ = s.Upsert(ctx, fresh, testVector(0.2))
 
 	// Create a permanent memory (should not be touched)
 	permanent := models.Memory{
@@ -57,7 +57,7 @@ func TestLifecycle_ExpireTTL(t *testing.T) {
 		Content:    "Permanent memory",
 		CreatedAt:  time.Now().UTC().Add(-720 * time.Hour),
 	}
-	_ = s.Upsert(ctx, permanent, testVector(768, 0.3))
+	_ = s.Upsert(ctx, permanent, testVector(0.3))
 
 	lm := lifecycle.NewManager(s, logger)
 	report, err := lm.Run(ctx, false)
@@ -91,7 +91,7 @@ func TestLifecycle_DecaySessions(t *testing.T) {
 		CreatedAt:    time.Now().UTC().Add(-48 * time.Hour),
 		LastAccessed: time.Now().UTC().Add(-48 * time.Hour),
 	}
-	_ = s.Upsert(ctx, old, testVector(768, 0.1))
+	_ = s.Upsert(ctx, old, testVector(0.1))
 
 	// Recent session memory
 	recent := models.Memory{
@@ -103,7 +103,7 @@ func TestLifecycle_DecaySessions(t *testing.T) {
 		CreatedAt:    time.Now().UTC().Add(-1 * time.Hour),
 		LastAccessed: time.Now().UTC().Add(-1 * time.Hour),
 	}
-	_ = s.Upsert(ctx, recent, testVector(768, 0.2))
+	_ = s.Upsert(ctx, recent, testVector(0.2))
 
 	lm := lifecycle.NewManager(s, logger)
 	report, err := lm.Run(ctx, false)
@@ -134,7 +134,7 @@ func TestLifecycle_DryRun(t *testing.T) {
 		TTLSeconds: 3600,
 		CreatedAt:  time.Now().UTC().Add(-2 * time.Hour),
 	}
-	_ = s.Upsert(ctx, expired, testVector(768, 0.1))
+	_ = s.Upsert(ctx, expired, testVector(0.1))
 
 	lm := lifecycle.NewManager(s, logger)
 	report, err := lm.Run(ctx, true)

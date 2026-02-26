@@ -103,7 +103,7 @@ func indexCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			if err := st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("ensuring collection: %w", err)
@@ -150,7 +150,7 @@ func searchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			vec, err := emb.Embed(ctx, query)
 			if err != nil {
@@ -216,7 +216,7 @@ func storeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			if err := st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("ensuring collection: %w", err)
@@ -289,7 +289,7 @@ func forgetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			if err := st.Delete(ctx, args[0]); err != nil {
 				return fmt.Errorf("deleting memory: %w", err)
@@ -319,7 +319,7 @@ func listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			var filters *store.SearchFilters
 			if memType != "" || scope != "" {
@@ -377,7 +377,7 @@ func captureCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			if err := st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("ensuring collection: %w", err)
@@ -473,7 +473,7 @@ func recallCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			vec, err := emb.Embed(ctx, query)
 			if err != nil {
@@ -544,7 +544,7 @@ func statsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			stats, err := st.Stats(ctx)
 			if err != nil {
@@ -582,7 +582,7 @@ func consolidateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer func() { _ = st.Close() }()
 
 			lm := lifecycle.NewManager(st, logger)
 			report, err := lm.Run(ctx, dryRun)

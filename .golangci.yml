@@ -1,6 +1,8 @@
+version: "2"
+
 run:
   timeout: 5m
-  go: "1.24"
+  go: "1.25"
 
 linters:
   enable:
@@ -9,16 +11,13 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - gosimple
     - gocritic
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - unparam
     - prealloc
 
-linters-settings:
+settings:
   gocritic:
     enabled-tags:
       - diagnostic

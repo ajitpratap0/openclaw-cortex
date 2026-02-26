@@ -138,7 +138,7 @@ func (idx *Indexer) chunkFile(filePath string) ([]Chunk, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	relPath := filePath
 	var chunks []Chunk
