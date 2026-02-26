@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +18,7 @@ func captureCmd() *cobra.Command {
 		userMsg      string
 		assistantMsg string
 		sessionID    string
+		scope        string
 	)
 
 	cmd := &cobra.Command{
@@ -31,8 +30,14 @@ func captureCmd() *cobra.Command {
 
 			// Validate that the API key is present before making any API call.
 			if cfg.Claude.APIKey == "" {
-				slog.Error("ANTHROPIC_API_KEY is not set; cannot call Claude API")
-				os.Exit(1)
+				return fmt.Errorf("capture: ANTHROPIC_API_KEY environment variable is not set")
+			}
+
+			// Validate memory scope.
+			ms := models.MemoryScope(scope)
+			if !ms.IsValid() {
+				return fmt.Errorf("capture: invalid --scope %q: must be one of %s",
+					scope, validScopesString())
 			}
 
 			emb := newEmbedder(logger)
@@ -80,7 +85,7 @@ func captureCmd() *cobra.Command {
 				mem := models.Memory{
 					ID:           uuid.New().String(),
 					Type:         cm.Type,
-					Scope:        models.ScopePermanent,
+					Scope:        ms,
 					Visibility:   models.VisibilityShared,
 					Content:      cm.Content,
 					Confidence:   cm.Confidence,
@@ -110,6 +115,7 @@ func captureCmd() *cobra.Command {
 	cmd.Flags().StringVar(&userMsg, "user", "", "user message")
 	cmd.Flags().StringVar(&assistantMsg, "assistant", "", "assistant response")
 	cmd.Flags().StringVar(&sessionID, "session-id", "", "session identifier")
+	cmd.Flags().StringVar(&scope, "scope", "permanent", "memory scope (permanent|project|session|ttl)")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("assistant")
 	return cmd

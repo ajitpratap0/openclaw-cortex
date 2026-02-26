@@ -37,6 +37,13 @@ func storeCmd() *cobra.Command {
 					memType, validTypesString())
 			}
 
+			// Validate memory scope.
+			ms := models.MemoryScope(scope)
+			if !ms.IsValid() {
+				return fmt.Errorf("store: invalid --scope %q: must be one of %s",
+					scope, validScopesString())
+			}
+
 			emb := newEmbedder(logger)
 			st, err := newStore(logger)
 			if err != nil {
@@ -73,7 +80,7 @@ func storeCmd() *cobra.Command {
 			mem := models.Memory{
 				ID:           uuid.New().String(),
 				Type:         mt,
-				Scope:        models.MemoryScope(scope),
+				Scope:        ms,
 				Visibility:   models.VisibilityShared,
 				Content:      content,
 				Confidence:   confidence,
@@ -108,4 +115,12 @@ func validTypesString() string {
 		types[i] = string(t)
 	}
 	return strings.Join(types, "|")
+}
+
+func validScopesString() string {
+	scopes := make([]string, len(models.ValidMemoryScopes))
+	for i, s := range models.ValidMemoryScopes {
+		scopes[i] = string(s)
+	}
+	return strings.Join(scopes, "|")
 }

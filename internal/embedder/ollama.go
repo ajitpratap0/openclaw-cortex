@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -102,7 +101,6 @@ func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 	sem := make(chan struct{}, embedBatchConcLimit)
 
 	g, gctx := errgroup.WithContext(ctx)
-	var mu sync.Mutex
 
 	for i, text := range texts {
 		i, text := i, text // capture loop vars
@@ -114,9 +112,8 @@ func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 			if err != nil {
 				return fmt.Errorf("embedding text at index %d: %w", i, err)
 			}
-			mu.Lock()
+			// Each goroutine writes to a unique index; no mutex needed.
 			results[i] = vec
-			mu.Unlock()
 			return nil
 		})
 	}

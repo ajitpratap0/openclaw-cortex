@@ -34,7 +34,6 @@ func consolidateCmd() *cobra.Command {
 			fmt.Printf("Lifecycle report:\n")
 			fmt.Printf("  Expired (TTL):  %d\n", report.Expired)
 			fmt.Printf("  Decayed:        %d\n", report.Decayed)
-			fmt.Printf("  Consolidated:   %d\n", report.Consolidated)
 			if dryRun {
 				fmt.Println("  (dry run — no changes applied)")
 			}

@@ -14,9 +14,9 @@ const pageSize uint64 = 500
 
 // Report summarizes the results of a lifecycle run.
 type Report struct {
-	Expired      int `json:"expired"`
-	Decayed      int `json:"decayed"`
-	Consolidated int `json:"consolidated"`
+	Expired int `json:"expired"`
+	Decayed int `json:"decayed"`
+	// TODO: implement memory consolidation
 }
 
 // Manager handles memory lifecycle operations.

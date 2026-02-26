@@ -89,21 +89,39 @@ func (m *MockStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64, _ uint64) ([]models.Memory, error) {
+func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var results []models.Memory
+	var all []models.Memory
 	for _, sm := range m.memories {
 		if !matchesFilters(sm.memory, filters) {
 			continue
 		}
-		results = append(results, sm.memory)
-		if uint64(len(results)) >= limit {
-			break
+		all = append(all, sm.memory)
+	}
+
+	// Sort by ID for deterministic pagination.
+	for i := 0; i < len(all); i++ {
+		for j := i + 1; j < len(all); j++ {
+			if all[j].ID < all[i].ID {
+				all[i], all[j] = all[j], all[i]
+			}
 		}
 	}
-	return results, nil
+
+	// Apply offset.
+	if offset >= uint64(len(all)) {
+		return nil, nil
+	}
+	all = all[offset:]
+
+	// Apply limit.
+	if limit > 0 && uint64(len(all)) > limit {
+		all = all[:limit]
+	}
+
+	return all, nil
 }
 
 func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {

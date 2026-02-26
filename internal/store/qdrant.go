@@ -33,7 +33,7 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 
 	opts := []grpc.DialOption{}
 	if !useTLS {
-		slog.Warn("Qdrant connection using insecure credentials (no TLS)")
+		logger.Warn("Qdrant connection using insecure credentials (no TLS)")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 

@@ -44,6 +44,24 @@ const (
 	ScopeTTL       MemoryScope = "ttl"
 )
 
+// ValidMemoryScopes is the set of all valid memory scopes.
+var ValidMemoryScopes = []MemoryScope{
+	ScopePermanent,
+	ScopeProject,
+	ScopeSession,
+	ScopeTTL,
+}
+
+// IsValid returns true if the memory scope is recognized.
+func (ms MemoryScope) IsValid() bool {
+	for _, v := range ValidMemoryScopes {
+		if ms == v {
+			return true
+		}
+	}
+	return false
+}
+
 // MemoryVisibility controls access to a memory.
 type MemoryVisibility string
 
