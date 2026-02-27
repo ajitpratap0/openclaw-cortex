@@ -111,12 +111,12 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	indexFields := []string{"type", "scope", "visibility", "project", "source"}
 	for _, field := range indexFields {
 		ictx, icancel := withTimeout(ctx, qdrantWriteTimeout)
-		defer icancel()
 		_, err := q.points.CreateFieldIndex(ictx, &pb.CreateFieldIndexCollection{
 			CollectionName: q.collName,
 			FieldName:      field,
 			FieldType:      pb.FieldType_FieldTypeKeyword.Enum(),
 		})
+		icancel() // cancel immediately rather than deferring inside a loop
 		if err != nil {
 			q.logger.Warn("creating field index", "field", field, "error", err)
 		}
@@ -311,14 +311,23 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 	return results, nil
 }
 
-// UpdateAccessMetadata sets the last_accessed timestamp directly via SetPayload,
-// avoiding a read-modify-write race on access_count.
+// UpdateAccessMetadata reads the current access_count, increments it, and writes
+// both access_count and last_accessed via SetPayload. The read-modify-write is
+// intentionally non-atomic: an approximate count is acceptable for ranking, and
+// the simplicity outweighs the cost of a rare missed increment under concurrency.
 func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error {
+	// Read current access_count.
+	mem, err := q.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("update access metadata: reading %s: %w", id, err)
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
+	newCount := mem.AccessCount + 1
 
 	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
 	defer wcancel()
-	_, err := q.points.SetPayload(wctx, &pb.SetPayloadPoints{
+	_, err = q.points.SetPayload(wctx, &pb.SetPayloadPoints{
 		CollectionName: q.collName,
 		PointsSelector: &pb.PointsSelector{
 			PointsSelectorOneOf: &pb.PointsSelector_Points{
@@ -331,6 +340,7 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 		},
 		Payload: map[string]*pb.Value{
 			"last_accessed": {Kind: &pb.Value_StringValue{StringValue: now}},
+			"access_count":  {Kind: &pb.Value_IntegerValue{IntegerValue: newCount}},
 		},
 	})
 	if err != nil {

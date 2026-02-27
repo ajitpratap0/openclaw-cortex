@@ -153,11 +153,10 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	stored := 0
 
 	for _, cm := range captured {
-		// 2. Classify – use the classifier to refine the type.
-		memType := h.classifier.Classify(cm.Content)
-		// Prefer the LLM-assigned type when it is non-empty.
-		if cm.Type != "" {
-			memType = cm.Type
+		// 2. Classify – prefer the LLM-assigned type; only run the classifier if empty.
+		memType := cm.Type
+		if memType == "" {
+			memType = h.classifier.Classify(cm.Content)
 		}
 
 		// 3. Embed the content.
@@ -169,7 +168,9 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 
 		// 4. Dedup – skip if a near-duplicate already exists.
 		dupes, err := h.store.FindDuplicates(ctx, vec, dedupThreshold)
-		if err == nil && len(dupes) > 0 {
+		if err != nil {
+			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", err)
+		} else if len(dupes) > 0 {
 			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
 			continue
 		}

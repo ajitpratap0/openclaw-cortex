@@ -155,11 +155,20 @@ func (c *Config) Validate() error {
 	if c.Memory.ChunkSize <= 0 {
 		return fmt.Errorf("memory.chunk_size must be greater than 0")
 	}
+	if c.Memory.ChunkOverlap < 0 {
+		return fmt.Errorf("memory.chunk_overlap must be >= 0")
+	}
 	if c.Memory.ChunkOverlap >= c.Memory.ChunkSize {
 		return fmt.Errorf("memory.chunk_overlap (%d) must be less than memory.chunk_size (%d)", c.Memory.ChunkOverlap, c.Memory.ChunkSize)
 	}
 	if c.Memory.DedupThreshold < 0 || c.Memory.DedupThreshold > 1 {
 		return fmt.Errorf("memory.dedup_threshold must be between 0 and 1")
+	}
+	if c.Memory.VectorDimension <= 0 {
+		return fmt.Errorf("memory.vector_dimension must be greater than 0")
+	}
+	if c.Memory.DefaultTTLHours < 0 {
+		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
 	}
 	return nil
 }

@@ -89,7 +89,7 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 			return nil, fmt.Errorf("calling Ollama API: %w", err)
 		}
 
-		if resp.StatusCode >= 500 {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
 			_ = resp.Body.Close()
 			if attempt < ollamaMaxRetries-1 {
 				continue
@@ -97,6 +97,10 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 			return nil, fmt.Errorf("ollama API returned %d after %d attempts", resp.StatusCode, ollamaMaxRetries)
 		}
 		break
+	}
+
+	if resp == nil {
+		return nil, fmt.Errorf("ollama API: no response after %d attempts", ollamaMaxRetries)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

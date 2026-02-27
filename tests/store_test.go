@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -156,6 +157,84 @@ func TestMockStore_List(t *testing.T) {
 	results, _, err := s.List(ctx, nil, 3, "")
 	require.NoError(t, err)
 	assert.LessOrEqual(t, len(results), 3)
+}
+
+func TestMockStore_CursorPagination_MultiPage(t *testing.T) {
+	ctx := context.Background()
+	s := store.NewMockStore()
+
+	// Store 10 items with sortable IDs (pad with leading zeros for deterministic order).
+	ids := []string{"p-01", "p-02", "p-03", "p-04", "p-05", "p-06", "p-07", "p-08", "p-09", "p-10"}
+	for i, id := range ids {
+		mem := newTestMemory(id, models.MemoryTypeFact, "content-"+id)
+		require.NoError(t, s.Upsert(ctx, mem, testVector(float32(i)*0.1)))
+	}
+
+	// Paginate with limit=3 and collect all results.
+	var allIDs []string
+	cursor := ""
+	pages := 0
+	for {
+		results, next, err := s.List(ctx, nil, 3, cursor)
+		require.NoError(t, err)
+		for _, r := range results {
+			allIDs = append(allIDs, r.ID)
+		}
+		pages++
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+
+	// All 10 items must be returned across pages.
+	assert.Equal(t, len(ids), len(allIDs), "all items should be returned across pages")
+	// IDs should be sorted (MockStore sorts by ID).
+	for i := 1; i < len(allIDs); i++ {
+		assert.True(t, allIDs[i-1] < allIDs[i], "IDs should be in sorted order")
+	}
+	assert.GreaterOrEqual(t, pages, 2, "should require multiple pages")
+}
+
+func TestMockStore_CursorPagination_LastElement(t *testing.T) {
+	ctx := context.Background()
+	s := store.NewMockStore()
+
+	ids := []string{"le-1", "le-2", "le-3"}
+	for i, id := range ids {
+		mem := newTestMemory(id, models.MemoryTypeFact, "content")
+		require.NoError(t, s.Upsert(ctx, mem, testVector(float32(i)*0.1)))
+	}
+
+	// Fetch all with a limit larger than total items.
+	results, next, err := s.List(ctx, nil, 10, "")
+	require.NoError(t, err)
+	assert.Len(t, results, 3)
+	assert.Empty(t, next, "cursor should be empty when all items fit in one page")
+
+	// Using the last element ID as cursor should return empty next page.
+	lastID := results[len(results)-1].ID
+	results, next, err = s.List(ctx, nil, 10, lastID)
+	require.NoError(t, err)
+	assert.Empty(t, results, "no items should remain after the last element cursor")
+	assert.Empty(t, next)
+}
+
+func TestMockStore_CursorPagination_EmptyCursor(t *testing.T) {
+	ctx := context.Background()
+	s := store.NewMockStore()
+
+	for i := 0; i < 5; i++ {
+		id := fmt.Sprintf("ec-%02d", i)
+		mem := newTestMemory(id, models.MemoryTypeFact, "content")
+		require.NoError(t, s.Upsert(ctx, mem, testVector(float32(i)*0.1)))
+	}
+
+	// Empty string cursor should return the first page.
+	results, _, err := s.List(ctx, nil, 3, "")
+	require.NoError(t, err)
+	assert.Len(t, results, 3)
+	assert.Equal(t, "ec-00", results[0].ID)
 }
 
 func TestMockStore_UpdateAccessMetadata(t *testing.T) {
