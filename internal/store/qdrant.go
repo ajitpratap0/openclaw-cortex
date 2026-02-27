@@ -178,11 +178,7 @@ func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64
 
 	results := make([]models.SearchResult, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			q.logger.Warn("parsing search result", "error", err)
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		results = append(results, models.SearchResult{
 			Memory: *mem,
 			Score:  float64(point.GetScore()),
@@ -212,7 +208,7 @@ func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error
 	}
 
 	point := resp.GetResult()[0]
-	return payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
+	return payloadToMemory(point.GetId().GetUuid(), point.GetPayload()), nil
 }
 
 // Delete removes a memory by ID.
@@ -269,11 +265,7 @@ func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit ui
 
 	memories := make([]models.Memory, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			q.logger.Warn("parsing list result", "error", err)
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		memories = append(memories, *mem)
 	}
 
@@ -302,10 +294,7 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 
 	results := make([]models.SearchResult, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		results = append(results, models.SearchResult{
 			Memory: *mem,
 			Score:  float64(point.GetScore()),
@@ -489,7 +478,7 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 	return payload
 }
 
-func payloadToMemory(id string, payload map[string]*pb.Value) (*models.Memory, error) {
+func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	m := &models.Memory{
 		ID:         id,
 		Type:       models.MemoryType(getStringValue(payload, "type")),
@@ -537,7 +526,7 @@ func payloadToMemory(id string, payload map[string]*pb.Value) (*models.Memory, e
 		}
 	}
 
-	return m, nil
+	return m
 }
 
 func buildFilter(f *SearchFilters) *pb.Filter {
