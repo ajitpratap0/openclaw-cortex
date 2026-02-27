@@ -1,0 +1,169 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  gosec:
+    name: GoSec Security Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Run GoSec Security Scanner
+        uses: securego/gosec@v2.21.4
+        continue-on-error: true
+        with:
+          args: '-fmt sarif -out gosec-results.sarif -severity medium -confidence medium ./...'
+
+      - name: Upload GoSec SARIF file
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+      - name: Check GoSec results
+        if: always()
+        run: |
+          if [ ! -f gosec-results.sarif ]; then
+            echo "GoSec SARIF file not found!"
+            exit 1
+          fi
+
+          if jq -r '.runs[]?.results[]? | select(.level == "error")' gosec-results.sarif 2>/dev/null | grep -q .; then
+            echo "High or critical security vulnerabilities found!"
+            jq -r '.runs[]?.results[]? | select(.level == "error") | "  - \(.ruleId): \(.message.text)"' gosec-results.sarif || true
+            exit 1
+          else
+            echo "No high or critical security vulnerabilities found"
+          fi
+
+  trivy-repo:
+    name: Trivy Repository Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: trivy-repo
+
+      - name: Check Trivy results
+        run: |
+          if [ ! -f trivy-results.sarif ]; then
+            echo "Trivy SARIF file not found!"
+            exit 1
+          fi
+
+          if jq -r '.runs[]?.results[]? | select(.level == "error" or .level == "warning")' trivy-results.sarif 2>/dev/null | grep -q .; then
+            echo "High or critical vulnerabilities found!"
+            jq -r '.runs[]?.results[]? | select(.level == "error" or .level == "warning") | "  - \(.ruleId): \(.message.text)"' trivy-results.sarif || true
+            exit 1
+          else
+            echo "No high or critical vulnerabilities found"
+          fi
+
+  govulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: |
+          set +e
+          OUTPUT=$(govulncheck ./... 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "$OUTPUT"
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "No known vulnerabilities found"
+            exit 0
+          elif [ $EXIT_CODE -eq 1 ]; then
+            echo "Error running govulncheck"
+            exit 1
+          fi
+
+          # Exit code 3 = vulnerabilities found
+          # Only fail on third-party (non-stdlib) vulnerabilities
+          MODULES=$(echo "$OUTPUT" | grep -E "^\s*Module:" | sort -u || true)
+          THIRD_PARTY=$(echo "$MODULES" | grep -v "stdlib" || true)
+
+          if [ -n "$THIRD_PARTY" ]; then
+            echo "Vulnerabilities found in third-party dependencies!"
+            echo "$THIRD_PARTY"
+            exit 1
+          else
+            echo "Only stdlib vulnerabilities found (upgrade Go version to resolve)"
+          fi
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [gosec, trivy-repo, govulncheck]
+    if: always()
+    steps:
+      - name: Summarize results
+        run: |
+          echo "### Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| GoSec | ${{ needs.gosec.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy | ${{ needs.trivy-repo.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| govulncheck | ${{ needs.govulncheck.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.gosec.result }}" != "success" ] || \
+             [ "${{ needs.trivy-repo.result }}" != "success" ] || \
+             [ "${{ needs.govulncheck.result }}" != "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Some security checks failed. Review results above." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All security checks passed." >> $GITHUB_STEP_SUMMARY
+          fi
