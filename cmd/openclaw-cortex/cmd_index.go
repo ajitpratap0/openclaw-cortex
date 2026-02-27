@@ -9,7 +9,10 @@ import (
 )
 
 func indexCmd() *cobra.Command {
-	var path string
+	var (
+		path      string
+		summarize bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "index",
@@ -41,10 +44,26 @@ func indexCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Indexed %d chunks from %s\n", count, path)
+
+			// Optionally generate section summary memories via Claude.
+			if summarize {
+				if cfg.Claude.APIKey == "" {
+					logger.Warn("--summarize requires ANTHROPIC_API_KEY; skipping summary generation")
+				} else {
+					sum := indexer.NewSectionSummarizer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					sumCount, sumErr := sum.SummarizeDirectory(ctx, path, emb, st)
+					if sumErr != nil {
+						logger.Error("summary generation failed", "error", sumErr)
+					} else {
+						fmt.Printf("Generated %d section summaries from %s\n", sumCount, path)
+					}
+				}
+			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&path, "path", "", "directory to index (default: configured memory_dir)")
+	cmd.Flags().BoolVar(&summarize, "summarize", false, "generate Claude Haiku summary memories for each document section (requires ANTHROPIC_API_KEY)")
 	return cmd
 }

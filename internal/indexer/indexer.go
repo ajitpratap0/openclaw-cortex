@@ -56,7 +56,7 @@ func NewIndexer(emb embedder.Embedder, st store.Store, chunkSize, chunkOverlap i
 
 // IndexDirectory scans a directory for markdown files and indexes them.
 func (idx *Indexer) IndexDirectory(ctx context.Context, dir string) (int, error) {
-	files, err := findMarkdownFiles(dir)
+	files, err := FindMarkdownFiles(dir)
 	if err != nil {
 		return 0, fmt.Errorf("finding markdown files in %s: %w", dir, err)
 	}
@@ -210,7 +210,7 @@ func (idx *Indexer) chunkFile(filePath string) ([]Chunk, error) {
 	return chunks, nil
 }
 
-func findMarkdownFiles(dir string) ([]string, error) {
+func FindMarkdownFiles(dir string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
