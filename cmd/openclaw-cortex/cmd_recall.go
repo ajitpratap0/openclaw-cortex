@@ -69,8 +69,11 @@ func recallCmd() *cobra.Command {
 				if count < len(ranked) {
 					jsonResults = ranked[:count]
 				}
-				data, _ := json.MarshalIndent(jsonResults, "", "  ")
-				fmt.Println(string(data))
+				out, err := json.MarshalIndent(jsonResults, "", "  ")
+				if err != nil {
+					return fmt.Errorf("recall: marshaling JSON output: %w", err)
+				}
+				fmt.Println(string(out))
 			} else {
 				fmt.Printf("Recalled %d memories (budget: %d tokens):\n\n", count, budget)
 				fmt.Println(output)

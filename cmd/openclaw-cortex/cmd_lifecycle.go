@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -46,11 +47,23 @@ func consolidateCmd() *cobra.Command {
 }
 
 func forgetCmd() *cobra.Command {
-	return &cobra.Command{
+	var yes bool
+
+	cmd := &cobra.Command{
 		Use:   "forget [memory-id]",
 		Short: "Delete a memory by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			if !yes {
+				fmt.Printf("Delete memory %s? [y/N] ", id)
+				var response string
+				if _, err := fmt.Scanln(&response); err != nil || strings.ToLower(strings.TrimSpace(response)) != "y" {
+					fmt.Println("Aborted.")
+					return nil
+				}
+			}
+
 			logger := newLogger()
 			ctx := cmd.Context()
 
@@ -60,12 +73,15 @@ func forgetCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.Delete(ctx, args[0]); err != nil {
+			if err := st.Delete(ctx, id); err != nil {
 				return fmt.Errorf("forget: deleting memory: %w", err)
 			}
 
-			fmt.Printf("Deleted memory %s\n", args[0])
+			fmt.Printf("Deleted memory %s\n", id)
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompt")
+	return cmd
 }

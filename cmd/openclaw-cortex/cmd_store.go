@@ -18,6 +18,7 @@ func storeCmd() *cobra.Command {
 		tags       string
 		project    string
 		confidence float64
+		ttlHours   int
 	)
 
 	cmd := &cobra.Command{
@@ -91,6 +92,11 @@ func storeCmd() *cobra.Command {
 				LastAccessed: now,
 			}
 
+			if ttlHours > 0 {
+				mem.TTLSeconds = int64(ttlHours) * 3600
+				mem.Scope = models.ScopeSession // TTL memories are session-scoped by convention
+			}
+
 			if err := st.Upsert(ctx, mem, vec); err != nil {
 				return fmt.Errorf("store: upserting memory: %w", err)
 			}
@@ -105,6 +111,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&tags, "tags", "", "comma-separated tags")
 	cmd.Flags().StringVar(&project, "project", "", "project name")
 	cmd.Flags().Float64Var(&confidence, "confidence", 0.9, "confidence score")
+	cmd.Flags().IntVar(&ttlHours, "ttl", 0, "time-to-live in hours (0 = permanent)")
 	return cmd
 }
 
