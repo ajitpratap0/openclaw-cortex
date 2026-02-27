@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
@@ -13,9 +14,11 @@ import (
 
 func recallCmd() *cobra.Command {
 	var (
-		budget  int
-		ctxJSON string
-		project string
+		budget           int
+		ctxJSON          string
+		project          string
+		reason           bool
+		reasonCandidates int
 	)
 
 	cmd := &cobra.Command{
@@ -55,6 +58,22 @@ func recallCmd() *cobra.Command {
 			recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
 			ranked := recaller.Rank(results, project)
 
+			// Optionally re-rank with Claude for genuine relevance.
+			if reason {
+				if cfg.Claude.APIKey == "" {
+					logger.Warn("--reason requires ANTHROPIC_API_KEY; skipping re-rank")
+				} else {
+					reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					var reranked []models.RecallResult
+					reranked, err = reasoner.ReRank(ctx, query, ranked, reasonCandidates)
+					if err != nil {
+						logger.Warn("reasoning re-rank failed, using original order", "error", err)
+					} else {
+						ranked = reranked
+					}
+				}
+			}
+
 			// Apply token budget
 			var contents []string
 			for i := range ranked {
@@ -91,5 +110,7 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
 	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")
+	cmd.Flags().BoolVar(&reason, "reason", false, "use Claude to re-rank results by genuine relevance (requires ANTHROPIC_API_KEY)")
+	cmd.Flags().IntVar(&reasonCandidates, "reason-candidates", 10, "number of top candidates to pass to Claude for re-ranking")
 	return cmd
 }
