@@ -63,7 +63,7 @@ func storeCmd() *cobra.Command {
 			dupes, err := st.FindDuplicates(ctx, vec, cfg.Memory.DedupThreshold)
 			if err == nil && len(dupes) > 0 {
 				fmt.Printf("Similar memory already exists (%.2f%% match): %s\n", dupes[0].Score*100, truncate(dupes[0].Memory.Content, 100))
-				fmt.Println("Use 'cortex forget' to remove it first, or the memory was skipped.")
+				fmt.Println("Use 'openclaw-cortex forget' to remove it first, or the memory was skipped.")
 				return nil
 			}
 

@@ -94,12 +94,17 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	}
 	if count <= len(ranked) {
 		output.Memories = ranked[:count]
+	} else {
+		output.Memories = ranked
 	}
 
 	h.logger.Info("pre-turn hook executed", "memories_recalled", count, "tokens_used", output.TokensUsed)
 	return output, nil
 }
 
+// dedupThreshold is intentionally stricter than the config default (0.92) to
+// avoid false-positive dedup on automatically captured memories, where content
+// overlap is more likely than with explicit user-stored memories.
 const dedupThreshold = 0.95
 
 // PostTurnHook captures memories from a completed agent turn.

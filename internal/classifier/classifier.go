@@ -108,8 +108,9 @@ func (c *HeuristicClassifier) Classify(content string) models.MemoryType {
 }
 
 func truncate(s string, n int) string {
-	if len(s) > n {
-		return s[:n] + "..."
+	runes := []rune(s)
+	if len(runes) > n {
+		return string(runes[:n]) + "..."
 	}
 	return s
 }

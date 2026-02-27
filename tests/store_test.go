@@ -147,7 +147,7 @@ func TestMockStore_List(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		mem := newTestMemory(
-			"list-"+string(rune('a'+i)),
+			fmt.Sprintf("list-%02d", i),
 			models.MemoryTypeFact,
 			"memory content",
 		)

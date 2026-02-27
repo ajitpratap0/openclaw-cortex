@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	pb "github.com/qdrant/go-client/qdrant"
@@ -39,7 +40,7 @@ type QdrantStore struct {
 func NewQdrantStore(host string, port int, collection string, dimension uint64, useTLS bool, logger *slog.Logger) (*QdrantStore, error) {
 	addr := fmt.Sprintf("%s:%d", host, port)
 
-	opts := []grpc.DialOption{}
+	var opts []grpc.DialOption
 	if !useTLS {
 		logger.Warn("Qdrant connection using insecure credentials (no TLS)")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -247,6 +248,9 @@ func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit ui
 		filter = buildFilter(filters)
 	}
 
+	if limit > math.MaxUint32 {
+		limit = math.MaxUint32
+	}
 	limit32 := uint32(limit)
 	req := &pb.ScrollPoints{
 		CollectionName: q.collName,
