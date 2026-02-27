@@ -39,6 +39,17 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Check coverage threshold
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${COVERAGE}%"
+          THRESHOLD=60
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
