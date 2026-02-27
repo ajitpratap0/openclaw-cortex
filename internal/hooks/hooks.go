@@ -65,8 +65,12 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 		return nil, fmt.Errorf("embedding message: %w", err)
 	}
 
-	// Search for relevant memories
-	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, nil)
+	// Search for relevant memories — filter by project to prevent cross-project leakage.
+	var filter *store.SearchFilters
+	if input.Project != "" {
+		filter = &store.SearchFilters{Project: &input.Project}
+	}
+	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, filter)
 	if err != nil {
 		return nil, fmt.Errorf("searching memories: %w", err)
 	}

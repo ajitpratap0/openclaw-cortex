@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	pb "github.com/qdrant/go-client/qdrant"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -41,7 +43,9 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 	addr := fmt.Sprintf("%s:%d", host, port)
 
 	var opts []grpc.DialOption
-	if !useTLS {
+	if useTLS {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
+	} else {
 		logger.Warn("Qdrant connection using insecure credentials (no TLS)")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
@@ -204,7 +208,7 @@ func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error
 	}
 
 	if len(resp.GetResult()) == 0 {
-		return nil, fmt.Errorf("memory %s not found", id)
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 
 	point := resp.GetResult()[0]
@@ -315,7 +319,7 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 		return fmt.Errorf("update access metadata: reading %s: %w", id, err)
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC().Format(time.RFC3339Nano)
 	newCount := mem.AccessCount + 1
 
 	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
@@ -452,9 +456,9 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 		"source":        {Kind: &pb.Value_StringValue{StringValue: m.Source}},
 		"project":       {Kind: &pb.Value_StringValue{StringValue: m.Project}},
 		"ttl_seconds":   {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
-		"created_at":    {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339)}},
-		"updated_at":    {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339)}},
-		"last_accessed": {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339)}},
+		"created_at":    {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339Nano)}},
+		"updated_at":    {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339Nano)}},
+		"last_accessed": {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339Nano)}},
 		"access_count":  {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
 	}
 
@@ -494,19 +498,13 @@ func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 
 	// Parse timestamps
 	if ts := getStringValue(payload, "created_at"); ts != "" {
-		if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			m.CreatedAt = t
-		}
+		m.CreatedAt = parseTime(ts)
 	}
 	if ts := getStringValue(payload, "updated_at"); ts != "" {
-		if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			m.UpdatedAt = t
-		}
+		m.UpdatedAt = parseTime(ts)
 	}
 	if ts := getStringValue(payload, "last_accessed"); ts != "" {
-		if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			m.LastAccessed = t
-		}
+		m.LastAccessed = parseTime(ts)
 	}
 
 	// Parse tags
@@ -628,3 +626,16 @@ func getIntValue(payload map[string]*pb.Value, key string) int64 {
 
 func float32Ptr(v float32) *float32 { return &v }
 func boolPtr(v bool) *bool          { return &v }
+
+// parseTime parses a timestamp string, trying RFC3339Nano first and falling
+// back to RFC3339 for backward compatibility with existing stored data.
+func parseTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, s)
+		if err != nil {
+			return time.Time{}
+		}
+	}
+	return t
+}

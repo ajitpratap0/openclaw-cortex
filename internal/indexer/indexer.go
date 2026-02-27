@@ -88,24 +88,33 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 	if err != nil {
 		return 0, fmt.Errorf("chunking file %s: %w", filePath, err)
 	}
+	if len(chunks) == 0 {
+		return 0, nil
+	}
 
 	idx.logger.Info("chunked file", "file", filePath, "chunks", len(chunks))
 
+	// Batch-embed all chunks in one call.
+	texts := make([]string, len(chunks))
+	for i, c := range chunks {
+		texts[i] = c.Content
+	}
+	vecs, err := idx.embedder.EmbedBatch(ctx, texts)
+	if err != nil {
+		return 0, fmt.Errorf("batch embedding chunks from %s: %w", filePath, err)
+	}
+
 	indexed := 0
-	for _, chunk := range chunks {
+	for i, chunk := range chunks {
 		select {
 		case <-ctx.Done():
 			return indexed, ctx.Err()
 		default:
 		}
 
-		vec, err := idx.embedder.Embed(ctx, chunk.Content)
-		if err != nil {
-			idx.logger.Error("embedding chunk", "source", chunk.Source, "error", err)
-			continue
-		}
+		vec := vecs[i]
 
-		// Check for duplicates before inserting
+		// Check for duplicates before inserting.
 		dupes, err := idx.store.FindDuplicates(ctx, vec, dedupThreshold)
 		if err != nil {
 			idx.logger.Warn("dedup check failed, proceeding with store", "error", err)
@@ -135,7 +144,6 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 			idx.logger.Error("storing chunk", "source", chunk.Source, "error", err)
 			continue
 		}
-
 		indexed++
 	}
 

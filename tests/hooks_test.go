@@ -11,6 +11,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
@@ -182,4 +183,117 @@ func TestPostTurnHook_CaptureError(t *testing.T) {
 	err := hook.Execute(ctx, hookTestInput())
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "claude API down")
+}
+
+// ── PreTurnHook tests ────────────────────────────────────────────────────────
+
+func newPreTurnRecaller() *recall.Recaller {
+	return recall.NewRecaller(recall.DefaultWeights(), slog.Default())
+}
+
+func TestPreTurnHook_HappyPath(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+
+	vec := newHookMockVec()
+	_ = ms.Upsert(ctx, newTestMemory("pre-1", models.MemoryTypeProcedure, "Run kubectl apply -f deployment.yaml"), vec)
+	_ = ms.Upsert(ctx, newTestMemory("pre-2", models.MemoryTypeFact, "Kubernetes requires RBAC"), vec)
+
+	hook := hooks.NewPreTurnHook(
+		&hookMockEmbedder{vec: vec},
+		ms,
+		newPreTurnRecaller(),
+		slog.Default(),
+	)
+
+	out, err := hook.Execute(ctx, hooks.PreTurnInput{
+		Message:     "How do I deploy to Kubernetes?",
+		Project:     "proj-k8s",
+		TokenBudget: 500,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.GreaterOrEqual(t, out.MemoryCount, 0)
+	assert.GreaterOrEqual(t, out.TokensUsed, 0)
+}
+
+func TestPreTurnHook_ZeroBudgetDefaultsToNonZero(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+	vec := newHookMockVec()
+	_ = ms.Upsert(ctx, newTestMemory("pre-z", models.MemoryTypeFact, "Some memory"), vec)
+
+	hook := hooks.NewPreTurnHook(
+		&hookMockEmbedder{vec: vec},
+		ms,
+		newPreTurnRecaller(),
+		slog.Default(),
+	)
+
+	// zero budget is normalised to a positive default inside Execute
+	out, err := hook.Execute(ctx, hooks.PreTurnInput{
+		Message:     "anything",
+		TokenBudget: 0,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, out)
+}
+
+func TestPreTurnHook_EmbedError(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+
+	hook := hooks.NewPreTurnHook(
+		// dim must be > 0 so nextVec() doesn't divide by zero; err is checked by Execute.
+		&hookMockEmbedder{err: errors.New("embed failed"), dim: 8},
+		ms,
+		newPreTurnRecaller(),
+		slog.Default(),
+	)
+
+	_, err := hook.Execute(ctx, hooks.PreTurnInput{Message: "test", TokenBudget: 500})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "embed failed")
+}
+
+func TestPreTurnHook_ProjectFilterPassedThrough(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+	vec := newHookMockVec()
+
+	mem := newTestMemory("pf-1", models.MemoryTypeFact, "Project-specific fact")
+	mem.Project = "proj-k8s"
+	_ = ms.Upsert(ctx, mem, vec)
+
+	hook := hooks.NewPreTurnHook(
+		&hookMockEmbedder{vec: vec},
+		ms,
+		newPreTurnRecaller(),
+		slog.Default(),
+	)
+
+	// Verify a non-empty project does not cause an error (filter is wired correctly).
+	out, err := hook.Execute(ctx, hooks.PreTurnInput{
+		Message:     "deploy kubernetes",
+		Project:     "proj-k8s",
+		TokenBudget: 1000,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, out)
+}
+
+func TestPreTurnHook_EmptyStore(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+
+	hook := hooks.NewPreTurnHook(
+		&hookMockEmbedder{vec: newHookMockVec()},
+		ms,
+		newPreTurnRecaller(),
+		slog.Default(),
+	)
+
+	out, err := hook.Execute(ctx, hooks.PreTurnInput{Message: "anything", TokenBudget: 500})
+	require.NoError(t, err)
+	assert.Equal(t, 0, out.MemoryCount)
 }

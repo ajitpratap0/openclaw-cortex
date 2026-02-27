@@ -45,6 +45,8 @@ func main() {
 		recallCmd(),
 		statsCmd(),
 		consolidateCmd(),
+		getCmd(),
+		exportCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
@@ -61,7 +63,11 @@ func newLogger() *slog.Logger {
 	if cfg != nil && cfg.Logging.Level == "debug" {
 		level = slog.LevelDebug
 	}
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	opts := &slog.HandlerOptions{Level: level}
+	if cfg != nil && cfg.Logging.Format == "json" {
+		return slog.New(slog.NewJSONHandler(os.Stderr, opts))
+	}
+	return slog.New(slog.NewTextHandler(os.Stderr, opts))
 }
 
 func newEmbedder(logger *slog.Logger) embedder.Embedder {

@@ -109,11 +109,11 @@ func Load() (*Config, error) {
 	// Config file
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
-	v.AddConfigPath(filepath.Join(homeDir(), ".cortex"))
+	v.AddConfigPath(filepath.Join(homeDir(), ".openclaw-cortex"))
 	v.AddConfigPath(".")
 
 	// Environment variables
-	v.SetEnvPrefix("CORTEX")
+	v.SetEnvPrefix("OPENCLAW_CORTEX")
 	v.AutomaticEnv()
 
 	// Map specific env vars

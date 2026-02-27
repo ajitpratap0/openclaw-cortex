@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -36,24 +37,31 @@ func NewManager(st store.Store, logger *slog.Logger) *Manager {
 	}
 }
 
-// Run executes all lifecycle operations and returns the first error encountered.
+// Run executes all lifecycle operations and collects errors from all phases.
+// Partial results are preserved even when some phases fail.
 func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 	report := &Report{}
+	var errs []error
 
 	// 1. TTL expiry
 	expired, err := m.expireTTL(ctx, dryRun)
 	if err != nil {
-		return report, fmt.Errorf("lifecycle: TTL expiry: %w", err)
+		m.logger.Error("lifecycle: TTL expiry failed", "error", err)
+		errs = append(errs, fmt.Errorf("TTL expiry: %w", err))
 	}
 	report.Expired = expired
 
 	// 2. Decay old session memories
 	decayed, err := m.decaySessions(ctx, dryRun)
 	if err != nil {
-		return report, fmt.Errorf("lifecycle: session decay: %w", err)
+		m.logger.Error("lifecycle: session decay failed", "error", err)
+		errs = append(errs, fmt.Errorf("session decay: %w", err))
 	}
 	report.Decayed = decayed
 
+	if len(errs) > 0 {
+		return report, fmt.Errorf("lifecycle: %w", errors.Join(errs...))
+	}
 	return report, nil
 }
 

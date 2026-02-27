@@ -1,6 +1,7 @@
 package recall
 
 import (
+	"fmt"
 	"log/slog"
 	"math"
 	"sort"
@@ -47,6 +48,31 @@ func DefaultWeights() Weights {
 	}
 }
 
+// Validate checks that the weights are non-negative and sum to approximately 1.0.
+func (w Weights) Validate() error {
+	fields := []struct {
+		name  string
+		value float64
+	}{
+		{"similarity", w.Similarity},
+		{"recency", w.Recency},
+		{"frequency", w.Frequency},
+		{"type_boost", w.TypeBoost},
+		{"scope_boost", w.ScopeBoost},
+	}
+	for _, f := range fields {
+		if f.value < 0 {
+			return fmt.Errorf("recall weight %q must be >= 0, got %f", f.name, f.value)
+		}
+	}
+	sum := w.Similarity + w.Recency + w.Frequency + w.TypeBoost + w.ScopeBoost
+	const epsilon = 0.01
+	if sum < 1.0-epsilon || sum > 1.0+epsilon {
+		return fmt.Errorf("recall weights must sum to 1.0 (±%.2f), got %.4f", epsilon, sum)
+	}
+	return nil
+}
+
 // TypePriority maps memory types to their raw priority multipliers (before normalization).
 var TypePriority = map[models.MemoryType]float64{
 	models.MemoryTypeRule:       1.5,
@@ -63,7 +89,12 @@ type Recaller struct {
 }
 
 // NewRecaller creates a new recaller with the given weights.
+// If the weights are invalid, a warning is logged and defaults are used.
 func NewRecaller(weights Weights, logger *slog.Logger) *Recaller {
+	if err := weights.Validate(); err != nil {
+		logger.Warn("invalid recall weights, using defaults", "error", err)
+		weights = DefaultWeights()
+	}
 	return &Recaller{
 		weights: weights,
 		logger:  logger,

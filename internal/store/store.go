@@ -2,9 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
+
+// ErrNotFound is returned by Get and Delete when the requested memory does not exist.
+var ErrNotFound = errors.New("memory not found")
 
 // Store defines the interface for memory persistence with vector search.
 type Store interface {
