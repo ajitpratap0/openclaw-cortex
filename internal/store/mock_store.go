@@ -37,6 +37,19 @@ func (m *MockStore) EnsureCollection(_ context.Context) error {
 func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// Deep-copy mutable fields to prevent external mutation of stored data.
+	if len(memory.Tags) > 0 {
+		tags := make([]string, len(memory.Tags))
+		copy(tags, memory.Tags)
+		memory.Tags = tags
+	}
+	if len(memory.Metadata) > 0 {
+		meta := make(map[string]any, len(memory.Metadata))
+		for k, v := range memory.Metadata {
+			meta[k] = v
+		}
+		memory.Metadata = meta
+	}
 	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
@@ -80,9 +93,22 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 	defer m.mu.RUnlock()
 	sm, ok := m.memories[id]
 	if !ok {
-		return nil, fmt.Errorf("memory %s not found", id)
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 	mem := sm.memory
+	// Deep-copy mutable fields to prevent callers from mutating stored data.
+	if len(mem.Tags) > 0 {
+		tags := make([]string, len(mem.Tags))
+		copy(tags, mem.Tags)
+		mem.Tags = tags
+	}
+	if len(mem.Metadata) > 0 {
+		meta := make(map[string]any, len(mem.Metadata))
+		for k, v := range mem.Metadata {
+			meta[k] = v
+		}
+		mem.Metadata = meta
+	}
 	return &mem, nil
 }
 
@@ -90,6 +116,9 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 func (m *MockStore) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if _, ok := m.memories[id]; !ok {
+		return fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
 	delete(m.memories, id)
 	return nil
 }
