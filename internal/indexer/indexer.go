@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
@@ -36,11 +35,13 @@ type Indexer struct {
 
 // Chunk represents a section of text extracted from a file.
 type Chunk struct {
-	Content  string
-	Source   string
-	Heading  string
-	Tags     []string
-	Metadata map[string]any
+	Content      string
+	Source       string
+	Heading      string
+	SectionPath  string // full " / "-delimited path from document root
+	SectionDepth int    // 1=H1, 2=H2, 3=H3, 4=H4; 0 if no heading
+	Tags         []string
+	Metadata     map[string]any
 }
 
 // NewIndexer creates a new file indexer.
@@ -150,63 +151,49 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 	return indexed, nil
 }
 
-// chunkFile reads a markdown file and splits it into chunks by headers.
+// chunkFile reads a markdown file, parses it into a section tree, and produces
+// Chunks with structural metadata (section_path, section_depth, word_count).
 func (idx *Indexer) chunkFile(filePath string) ([]Chunk, error) {
-	f, err := os.Open(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("opening file: %w", err)
+		return nil, fmt.Errorf("reading file: %w", err)
 	}
-	defer func() { _ = f.Close() }()
 
-	relPath := filePath
+	tree := ParseMarkdownTree(string(data))
+
 	var chunks []Chunk
-	var currentHeading string
-	var currentLines []string
-
-	scanner := bufio.NewScanner(f)
-	// Increase buffer size for large lines
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	flush := func() {
-		content := strings.TrimSpace(strings.Join(currentLines, "\n"))
-		if content == "" {
-			return
+	var walkNode func(node *SectionNode)
+	walkNode = func(node *SectionNode) {
+		if node.Content != "" {
+			textChunks := splitBySize(node.Content, idx.chunkSize, idx.chunkOverlap)
+			tags := extractTags(node.Title, filePath)
+			for _, tc := range textChunks {
+				chunks = append(chunks, Chunk{
+					Content:      tc,
+					Source:       filePath,
+					Heading:      node.Title,
+					SectionPath:  node.Path,
+					SectionDepth: node.Depth,
+					Tags:         tags,
+					Metadata: map[string]any{
+						"heading":       node.Title,
+						"section_path":  node.Path,
+						"section_depth": node.Depth,
+						"word_count":    node.WordCount,
+						"file_path":     filePath,
+					},
+				})
+			}
 		}
-
-		// Split large sections into smaller chunks
-		textChunks := splitBySize(content, idx.chunkSize, idx.chunkOverlap)
-		for _, tc := range textChunks {
-			tags := extractTags(currentHeading, relPath)
-			chunks = append(chunks, Chunk{
-				Content: tc,
-				Source:  relPath,
-				Heading: currentHeading,
-				Tags:    tags,
-				Metadata: map[string]any{
-					"heading":   currentHeading,
-					"file_path": relPath,
-				},
-			})
+		for _, child := range node.Children {
+			walkNode(child)
 		}
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if isMarkdownHeader(line) {
-			flush()
-			currentHeading = strings.TrimSpace(strings.TrimLeft(line, "#"))
-			currentLines = nil
-		} else {
-			currentLines = append(currentLines, line)
-		}
+	for _, root := range tree {
+		walkNode(root)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scanning file: %w", err)
-	}
-
-	flush()
 	return chunks, nil
 }
 
@@ -222,13 +209,6 @@ func FindMarkdownFiles(dir string) ([]string, error) {
 		return nil
 	})
 	return files, err
-}
-
-func isMarkdownHeader(line string) bool {
-	return strings.HasPrefix(line, "# ") ||
-		strings.HasPrefix(line, "## ") ||
-		strings.HasPrefix(line, "### ") ||
-		strings.HasPrefix(line, "#### ")
 }
 
 // splitBySize splits text into chunks of approximately maxSize characters with overlap.

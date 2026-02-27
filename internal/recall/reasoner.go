@@ -66,8 +66,8 @@ func (r *Reasoner) ReRank(ctx context.Context, query string, results []models.Re
 
 	// Build numbered memory list for the prompt.
 	var sb strings.Builder
-	for i, c := range candidates {
-		fmt.Fprintf(&sb, "[%d] %s\n", i, reasonerXMLEscape(c.Memory.Content))
+	for i := range candidates {
+		fmt.Fprintf(&sb, "[%d] %s\n", i, reasonerXMLEscape(candidates[i].Memory.Content))
 	}
 
 	prompt := fmt.Sprintf(`You are a memory relevance ranker for an AI agent memory system.

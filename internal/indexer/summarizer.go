@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	// summaryMinWords is the minimum word count for a section to be worth summarising.
+	// summaryMinWords is the minimum word count for a section to be worth summarizing.
 	summaryMinWords = 20
 
 	// summaryMaxTokens caps Claude's response length for section summaries.
@@ -68,7 +68,7 @@ func (s *SectionSummarizer) SummarizeNode(ctx context.Context, node *SectionNode
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("summarising section %q: %w", node.Title, err)
+		return nil, fmt.Errorf("summarizing section %q: %w", node.Title, err)
 	}
 
 	var summary string
@@ -105,7 +105,7 @@ func (s *SectionSummarizer) SummarizeNode(ctx context.Context, node *SectionNode
 	return mem, nil
 }
 
-// SummarizeTree recursively summarises all nodes in the section tree with
+// SummarizeTree recursively summarizes all nodes in the section tree with
 // sufficient content and returns the resulting Memory objects.
 func (s *SectionSummarizer) SummarizeTree(ctx context.Context, nodes []*SectionNode, source string) ([]*models.Memory, error) {
 	var memories []*models.Memory
@@ -120,7 +120,7 @@ func (s *SectionSummarizer) SummarizeTree(ctx context.Context, nodes []*SectionN
 		mem, err := s.SummarizeNode(ctx, node, source)
 		if err != nil {
 			// Log and continue — a failed summary for one section shouldn't abort the rest.
-			s.logger.Warn("summariser: skipping section", "path", node.Path, "error", err)
+			s.logger.Warn("summarizer: skipping section", "path", node.Path, "error", err)
 		} else if mem != nil {
 			memories = append(memories, mem)
 		}
@@ -160,16 +160,16 @@ func (s *SectionSummarizer) SummarizeDirectory(ctx context.Context, dir string, 
 
 		n, err := s.summarizeFile(ctx, filePath, emb, st)
 		if err != nil {
-			s.logger.Error("summariser: failed to summarise file", "file", filePath, "error", err)
+			s.logger.Error("summarizer: failed to summarize file", "file", filePath, "error", err)
 			continue
 		}
 		total += n
-		s.logger.Info("summariser: summarised file", "file", filePath, "summaries", n)
+		s.logger.Info("summarizer: summarized file", "file", filePath, "summaries", n)
 	}
 	return total, nil
 }
 
-// summarizeFile processes a single file: parse → summarise → embed → upsert.
+// summarizeFile processes a single file: parse → summarize → embed → upsert.
 func (s *SectionSummarizer) summarizeFile(ctx context.Context, filePath string, emb embedder.Embedder, st store.Store) (int, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -179,18 +179,18 @@ func (s *SectionSummarizer) summarizeFile(ctx context.Context, filePath string, 
 	tree := ParseMarkdownTree(string(data))
 	memories, err := s.SummarizeTree(ctx, tree, filePath)
 	if err != nil {
-		return 0, fmt.Errorf("summarising tree for %s: %w", filePath, err)
+		return 0, fmt.Errorf("summarizing tree for %s: %w", filePath, err)
 	}
 
 	stored := 0
 	for _, mem := range memories {
 		vec, err := emb.Embed(ctx, mem.Content)
 		if err != nil {
-			s.logger.Warn("summariser: embed failed, skipping", "content_prefix", mem.Content[:minInt(40, len(mem.Content))], "error", err)
+			s.logger.Warn("summarizer: embed failed, skipping", "content_prefix", mem.Content[:minInt(40, len(mem.Content))], "error", err)
 			continue
 		}
 		if err := st.Upsert(ctx, *mem, vec); err != nil {
-			s.logger.Warn("summariser: upsert failed, skipping", "error", err)
+			s.logger.Warn("summarizer: upsert failed, skipping", "error", err)
 			continue
 		}
 		stored++
