@@ -41,8 +41,10 @@ func TruncateToTokenBudget(text string, budget int) string {
 		return text
 	}
 
-	// Approximate: 3.5 chars per token (calibrated to cl100k_base)
-	maxChars := int(float64(budget) * 3.5)
+	// Approximate: 3.5 chars per token (calibrated to cl100k_base).
+	// Divide by 1.1 to account for the 10% safety margin EstimateTokens adds,
+	// so that EstimateTokens(truncated) is at or below budget.
+	maxChars := int(float64(budget) * 3.5 / 1.1)
 	if maxChars >= len(text) {
 		return text
 	}

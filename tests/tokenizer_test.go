@@ -45,7 +45,7 @@ func TestEstimateTokensAdditional(t *testing.T) {
 
 	t.Run("pangram 9-word calibration text", func(t *testing.T) {
 		// "The quick brown fox jumps over the lazy dog" — 9 words, 43 chars
-		// cl100k_base tokenises this as ~9 tokens; heuristic should be in 8–15 range
+		// cl100k_base tokenizes this as ~9 tokens; heuristic should be in 8–15 range
 		tokens := tokenizer.EstimateTokens("The quick brown fox jumps over the lazy dog")
 		assert.GreaterOrEqual(t, tokens, 8)
 		assert.LessOrEqual(t, tokens, 15)
