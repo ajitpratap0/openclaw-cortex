@@ -2,7 +2,7 @@ package classifier
 
 import (
 	"log/slog"
-	"strings"
+	"regexp"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
@@ -22,6 +22,16 @@ func NewClassifier(logger *slog.Logger) *HeuristicClassifier {
 	return &HeuristicClassifier{logger: logger}
 }
 
+// compileBoundaryPatterns compiles a list of literal strings into case-insensitive
+// word-boundary regexps to avoid false positives from substring matching.
+func compileBoundaryPatterns(patterns []string) []*regexp.Regexp {
+	compiled := make([]*regexp.Regexp, len(patterns))
+	for i, p := range patterns {
+		compiled[i] = regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(p) + `\b`)
+	}
+	return compiled
+}
+
 // rulePatterns match text that describes rules/constraints.
 var rulePatterns = []string{
 	"must", "always", "never", "required", "shall", "constraint",
@@ -31,7 +41,7 @@ var rulePatterns = []string{
 
 // procedurePatterns match text that describes procedures/steps.
 var procedurePatterns = []string{
-	"step 1", "step 2", "first,", "then,", "finally,",
+	"step 1", "step 2", "first", "then", "finally",
 	"how to", "to do this", "process:", "workflow:", "steps:",
 	"run the", "execute", "install", "configure", "setup",
 	"create a", "deploy", "build the",
@@ -52,10 +62,15 @@ var episodePatterns = []string{
 	"incident", "session", "meeting",
 }
 
+var (
+	compiledRulePatterns       = compileBoundaryPatterns(rulePatterns)
+	compiledProcedurePatterns  = compileBoundaryPatterns(procedurePatterns)
+	compiledPreferencePatterns = compileBoundaryPatterns(preferencePatterns)
+	compiledEpisodePatterns    = compileBoundaryPatterns(episodePatterns)
+)
+
 // Classify determines the memory type from content using heuristics.
 func (c *HeuristicClassifier) Classify(content string) models.MemoryType {
-	lower := strings.ToLower(content)
-
 	scores := map[models.MemoryType]int{
 		models.MemoryTypeRule:       0,
 		models.MemoryTypeFact:       0,
@@ -64,26 +79,26 @@ func (c *HeuristicClassifier) Classify(content string) models.MemoryType {
 		models.MemoryTypePreference: 0,
 	}
 
-	for _, p := range rulePatterns {
-		if strings.Contains(lower, p) {
+	for _, re := range compiledRulePatterns {
+		if re.MatchString(content) {
 			scores[models.MemoryTypeRule]++
 		}
 	}
 
-	for _, p := range procedurePatterns {
-		if strings.Contains(lower, p) {
+	for _, re := range compiledProcedurePatterns {
+		if re.MatchString(content) {
 			scores[models.MemoryTypeProcedure]++
 		}
 	}
 
-	for _, p := range preferencePatterns {
-		if strings.Contains(lower, p) {
+	for _, re := range compiledPreferencePatterns {
+		if re.MatchString(content) {
 			scores[models.MemoryTypePreference]++
 		}
 	}
 
-	for _, p := range episodePatterns {
-		if strings.Contains(lower, p) {
+	for _, re := range compiledEpisodePatterns {
+		if re.MatchString(content) {
 			scores[models.MemoryTypeEpisode]++
 		}
 	}
