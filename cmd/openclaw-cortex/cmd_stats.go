@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 )
 
 func statsCmd() *cobra.Command {
@@ -36,6 +38,15 @@ func statsCmd() *cobra.Command {
 			for s, c := range stats.ByScope {
 				fmt.Printf("  %-12s %d\n", s, c)
 			}
+
+			// Print expvar counters
+			fmt.Println("\nRuntime metrics (since process start):")
+			fmt.Printf("  %-30s %d\n", "recall_total", metrics.RecallTotal.Value())
+			fmt.Printf("  %-30s %d\n", "capture_total", metrics.CaptureTotal.Value())
+			fmt.Printf("  %-30s %d\n", "store_total:", metrics.StoreTotal.Value())
+			fmt.Printf("  %-30s %d\n", "dedup_skipped_total", metrics.DedupSkipped.Value())
+			fmt.Printf("  %-30s %d\n", "lifecycle_expired_total", metrics.LifecycleExpired.Value())
+			fmt.Printf("  %-30s %d\n", "lifecycle_decayed_total", metrics.LifecycleDecayed.Value())
 
 			return nil
 		},
