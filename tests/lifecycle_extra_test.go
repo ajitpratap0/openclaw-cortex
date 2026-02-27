@@ -37,7 +37,7 @@ func TestLifecycle_NoExpiredMemories(t *testing.T) {
 	}
 	_ = s.Upsert(ctx, fresh, testVector(0.5))
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 	require.NoError(t, err)
 
@@ -65,7 +65,7 @@ func TestLifecycle_ZeroTTLSkipped(t *testing.T) {
 	}
 	_ = s.Upsert(ctx, zeroTTL, testVector(0.5))
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 	require.NoError(t, err)
 
@@ -109,7 +109,7 @@ func TestLifecycle_MultipleExpiredAndDecayed(t *testing.T) {
 		_ = s.Upsert(ctx, mem, testVector(float32(i)*0.1+0.5))
 	}
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 	require.NoError(t, err)
 
@@ -132,7 +132,7 @@ func TestLifecycle_SessionDecay_ZeroLastAccessed_UsesCreatedAt(t *testing.T) {
 	}
 	_ = s.Upsert(ctx, oldSession, testVector(0.5))
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 	require.NoError(t, err)
 
@@ -157,7 +157,7 @@ func TestLifecycle_DryRun_SessionDecay(t *testing.T) {
 	}
 	_ = s.Upsert(ctx, oldSession, testVector(0.5))
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, true) // dryRun=true
 	require.NoError(t, err)
 
@@ -172,7 +172,7 @@ func TestLifecycle_EmptyStore(t *testing.T) {
 	ctx := context.Background()
 	s := store.NewMockStore()
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 	require.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestLifecycle_ManySessionsMultiPage(t *testing.T) {
 		_ = s.Upsert(ctx, mem, testVector(float32(i%100)*0.01))
 	}
 
-	lm := lifecycle.NewManager(s, lifecycleLogger())
+	lm := lifecycle.NewManager(s, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, true) // dryRun=true to avoid deleting 501 items
 	require.NoError(t, err)
 

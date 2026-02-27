@@ -78,7 +78,7 @@ func TestPostTurnHook_UpsertError_SkipsMemory(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	// Should NOT error — upsert failures are logged and skipped
 	require.NoError(t, err)

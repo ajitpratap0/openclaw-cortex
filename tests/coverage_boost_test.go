@@ -93,7 +93,7 @@ func TestLifecycle_Run_ListError(t *testing.T) {
 		listErr:   listErr,
 	}
 
-	lm := lifecycle.NewManager(st, lifecycleLogger())
+	lm := lifecycle.NewManager(st, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 
 	// Both phases fail — err should be non-nil and contain both failures
@@ -128,7 +128,7 @@ func TestLifecycle_Run_DeleteErrorDuringExpiry(t *testing.T) {
 		deleteErr: errors.New("delete failed"),
 	}
 
-	lm := lifecycle.NewManager(st, lifecycleLogger())
+	lm := lifecycle.NewManager(st, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false) // dryRun=false to trigger Delete call
 
 	// Run should not fail — delete errors are logged and the loop continues
@@ -159,7 +159,7 @@ func TestLifecycle_Run_DeleteErrorDuringDecay(t *testing.T) {
 		deleteErr: errors.New("delete failed"),
 	}
 
-	lm := lifecycle.NewManager(st, lifecycleLogger())
+	lm := lifecycle.NewManager(st, nil, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
 
 	require.NoError(t, err)
@@ -224,6 +224,21 @@ func TestSectionSummarizer_SummarizeDirectory_FileReadError(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// TestSectionSummarizer_SummarizeDirectory_FindMarkdownError covers the error path
+// in SummarizeDirectory (lines 148-151) when FindMarkdownFiles returns an error.
+func TestSectionSummarizer_SummarizeDirectory_FindMarkdownError(t *testing.T) {
+	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	ctx := context.Background()
+
+	st := store.NewMockStore()
+	emb := &mockEmbedder{dimension: 768}
+
+	// Non-existent directory causes FindMarkdownFiles to return an error
+	_, err := s.SummarizeDirectory(ctx, "/nonexistent/path/that/cannot/exist", emb, st)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "finding markdown files")
+}
+
 // TestSectionSummarizer_SummarizeTree_WithChildren covers the child-node traversal
 // in SummarizeTree (lines 128-131) where a node has children.
 func TestSectionSummarizer_SummarizeTree_WithChildren(t *testing.T) {
@@ -281,4 +296,40 @@ func TestIndexer_IndexFile_CancelledContextMidLoop(t *testing.T) {
 	_, err = idx.IndexFile(ctx, mdPath)
 	// With pre-canceled context, should return context error
 	assert.Error(t, err)
+}
+
+// TestIndexer_IndexDirectory_IndexFileError covers the error-log-and-continue path in
+// IndexDirectory (lines 76-78) when IndexFile returns an error for a file.
+// A file that disappears between FindMarkdownFiles and IndexFile triggers a read error.
+func TestIndexer_IndexDirectory_IndexFileError(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a valid markdown file first
+	validPath := filepath.Join(dir, "valid.md")
+	err := os.WriteFile(validPath, []byte("# Section\nSome content for indexing.\n"), 0644)
+	require.NoError(t, err)
+
+	// Create a markdown file that will be deleted before IndexFile processes it
+	ghostPath := filepath.Join(dir, "ghost.md")
+	err = os.WriteFile(ghostPath, []byte("# Ghost\nThis will vanish.\n"), 0644)
+	require.NoError(t, err)
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	emb := &mockEmbedder{dimension: 768}
+	st := store.NewMockStore()
+
+	_ = emb // not used after refactor
+
+	// IndexDirectory calls FindMarkdownFiles first (finds both), then iterates.
+	// We can't easily delete between find and index, so instead use an embedder
+	// that fails to trigger IndexFile to return an error.
+	// The error path in IndexDirectory logs the error and continues.
+	// Use errorBatchEmbedder so IndexFile errors.
+	embErr := &errorBatchEmbedder{dimension: 768}
+	idxErr := indexer.NewIndexer(embErr, st, 512, 64, logger)
+
+	// IndexDirectory should return 0 but no error (errors are logged and skipped)
+	count, err := idxErr.IndexDirectory(context.Background(), dir)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
 }

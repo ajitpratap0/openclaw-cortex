@@ -13,18 +13,18 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
 
-func newTestLogger() *slog.Logger {
+func newTestLoggerRecall() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 }
 
 func TestRecallRankEmpty(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 	results := r.Rank(nil, "")
 	assert.Empty(t, results)
 }
 
 func TestRecallRankByTypeBoost(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -53,7 +53,7 @@ func TestRecallRankByTypeBoost(t *testing.T) {
 }
 
 func TestRecallRecencyDecay(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -149,7 +149,7 @@ func TestRecallWeightsInvalidFallsToDefault(t *testing.T) {
 		ScopeBoost: 0.9,
 	}
 	// Should not panic — NewRecaller logs warning and uses defaults
-	r := recall.NewRecaller(badWeights, newTestLogger())
+	r := recall.NewRecaller(badWeights, newTestLoggerRecall())
 	assert.NotNil(t, r)
 
 	now := time.Now().UTC()
@@ -188,7 +188,7 @@ func TestRecallTypePriorityAllTypes(t *testing.T) {
 }
 
 func TestRecallRankOrderingProcedureVsFact(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -215,7 +215,7 @@ func TestRecallRankOrderingProcedureVsFact(t *testing.T) {
 }
 
 func TestRecallRankOrderingPreferenceVsEpisode(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -242,7 +242,7 @@ func TestRecallRankOrderingPreferenceVsEpisode(t *testing.T) {
 }
 
 func TestRecallRankScopeProjectBoost(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -270,7 +270,7 @@ func TestRecallRankScopeProjectBoost(t *testing.T) {
 }
 
 func TestRecallRankFrequencyBoost(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -297,7 +297,7 @@ func TestRecallRankFrequencyBoost(t *testing.T) {
 }
 
 func TestRecallRankZeroAccessCount(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -318,7 +318,7 @@ func TestRecallRankZeroAccessCount(t *testing.T) {
 }
 
 func TestRecallRankZeroLastAccessed(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 
 	results := []models.SearchResult{
 		{Memory: models.Memory{
@@ -338,7 +338,7 @@ func TestRecallRankZeroLastAccessed(t *testing.T) {
 
 func TestRecallFinalScoreIsWeightedSum(t *testing.T) {
 	weights := recall.DefaultWeights()
-	r := recall.NewRecaller(weights, newTestLogger())
+	r := recall.NewRecaller(weights, newTestLoggerRecall())
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{

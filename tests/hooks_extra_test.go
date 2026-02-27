@@ -31,7 +31,7 @@ func TestPostTurnHook_EmbedError_SkipsMemory(t *testing.T) {
 	// Embedder always returns error
 	emb := &hookMockEmbedder{err: errors.New("embed service unavailable"), dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	// Should not error — embed failures are logged and skipped
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestPostTurnHook_ClassifierFallback(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeRule} // Classifier returns Rule
 	emb := &hookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -85,7 +85,7 @@ func TestPostTurnHook_MultipleMemories(t *testing.T) {
 	// Use distinct vectors (dim-based embedder) to avoid dedup
 	emb := &hookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -173,7 +173,7 @@ func TestPostTurnHook_ProjectTagging(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hooks.PostTurnInput{
 		UserMessage:      "user msg",
 		AssistantMessage: "assistant msg",
