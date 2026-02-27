@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -29,15 +28,16 @@ func exportCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			// Paginate through all memories
+			// Paginate through all memories.
 			var all []map[string]any
 			cursor := ""
 			for {
-				memories, next, err := st.List(ctx, nil, 500, cursor)
-				if err != nil {
-					return fmt.Errorf("export: listing memories: %w", err)
+				memories, next, listErr := st.List(ctx, nil, 500, cursor)
+				if listErr != nil {
+					return fmt.Errorf("export: listing memories: %w", listErr)
 				}
-				for _, m := range memories {
+				for i := range memories {
+					m := &memories[i]
 					all = append(all, map[string]any{
 						"id":           m.ID,
 						"type":         string(m.Type),
@@ -74,14 +74,14 @@ func exportCmd() *cobra.Command {
 			case "json":
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
-				if err := enc.Encode(all); err != nil {
-					return fmt.Errorf("export: encoding JSON: %w", err)
+				if encErr := enc.Encode(all); encErr != nil {
+					return fmt.Errorf("export: encoding JSON: %w", encErr)
 				}
 			case "csv":
 				cw := csv.NewWriter(w)
 				headers := []string{"id", "type", "scope", "visibility", "content", "confidence", "source", "project", "access_count", "created_at"}
-				if err := cw.Write(headers); err != nil {
-					return fmt.Errorf("export: writing CSV header: %w", err)
+				if writeErr := cw.Write(headers); writeErr != nil {
+					return fmt.Errorf("export: writing CSV header: %w", writeErr)
 				}
 				for _, m := range all {
 					row := []string{
@@ -90,19 +90,19 @@ func exportCmd() *cobra.Command {
 						fmt.Sprint(m["scope"]),
 						fmt.Sprint(m["visibility"]),
 						fmt.Sprint(m["content"]),
-						strconv.FormatFloat(m["confidence"].(float64), 'f', 4, 64),
+						fmt.Sprintf("%.4f", m["confidence"]),
 						fmt.Sprint(m["source"]),
 						fmt.Sprint(m["project"]),
 						fmt.Sprint(m["access_count"]),
 						fmt.Sprint(m["created_at"]),
 					}
-					if err := cw.Write(row); err != nil {
-						return fmt.Errorf("export: writing CSV row: %w", err)
+					if writeErr := cw.Write(row); writeErr != nil {
+						return fmt.Errorf("export: writing CSV row: %w", writeErr)
 					}
 				}
 				cw.Flush()
-				if err := cw.Error(); err != nil {
-					return fmt.Errorf("export: flushing CSV: %w", err)
+				if flushErr := cw.Error(); flushErr != nil {
+					return fmt.Errorf("export: flushing CSV: %w", flushErr)
 				}
 			default:
 				return fmt.Errorf("export: unsupported format %q (use json or csv)", format)
