@@ -5,12 +5,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
+
+// xmlEscape replaces characters that have special meaning in XML to prevent
+// prompt injection when embedding user content in XML-delimited templates.
+func xmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
+}
 
 // Capturer extracts structured memories from conversation text.
 type Capturer interface {
@@ -62,8 +72,8 @@ type extractionResponse struct {
 }
 
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
-	// Use XML delimiters to prevent prompt injection from user/assistant content.
-	prompt := fmt.Sprintf(extractionPromptTemplate, userMsg, assistantMsg)
+	// Escape XML-special characters to prevent prompt injection from user/assistant content.
+	prompt := fmt.Sprintf(extractionPromptTemplate, xmlEscape(userMsg), xmlEscape(assistantMsg))
 
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),

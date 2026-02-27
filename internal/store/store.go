@@ -24,7 +24,9 @@ type Store interface {
 	Delete(ctx context.Context, id string) error
 
 	// List returns memories matching the given filters.
-	List(ctx context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error)
+	// The cursor parameter is opaque; pass "" for the first page.
+	// The returned cursor is empty when no more results remain.
+	List(ctx context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error)
 
 	// FindDuplicates returns memories with cosine similarity above the threshold.
 	FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error)

@@ -153,7 +153,7 @@ func TestMockStore_List(t *testing.T) {
 		_ = s.Upsert(ctx, mem, testVector(float32(i)*0.1))
 	}
 
-	results, err := s.List(ctx, nil, 3, 0)
+	results, _, err := s.List(ctx, nil, 3, "")
 	require.NoError(t, err)
 	assert.LessOrEqual(t, len(results), 3)
 }

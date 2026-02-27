@@ -211,21 +211,26 @@ func (q *QdrantStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error) {
+func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
 	var filter *pb.Filter
 	if filters != nil {
 		filter = buildFilter(filters)
 	}
 
 	limit32 := uint32(limit)
-	resp, err := q.points.Scroll(ctx, &pb.ScrollPoints{
+	req := &pb.ScrollPoints{
 		CollectionName: q.collName,
 		Filter:         filter,
 		Limit:          &limit32,
 		WithPayload:    &pb.WithPayloadSelector{SelectorOptions: &pb.WithPayloadSelector_Enable{Enable: true}},
-	})
+	}
+	if cursor != "" {
+		req.Offset = &pb.PointId{PointIdOptions: &pb.PointId_Uuid{Uuid: cursor}}
+	}
+
+	resp, err := q.points.Scroll(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("scrolling points: %w", err)
+		return nil, "", fmt.Errorf("scrolling points: %w", err)
 	}
 
 	memories := make([]models.Memory, 0, len(resp.GetResult()))
@@ -238,7 +243,12 @@ func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit ui
 		memories = append(memories, *mem)
 	}
 
-	return memories, nil
+	var nextCursor string
+	if npo := resp.GetNextPageOffset(); npo != nil {
+		nextCursor = npo.GetUuid()
+	}
+
+	return memories, nextCursor, nil
 }
 
 func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
@@ -268,19 +278,12 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 	return results, nil
 }
 
-// UpdateAccessMetadata reads the current access_count and increments it, then
-// persists both last_accessed and the incremented access_count.
+// UpdateAccessMetadata sets the last_accessed timestamp directly via SetPayload,
+// avoiding a read-modify-write race on access_count.
 func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error {
-	// Read current point to get existing access_count.
-	mem, err := q.Get(ctx, id)
-	if err != nil {
-		return fmt.Errorf("update access metadata: reading point %s: %w", id, err)
-	}
-
 	now := time.Now().UTC().Format(time.RFC3339)
-	newCount := mem.AccessCount + 1
 
-	_, err = q.points.SetPayload(ctx, &pb.SetPayloadPoints{
+	_, err := q.points.SetPayload(ctx, &pb.SetPayloadPoints{
 		CollectionName: q.collName,
 		PointsSelector: &pb.PointsSelector{
 			PointsSelectorOneOf: &pb.PointsSelector_Points{
@@ -293,7 +296,6 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 		},
 		Payload: map[string]*pb.Value{
 			"last_accessed": {Kind: &pb.Value_StringValue{StringValue: now}},
-			"access_count":  {Kind: &pb.Value_IntegerValue{IntegerValue: newCount}},
 		},
 	})
 	if err != nil {

@@ -43,7 +43,7 @@ func listCmd() *cobra.Command {
 				}
 			}
 
-			memories, err := st.List(ctx, filters, limit, 0)
+			memories, _, err := st.List(ctx, filters, limit, "")
 			if err != nil {
 				return fmt.Errorf("list: fetching memories: %w", err)
 			}

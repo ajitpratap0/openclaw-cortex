@@ -54,21 +54,21 @@ func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 	return report, nil
 }
 
-// listAll paginates through all memories matching filters.
+// listAll paginates through all memories matching filters using cursor-based pagination.
 func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]models.Memory, error) {
 	var all []models.Memory
-	var offset uint64
+	var cursor string
 
 	for {
-		page, err := m.store.List(ctx, filters, pageSize, offset)
+		page, nextCursor, err := m.store.List(ctx, filters, pageSize, cursor)
 		if err != nil {
 			return nil, err
 		}
 		all = append(all, page...)
-		if uint64(len(page)) < pageSize {
+		if nextCursor == "" {
 			break
 		}
-		offset += uint64(len(page))
+		cursor = nextCursor
 	}
 
 	return all, nil
