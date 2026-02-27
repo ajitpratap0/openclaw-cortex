@@ -444,14 +444,14 @@ func (q *QdrantStore) Close() error {
 
 func memoryToPayload(m models.Memory) map[string]*pb.Value {
 	payload := map[string]*pb.Value{
-		"type":       {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
-		"scope":      {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
-		"visibility": {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
-		"content":    {Kind: &pb.Value_StringValue{StringValue: m.Content}},
-		"confidence": {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
-		"source":     {Kind: &pb.Value_StringValue{StringValue: m.Source}},
-		"project":    {Kind: &pb.Value_StringValue{StringValue: m.Project}},
-		"ttl_seconds": {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
+		"type":          {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
+		"scope":         {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
+		"visibility":    {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
+		"content":       {Kind: &pb.Value_StringValue{StringValue: m.Content}},
+		"confidence":    {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
+		"source":        {Kind: &pb.Value_StringValue{StringValue: m.Source}},
+		"project":       {Kind: &pb.Value_StringValue{StringValue: m.Project}},
+		"ttl_seconds":   {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
 		"created_at":    {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339)}},
 		"updated_at":    {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339)}},
 		"last_accessed": {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339)}},
@@ -480,15 +480,15 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 
 func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	m := &models.Memory{
-		ID:         id,
-		Type:       models.MemoryType(getStringValue(payload, "type")),
-		Scope:      models.MemoryScope(getStringValue(payload, "scope")),
-		Visibility: models.MemoryVisibility(getStringValue(payload, "visibility")),
-		Content:    getStringValue(payload, "content"),
-		Confidence: getDoubleValue(payload, "confidence"),
-		Source:     getStringValue(payload, "source"),
-		Project:    getStringValue(payload, "project"),
-		TTLSeconds: getIntValue(payload, "ttl_seconds"),
+		ID:          id,
+		Type:        models.MemoryType(getStringValue(payload, "type")),
+		Scope:       models.MemoryScope(getStringValue(payload, "scope")),
+		Visibility:  models.MemoryVisibility(getStringValue(payload, "visibility")),
+		Content:     getStringValue(payload, "content"),
+		Confidence:  getDoubleValue(payload, "confidence"),
+		Source:      getStringValue(payload, "source"),
+		Project:     getStringValue(payload, "project"),
+		TTLSeconds:  getIntValue(payload, "ttl_seconds"),
 		AccessCount: getIntValue(payload, "access_count"),
 	}
 

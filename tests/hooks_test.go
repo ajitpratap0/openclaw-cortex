@@ -40,8 +40,8 @@ func (m *hookMockClassifier) Classify(_ string) models.MemoryType {
 type hookMockEmbedder struct {
 	vec []float32
 	err error
-	dim int   // vector dimension
-	seq int   // call counter for generating distinct vectors
+	dim int // vector dimension
+	seq int // call counter for generating distinct vectors
 }
 
 func (m *hookMockEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {

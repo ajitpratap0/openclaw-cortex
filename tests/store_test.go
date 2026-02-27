@@ -94,9 +94,9 @@ func TestMockStore_Search(t *testing.T) {
 	mem2 := newTestMemory("s-2", models.MemoryTypeRule, "Always write tests")
 	mem3 := newTestMemory("s-3", models.MemoryTypeProcedure, "How to deploy")
 
-	_ = s.Upsert(ctx, mem1, queryVec)               // exact match to query
+	_ = s.Upsert(ctx, mem1, queryVec)           // exact match to query
 	_ = s.Upsert(ctx, mem2, testVector(-0.5))   // different direction
-	_ = s.Upsert(ctx, mem3, testVectorAlt(768))       // very different
+	_ = s.Upsert(ctx, mem3, testVectorAlt(768)) // very different
 
 	results, err := s.Search(ctx, queryVec, 10, nil)
 	require.NoError(t, err)
