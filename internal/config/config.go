@@ -66,12 +66,13 @@ func maskAPIKey(key string) string {
 
 // MemoryConfig holds memory indexing and deduplication settings.
 type MemoryConfig struct {
-	MemoryDir       string  `mapstructure:"memory_dir"`
-	ChunkSize       int     `mapstructure:"chunk_size"`
-	ChunkOverlap    int     `mapstructure:"chunk_overlap"`
-	DedupThreshold  float64 `mapstructure:"dedup_threshold"`
-	DefaultTTLHours int     `mapstructure:"default_ttl_hours"`
-	VectorDimension uint64  `mapstructure:"vector_dimension"`
+	MemoryDir          string  `mapstructure:"memory_dir"`
+	ChunkSize          int     `mapstructure:"chunk_size"`
+	ChunkOverlap       int     `mapstructure:"chunk_overlap"`
+	DedupThreshold     float64 `mapstructure:"dedup_threshold"`
+	DedupThresholdHook float64 `mapstructure:"dedup_threshold_hook"` // default 0.95
+	DefaultTTLHours    int     `mapstructure:"default_ttl_hours"`
+	VectorDimension    uint64  `mapstructure:"vector_dimension"`
 }
 
 // LoggingConfig holds structured logging settings.
@@ -100,6 +101,7 @@ func Load() (*Config, error) {
 	v.SetDefault("memory.chunk_size", DefaultChunkSize)
 	v.SetDefault("memory.chunk_overlap", DefaultChunkOverlap)
 	v.SetDefault("memory.dedup_threshold", DefaultDedupThreshold)
+	v.SetDefault("memory.dedup_threshold_hook", 0.95)
 	v.SetDefault("memory.default_ttl_hours", 720) // 30 days
 	v.SetDefault("memory.vector_dimension", 768)
 
@@ -163,6 +165,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Memory.DedupThreshold < 0 || c.Memory.DedupThreshold > 1 {
 		return fmt.Errorf("memory.dedup_threshold must be between 0 and 1")
+	}
+	if c.Memory.DedupThresholdHook < 0 || c.Memory.DedupThresholdHook > 1 {
+		return fmt.Errorf("memory.dedup_threshold_hook must be between 0 and 1")
 	}
 	if c.Memory.VectorDimension <= 0 {
 		return fmt.Errorf("memory.vector_dimension must be greater than 0")

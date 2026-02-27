@@ -106,18 +106,14 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	return output, nil
 }
 
-// dedupThreshold is intentionally stricter than the config default (0.92) to
-// avoid false-positive dedup on automatically captured memories, where content
-// overlap is more likely than with explicit user-stored memories.
-const dedupThreshold = 0.95
-
 // PostTurnHook captures memories from a completed agent turn.
 type PostTurnHook struct {
-	capturer   capture.Capturer
-	classifier classifier.Classifier
-	embedder   embedder.Embedder
-	store      store.Store
-	logger     *slog.Logger
+	capturer       capture.Capturer
+	classifier     classifier.Classifier
+	embedder       embedder.Embedder
+	store          store.Store
+	logger         *slog.Logger
+	dedupThreshold float64
 }
 
 // PostTurnInput contains the conversation turn data.
@@ -129,13 +125,16 @@ type PostTurnInput struct {
 }
 
 // NewPostTurnHook creates a post-turn hook handler.
-func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedder.Embedder, st store.Store, logger *slog.Logger) *PostTurnHook {
+// dedupThreshold is the cosine similarity threshold above which a memory is considered a duplicate.
+// A value of 0.95 is recommended for hook-captured memories to avoid false-positive dedup.
+func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedder.Embedder, st store.Store, logger *slog.Logger, dedupThreshold float64) *PostTurnHook {
 	return &PostTurnHook{
-		capturer:   cap,
-		classifier: cls,
-		embedder:   emb,
-		store:      st,
-		logger:     logger,
+		capturer:       cap,
+		classifier:     cls,
+		embedder:       emb,
+		store:          st,
+		logger:         logger,
+		dedupThreshold: dedupThreshold,
 	}
 }
 
@@ -176,7 +175,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 		}
 
 		// 4. Dedup – skip if a near-duplicate already exists.
-		dupes, err := h.store.FindDuplicates(ctx, vec, dedupThreshold)
+		dupes, err := h.store.FindDuplicates(ctx, vec, h.dedupThreshold)
 		if err != nil {
 			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", err)
 		} else if len(dupes) > 0 {

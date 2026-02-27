@@ -47,6 +47,7 @@ func main() {
 		consolidateCmd(),
 		getCmd(),
 		exportCmd(),
+		healthCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
