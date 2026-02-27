@@ -40,22 +40,41 @@ func (m *hookMockClassifier) Classify(_ string) models.MemoryType {
 type hookMockEmbedder struct {
 	vec []float32
 	err error
+	dim int   // vector dimension
+	seq int   // call counter for generating distinct vectors
 }
 
 func (m *hookMockEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
-	return m.vec, m.err
+	return m.nextVec(), m.err
 }
 
 func (m *hookMockEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
 	result := make([][]float32, len(texts))
 	for i := range texts {
-		result[i] = m.vec
+		result[i] = m.nextVec()
 	}
 	return result, m.err
 }
 
 func (m *hookMockEmbedder) Dimension() int {
+	if m.dim > 0 {
+		return m.dim
+	}
 	return len(m.vec)
+}
+
+// nextVec returns the next embedding vector. When vec is set, it always returns
+// that fixed vector (useful for dedup tests). When only dim is set, it returns
+// distinct one-hot vectors so successive embeddings are orthogonal.
+func (m *hookMockEmbedder) nextVec() []float32 {
+	if m.vec != nil {
+		return m.vec
+	}
+	d := m.Dimension()
+	v := make([]float32, d)
+	v[m.seq%d] = 1.0
+	m.seq++
+	return v
 }
 
 // --- helpers ---
@@ -91,7 +110,7 @@ func TestPostTurnHook_HappyPath(t *testing.T) {
 		},
 	}
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
-	emb := &hookMockEmbedder{vec: newHookMockVec()}
+	emb := &hookMockEmbedder{dim: 8} // distinct vectors per call — no false dedup
 
 	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
 	err := hook.Execute(ctx, hookTestInput())

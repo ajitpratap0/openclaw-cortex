@@ -107,7 +107,9 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 
 		// Check for duplicates before inserting
 		dupes, err := idx.store.FindDuplicates(ctx, vec, dedupThreshold)
-		if err == nil && len(dupes) > 0 {
+		if err != nil {
+			idx.logger.Warn("dedup check failed, proceeding with store", "error", err)
+		} else if len(dupes) > 0 {
 			idx.logger.Debug("skipping duplicate chunk", "source", chunk.Source, "similar_to", dupes[0].Memory.ID)
 			continue
 		}
