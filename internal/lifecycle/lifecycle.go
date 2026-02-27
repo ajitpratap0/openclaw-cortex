@@ -12,6 +12,9 @@ import (
 
 const pageSize uint64 = 500
 
+// maxListAllMemories is a safety cap to prevent unbounded memory loading.
+const maxListAllMemories = 50000
+
 // Report summarizes the results of a lifecycle run.
 type Report struct {
 	Expired int `json:"expired"`
@@ -54,7 +57,8 @@ func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 	return report, nil
 }
 
-// listAll paginates through all memories matching filters using cursor-based pagination.
+// listAll paginates through all memories matching filters.
+// It stops after maxListAllMemories to prevent unbounded memory usage.
 func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]models.Memory, error) {
 	var all []models.Memory
 	var cursor string
@@ -65,7 +69,15 @@ func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]
 			return nil, err
 		}
 		all = append(all, page...)
-		if nextCursor == "" {
+		if uint64(len(all)) >= maxListAllMemories {
+			m.logger.Warn("listAll hit safety cap, results truncated",
+				"cap", maxListAllMemories,
+				"loaded", len(all),
+			)
+			all = all[:maxListAllMemories]
+			break
+		}
+		if uint64(len(page)) < pageSize {
 			break
 		}
 		cursor = nextCursor

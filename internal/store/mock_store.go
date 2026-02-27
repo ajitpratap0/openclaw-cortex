@@ -208,6 +208,18 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	if f.Source != nil && mem.Source != *f.Source {
 		return false
 	}
+	for _, required := range f.Tags {
+		found := false
+		for _, t := range mem.Tags {
+			if t == required {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
 	return true
 }
 

@@ -544,6 +544,17 @@ func buildFilter(f *SearchFilters) *pb.Filter {
 		})
 	}
 
+	for _, tag := range f.Tags {
+		conditions = append(conditions, &pb.Condition{
+			ConditionOneOf: &pb.Condition_Field{
+				Field: &pb.FieldCondition{
+					Key:   "tags",
+					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: tag}},
+				},
+			},
+		})
+	}
+
 	if len(conditions) == 0 {
 		return nil
 	}
