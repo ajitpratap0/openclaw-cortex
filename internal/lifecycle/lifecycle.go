@@ -31,9 +31,9 @@ type Report struct {
 
 // Manager handles memory lifecycle operations.
 type Manager struct {
-	store    store.Store
-	emb      embedder.Embedder
-	logger   *slog.Logger
+	store  store.Store
+	emb    embedder.Embedder
+	logger *slog.Logger
 }
 
 // NewManager creates a new lifecycle manager.
@@ -236,6 +236,10 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 				}
 				deleted[memories[deleteIdx].ID] = true
 				consolidated++
+				// If the outer anchor was deleted, stop comparing against its stale vector.
+				if deleteIdx == i {
+					break
+				}
 			}
 		}
 	}
