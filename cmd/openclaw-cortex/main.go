@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -16,6 +19,9 @@ import (
 var cfg *config.Config
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	rootCmd := &cobra.Command{
 		Use:   "openclaw-cortex",
 		Short: "OpenClaw Cortex — hybrid layered memory system for AI agents",
@@ -41,6 +47,8 @@ func main() {
 		statsCmd(),
 		consolidateCmd(),
 	)
+
+	rootCmd.SetContext(ctx)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

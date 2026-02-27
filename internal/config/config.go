@@ -118,7 +118,34 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("unmarshalling config: %w", err)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
 	return &cfg, nil
+}
+
+// Validate checks that required configuration fields are set and consistent.
+func (c *Config) Validate() error {
+	if c.Qdrant.Host == "" {
+		return fmt.Errorf("qdrant.host must not be empty")
+	}
+	if c.Ollama.BaseURL == "" {
+		return fmt.Errorf("ollama.base_url must not be empty")
+	}
+	if c.Qdrant.Collection == "" {
+		return fmt.Errorf("qdrant.collection must not be empty")
+	}
+	if c.Memory.ChunkSize <= 0 {
+		return fmt.Errorf("memory.chunk_size must be greater than 0")
+	}
+	if c.Memory.ChunkOverlap >= c.Memory.ChunkSize {
+		return fmt.Errorf("memory.chunk_overlap (%d) must be less than memory.chunk_size (%d)", c.Memory.ChunkOverlap, c.Memory.ChunkSize)
+	}
+	if c.Memory.DedupThreshold < 0 || c.Memory.DedupThreshold > 1 {
+		return fmt.Errorf("memory.dedup_threshold must be between 0 and 1")
+	}
+	return nil
 }
 
 func homeDir() string {

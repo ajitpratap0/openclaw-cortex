@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -27,7 +26,7 @@ func storeCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 			content := args[0]
 
 			// Validate memory type.

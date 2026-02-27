@@ -15,7 +15,15 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
-const qdrantDialTimeout = 10 * time.Second
+const (
+	qdrantDialTimeout  = 10 * time.Second
+	qdrantReadTimeout  = 10 * time.Second
+	qdrantWriteTimeout = 30 * time.Second
+)
+
+func withTimeout(parent context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, d)
+}
 
 // QdrantStore implements Store using Qdrant's gRPC API.
 type QdrantStore struct {
@@ -64,7 +72,9 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 
 func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	// Check if collection exists
-	resp, err := q.collection.List(ctx, &pb.ListCollectionsRequest{})
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+	resp, err := q.collection.List(rctx, &pb.ListCollectionsRequest{})
 	if err != nil {
 		return fmt.Errorf("listing collections: %w", err)
 	}
@@ -77,7 +87,9 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	}
 
 	// Create collection
-	_, err = q.collection.Create(ctx, &pb.CreateCollection{
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err = q.collection.Create(wctx, &pb.CreateCollection{
 		CollectionName: q.collName,
 		VectorsConfig: &pb.VectorsConfig{
 			Config: &pb.VectorsConfig_Params{
@@ -97,7 +109,9 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	// Create payload indexes for common filter fields
 	indexFields := []string{"type", "scope", "visibility", "project", "source"}
 	for _, field := range indexFields {
-		_, err := q.points.CreateFieldIndex(ctx, &pb.CreateFieldIndexCollection{
+		ictx, icancel := withTimeout(ctx, qdrantWriteTimeout)
+		defer icancel()
+		_, err := q.points.CreateFieldIndex(ictx, &pb.CreateFieldIndexCollection{
 			CollectionName: q.collName,
 			FieldName:      field,
 			FieldType:      pb.FieldType_FieldTypeKeyword.Enum(),
@@ -111,6 +125,8 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 }
 
 func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector []float32) error {
+	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer cancel()
 	payload := memoryToPayload(memory)
 
 	_, err := q.points.Upsert(ctx, &pb.UpsertPoints{
@@ -138,6 +154,8 @@ func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector [
 }
 
 func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	req := &pb.SearchPoints{
 		CollectionName: q.collName,
 		Vector:         vector,
@@ -171,6 +189,8 @@ func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64
 }
 
 func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	resp, err := q.points.Get(ctx, &pb.GetPoints{
 		CollectionName: q.collName,
 		Ids: []*pb.PointId{
@@ -191,6 +211,8 @@ func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error
 }
 
 func (q *QdrantStore) Delete(ctx context.Context, id string) error {
+	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer cancel()
 	_, err := q.points.Delete(ctx, &pb.DeletePoints{
 		CollectionName: q.collName,
 		Points: &pb.PointsSelector{
@@ -212,6 +234,8 @@ func (q *QdrantStore) Delete(ctx context.Context, id string) error {
 }
 
 func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	var filter *pb.Filter
 	if filters != nil {
 		filter = buildFilter(filters)
@@ -252,6 +276,8 @@ func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit ui
 }
 
 func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	resp, err := q.points.Search(ctx, &pb.SearchPoints{
 		CollectionName: q.collName,
 		Vector:         vector,
@@ -283,7 +309,9 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	_, err := q.points.SetPayload(ctx, &pb.SetPayloadPoints{
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err := q.points.SetPayload(wctx, &pb.SetPayloadPoints{
 		CollectionName: q.collName,
 		PointsSelector: &pb.PointsSelector{
 			PointsSelectorOneOf: &pb.PointsSelector_Points{
@@ -307,7 +335,9 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 
 // Stats returns collection statistics. Type and scope counts are fetched concurrently.
 func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error) {
-	info, err := q.collection.Get(ctx, &pb.GetCollectionInfoRequest{
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+	info, err := q.collection.Get(rctx, &pb.GetCollectionInfoRequest{
 		CollectionName: q.collName,
 	})
 	if err != nil {
@@ -345,7 +375,9 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	for i, t := range tasks {
 		i, t := i, t
 		g.Go(func() error {
-			countResp, err := q.points.Count(gctx, &pb.CountPoints{
+			cctx, ccancel := withTimeout(gctx, qdrantReadTimeout)
+			defer ccancel()
+			countResp, err := q.points.Count(cctx, &pb.CountPoints{
 				CollectionName: q.collName,
 				Filter: &pb.Filter{
 					Must: []*pb.Condition{

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,7 +22,7 @@ func searchCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 			query := args[0]
 
 			emb := newEmbedder(logger)

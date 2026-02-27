@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -13,7 +12,7 @@ func statsCmd() *cobra.Command {
 		Short: "Show memory collection statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			st, err := newStore(logger)
 			if err != nil {
