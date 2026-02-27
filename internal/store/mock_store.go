@@ -228,6 +228,12 @@ func (m *MockStore) Close() error {
 // --- helpers ---
 
 func matchesFilters(mem models.Memory, f *SearchFilters) bool {
+	// Sensitive memories are opt-in: only returned when explicitly requested.
+	if mem.Visibility == models.VisibilitySensitive {
+		if f == nil || f.Visibility == nil || *f.Visibility != models.VisibilitySensitive {
+			return false
+		}
+	}
 	if f == nil {
 		return true
 	}
