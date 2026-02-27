@@ -7,9 +7,9 @@ import (
 // SectionNode represents a section of a markdown document.
 type SectionNode struct {
 	Title     string
-	Depth     int            // 1=H1, 2=H2, 3=H3, 4=H4
-	Path      string         // " / "-delimited: "Architecture / Store / Qdrant"
-	Content   string         // raw body text (no sub-headings)
+	Depth     int    // 1=H1, 2=H2, 3=H3, 4=H4
+	Path      string // " / "-delimited: "Architecture / Store / Qdrant"
+	Content   string // raw body text (no sub-headings)
 	WordCount int
 	Children  []*SectionNode
 }
