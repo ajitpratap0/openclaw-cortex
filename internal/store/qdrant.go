@@ -70,6 +70,7 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 	}, nil
 }
 
+// EnsureCollection creates the vector collection if it doesn't exist.
 func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	// Check if collection exists
 	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
@@ -124,6 +125,7 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
+// Upsert inserts or updates a memory with its embedding vector.
 func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector []float32) error {
 	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
 	defer cancel()
@@ -153,6 +155,7 @@ func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector [
 	return nil
 }
 
+// Search finds memories similar to the query vector.
 func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error) {
 	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
 	defer cancel()
@@ -188,6 +191,7 @@ func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64
 	return results, nil
 }
 
+// Get retrieves a single memory by ID.
 func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error) {
 	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
 	defer cancel()
@@ -210,6 +214,7 @@ func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error
 	return payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 }
 
+// Delete removes a memory by ID.
 func (q *QdrantStore) Delete(ctx context.Context, id string) error {
 	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
 	defer cancel()
@@ -233,6 +238,7 @@ func (q *QdrantStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// List returns memories matching the given filters with cursor-based pagination.
 func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
 	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
 	defer cancel()
@@ -275,6 +281,7 @@ func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit ui
 	return memories, nextCursor, nil
 }
 
+// FindDuplicates returns memories with cosine similarity above the threshold.
 func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
 	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
 	defer cancel()
@@ -422,6 +429,7 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	return stats, nil
 }
 
+// Close releases the gRPC connection.
 func (q *QdrantStore) Close() error {
 	if q.conn != nil {
 		return q.conn.Close()

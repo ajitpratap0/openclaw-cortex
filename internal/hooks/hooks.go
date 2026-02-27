@@ -17,6 +17,9 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
+// preTurnSearchLimit is the maximum number of candidate memories retrieved during pre-turn search.
+const preTurnSearchLimit = 50
+
 // PreTurnHook retrieves relevant memories before an agent turn.
 type PreTurnHook struct {
 	embedder embedder.Embedder
@@ -63,7 +66,7 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	}
 
 	// Search for relevant memories
-	results, err := h.store.Search(ctx, vec, 50, nil)
+	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, nil)
 	if err != nil {
 		return nil, fmt.Errorf("searching memories: %w", err)
 	}

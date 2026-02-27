@@ -49,6 +49,7 @@ func NewOllamaEmbedder(baseURL, model string, dimension int, logger *slog.Logger
 	}
 }
 
+// Embed returns a vector embedding for the given text using the Ollama API.
 func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	reqBody := ollamaEmbedRequest{
 		Model:  o.model,
@@ -152,6 +153,7 @@ func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 	return results, nil
 }
 
+// Dimension returns the embedding vector dimension.
 func (o *OllamaEmbedder) Dimension() int {
 	return o.dimension
 }

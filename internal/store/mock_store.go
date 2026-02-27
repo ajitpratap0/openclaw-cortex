@@ -28,10 +28,12 @@ func NewMockStore() *MockStore {
 	}
 }
 
+// EnsureCollection is a no-op for the mock store.
 func (m *MockStore) EnsureCollection(_ context.Context) error {
 	return nil
 }
 
+// Upsert inserts or updates a memory in the mock store.
 func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -39,6 +41,7 @@ func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []flo
 	return nil
 }
 
+// Search finds memories by cosine similarity to the query vector.
 func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -71,6 +74,7 @@ func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, fi
 	return results, nil
 }
 
+// Get retrieves a single memory by ID.
 func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -82,6 +86,7 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 	return &mem, nil
 }
 
+// Delete removes a memory by ID.
 func (m *MockStore) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -89,6 +94,7 @@ func (m *MockStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
+// List returns memories matching filters with cursor-based pagination.
 func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -135,6 +141,7 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 	return all, nextCursor, nil
 }
 
+// FindDuplicates returns memories with cosine similarity above the threshold.
 func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -152,6 +159,7 @@ func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshol
 	return results, nil
 }
 
+// UpdateAccessMetadata updates the last-accessed timestamp and increments the access count.
 func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -165,6 +173,7 @@ func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	return nil
 }
 
+// Stats returns collection statistics computed from the in-memory store.
 func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -183,6 +192,7 @@ func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	return stats, nil
 }
 
+// Close is a no-op for the mock store.
 func (m *MockStore) Close() error {
 	return nil
 }

@@ -13,6 +13,9 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
+// minCaptureConfidence is the minimum confidence score for an extracted memory to be kept.
+const minCaptureConfidence = 0.5
+
 // xmlEscape replaces characters that have special meaning in XML to prevent
 // prompt injection when embedding user content in XML-delimited templates.
 func xmlEscape(s string) string {
@@ -71,6 +74,7 @@ type extractionResponse struct {
 	Memories []models.CapturedMemory `json:"memories"`
 }
 
+// Extract analyzes a conversation turn and returns captured memories above the confidence threshold.
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
 	// Escape XML-special characters to prevent prompt injection from user/assistant content.
 	prompt := fmt.Sprintf(extractionPromptTemplate, xmlEscape(userMsg), xmlEscape(assistantMsg))
@@ -120,7 +124,7 @@ func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg stri
 	// Filter out low-confidence extractions
 	var filtered []models.CapturedMemory
 	for _, m := range memories {
-		if m.Confidence >= 0.5 {
+		if m.Confidence >= minCaptureConfidence {
 			filtered = append(filtered, m)
 		}
 	}
