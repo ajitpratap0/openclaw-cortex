@@ -83,6 +83,28 @@ Final score is a weighted sum:
 Type multipliers: rule=1.5, procedure=1.3, fact=1.0, episode=0.8, preference=0.7.
 Recency uses exponential decay with a 7-day half-life.
 
+## Branch Workflow
+
+**`main` is protected** — direct pushes are blocked. All changes must go through a PR.
+
+```bash
+# Start a new feature or fix
+git checkout -b feat/short-description   # or fix/short-description
+# ... make changes ...
+go test -short -race -count=1 ./...      # must pass
+golangci-lint run ./...                  # must be clean
+git push -u origin feat/short-description
+gh pr create --title "..." --body "..."
+```
+
+Branch naming: `feat/<topic>`, `fix/<topic>`, `refactor/<topic>`, `test/<topic>`.
+
+Required to merge:
+- CI passes: `test (ubuntu-latest, 1.23)` and `test (macos-latest, 1.23)`
+- PR must be open (no direct pushes to `main`)
+- Force-pushes and branch deletion are blocked
+- Linear history required (rebase, no merge commits)
+
 ## Conventions
 
 - **Error wrapping**: always `fmt.Errorf("context: %w", err)` — never bare `err` returns from internal functions.
