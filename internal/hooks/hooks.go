@@ -11,6 +11,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
@@ -55,6 +56,8 @@ func NewPreTurnHook(emb embedder.Embedder, st store.Store, recaller *recall.Reca
 
 // Execute runs the pre-turn hook.
 func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurnOutput, error) {
+	metrics.Inc(metrics.RecallTotal)
+
 	if input.TokenBudget <= 0 {
 		input.TokenBudget = 2000
 	}
@@ -180,6 +183,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", err)
 		} else if len(dupes) > 0 {
 			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
+			metrics.Inc(metrics.DedupSkipped)
 			continue
 		}
 
@@ -203,6 +207,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			h.logger.Warn("post-turn store failed", "error", err)
 			continue
 		}
+		metrics.Inc(metrics.CaptureTotal)
 		stored++
 	}
 

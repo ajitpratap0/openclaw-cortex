@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
@@ -138,6 +139,7 @@ func (m *Manager) expireTTL(ctx context.Context, dryRun bool) (int, error) {
 					m.logger.Error("deleting expired memory", "id", mem.ID, "error", delErr)
 					continue
 				}
+				metrics.Inc(metrics.LifecycleExpired)
 			}
 			expired++
 		}
@@ -174,6 +176,7 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 					m.logger.Error("deleting decayed memory", "id", mem.ID, "error", delErr)
 					continue
 				}
+				metrics.Inc(metrics.LifecycleDecayed)
 			}
 			decayed++
 		}
