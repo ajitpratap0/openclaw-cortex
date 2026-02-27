@@ -94,7 +94,7 @@ func Load() (*Config, error) {
 	v.SetDefault("ollama.base_url", "http://localhost:11434")
 	v.SetDefault("ollama.model", "nomic-embed-text")
 
-	v.SetDefault("claude.model", "claude-haiku-4-5-20241022")
+	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
 
 	v.SetDefault("memory.memory_dir", filepath.Join(homeDir(), ".openclaw", "workspace", "memory"))
 	v.SetDefault("memory.chunk_size", DefaultChunkSize)

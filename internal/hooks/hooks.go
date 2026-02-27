@@ -186,8 +186,9 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			Tags:       cm.Tags,
 			Source:     "post-turn-hook",
 			Project:    input.Project,
-			CreatedAt:  now,
-			UpdatedAt:  now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+			LastAccessed: now,
 		}
 
 		if err := h.store.Upsert(ctx, mem, vec); err != nil {

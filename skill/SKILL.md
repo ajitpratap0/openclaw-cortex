@@ -59,7 +59,7 @@ ollama:
   base_url: http://localhost:11434
   model: nomic-embed-text
 claude:
-  model: claude-haiku-4-5-20241022
+  model: claude-haiku-4-5-20251001
 memory:
   dedup_threshold: 0.92
   chunk_size: 512

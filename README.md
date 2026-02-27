@@ -123,7 +123,7 @@ ollama:
   model: nomic-embed-text
 
 claude:
-  model: claude-haiku-4-5-20241022
+  model: claude-haiku-4-5-20251001
 
 memory:
   memory_dir: ~/.openclaw/workspace/memory/
