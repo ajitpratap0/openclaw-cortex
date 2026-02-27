@@ -113,7 +113,7 @@ func TestPostTurnHook_HappyPath(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{dim: 8} // distinct vectors per call — no false dedup
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func TestPostTurnHook_DedupSkip(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: vec} // Same vector -> cosine similarity = 1.0 -> dedup triggers.
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -160,7 +160,7 @@ func TestPostTurnHook_EmptyExtraction(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: newHookMockVec()}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -179,7 +179,7 @@ func TestPostTurnHook_CaptureError(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: newHookMockVec()}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	err := hook.Execute(ctx, hookTestInput())
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "claude API down")
