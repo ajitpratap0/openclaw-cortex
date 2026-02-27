@@ -46,7 +46,7 @@ func captureCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.EnsureCollection(ctx); err != nil {
+			if err = st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("capture: ensuring collection: %w", err)
 			}
 

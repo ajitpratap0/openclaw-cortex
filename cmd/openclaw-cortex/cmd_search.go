@@ -54,7 +54,8 @@ func searchCmd() *cobra.Command {
 				return fmt.Errorf("search: querying store: %w", err)
 			}
 
-			for i, r := range results {
+			for i := range results {
+				r := &results[i]
 				fmt.Printf("[%d] (%.4f) [%s] %s\n", i+1, r.Score, r.Memory.Type, truncate(r.Memory.Content, 120))
 				fmt.Printf("    ID: %s | Source: %s\n", r.Memory.ID, r.Memory.Source)
 			}

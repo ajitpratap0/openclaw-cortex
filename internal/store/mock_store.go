@@ -13,7 +13,7 @@ import (
 // MockStore is an in-memory implementation of Store for testing.
 type MockStore struct {
 	mu       sync.RWMutex
-	memories map[string]storedMemory
+	memories map[string]*storedMemory
 }
 
 type storedMemory struct {
@@ -24,7 +24,7 @@ type storedMemory struct {
 // NewMockStore creates a new mock store.
 func NewMockStore() *MockStore {
 	return &MockStore{
-		memories: make(map[string]storedMemory),
+		memories: make(map[string]*storedMemory),
 	}
 }
 
@@ -37,7 +37,7 @@ func (m *MockStore) EnsureCollection(_ context.Context) error {
 func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.memories[memory.ID] = storedMemory{memory: memory, vector: vector}
+	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
 
@@ -119,8 +119,8 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 	// Skip past the cursor (ID of last item from previous page).
 	if cursor != "" {
 		found := false
-		for i, mem := range all {
-			if mem.ID == cursor {
+		for i := range all {
+			if all[i].ID == cursor {
 				all = all[i+1:]
 				found = true
 				break
@@ -169,7 +169,6 @@ func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	}
 	sm.memory.LastAccessed = time.Now().UTC()
 	sm.memory.AccessCount++
-	m.memories[id] = sm
 	return nil
 }
 

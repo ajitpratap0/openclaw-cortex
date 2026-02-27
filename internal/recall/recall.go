@@ -76,7 +76,8 @@ func (r *Recaller) Rank(results []models.SearchResult, project string) []models.
 	now := time.Now().UTC()
 	ranked := make([]models.RecallResult, 0, len(results))
 
-	for _, sr := range results {
+	for i := range results {
+		sr := &results[i]
 		rr := models.RecallResult{
 			Memory:          sr.Memory,
 			SimilarityScore: sr.Score,

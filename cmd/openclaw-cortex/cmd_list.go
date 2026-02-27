@@ -47,7 +47,8 @@ func listCmd() *cobra.Command {
 				return fmt.Errorf("list: fetching memories: %w", err)
 			}
 
-			for i, m := range memories {
+			for i := range memories {
+				m := &memories[i]
 				fmt.Printf("[%d] [%s/%s] %s\n", i+1, m.Type, m.Scope, truncate(m.Content, 100))
 				fmt.Printf("    ID: %s | Source: %s | Confidence: %.2f\n", m.ID, m.Source, m.Confidence)
 			}

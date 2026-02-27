@@ -99,7 +99,8 @@ func (m *Manager) expireTTL(ctx context.Context, dryRun bool) (int, error) {
 	now := time.Now().UTC()
 	expired := 0
 
-	for _, mem := range memories {
+	for i := range memories {
+		mem := &memories[i]
 		if mem.TTLSeconds <= 0 {
 			continue
 		}
@@ -134,7 +135,8 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 	decayed := 0
 	decayThreshold := 24 * time.Hour // Session memories expire after 24h without access
 
-	for _, mem := range memories {
+	for i := range memories {
+		mem := &memories[i]
 		lastAccess := mem.LastAccessed
 		if lastAccess.IsZero() {
 			lastAccess = mem.CreatedAt

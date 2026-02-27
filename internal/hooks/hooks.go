@@ -76,8 +76,8 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 
 	// Format within token budget
 	var contents []string
-	for _, r := range ranked {
-		contents = append(contents, r.Memory.Content)
+	for i := range ranked {
+		contents = append(contents, ranked[i].Memory.Content)
 	}
 
 	formatted, count := tokenizer.FormatMemoriesWithBudget(contents, input.TokenBudget)

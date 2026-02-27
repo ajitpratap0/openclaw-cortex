@@ -99,9 +99,9 @@ func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg stri
 
 	// Extract text from response
 	var responseText string
-	for _, block := range resp.Content {
-		if block.Type == "text" {
-			responseText = block.Text
+	for i := range resp.Content {
+		if resp.Content[i].Type == "text" {
+			responseText = resp.Content[i].Text
 			break
 		}
 	}

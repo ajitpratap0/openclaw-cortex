@@ -20,7 +20,6 @@ var cfg *config.Config
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	rootCmd := &cobra.Command{
 		Use:   "openclaw-cortex",
@@ -50,7 +49,9 @@ func main() {
 
 	rootCmd.SetContext(ctx)
 
-	if err := rootCmd.Execute(); err != nil {
+	err := rootCmd.Execute()
+	stop()
+	if err != nil {
 		os.Exit(1)
 	}
 }

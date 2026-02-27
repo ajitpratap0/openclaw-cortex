@@ -58,7 +58,7 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling request: %w", err)
+		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
 
 	endpoint := o.baseURL + "/api/embeddings"

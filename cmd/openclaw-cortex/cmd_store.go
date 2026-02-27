@@ -50,7 +50,7 @@ func storeCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.EnsureCollection(ctx); err != nil {
+			if err = st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("store: ensuring collection: %w", err)
 			}
 

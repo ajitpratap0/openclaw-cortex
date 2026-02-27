@@ -57,8 +57,8 @@ func recallCmd() *cobra.Command {
 
 			// Apply token budget
 			var contents []string
-			for _, r := range ranked {
-				contents = append(contents, r.Memory.Content)
+			for i := range ranked {
+				contents = append(contents, ranked[i].Memory.Content)
 			}
 
 			output, count := tokenizer.FormatMemoriesWithBudget(contents, budget)
