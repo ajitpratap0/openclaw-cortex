@@ -25,7 +25,7 @@ func consolidateCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			lm := lifecycle.NewManager(st, logger)
+			lm := lifecycle.NewManager(st, newEmbedder(logger), logger)
 			report, err := lm.Run(ctx, dryRun)
 			if err != nil {
 				return fmt.Errorf("consolidate: running lifecycle: %w", err)
@@ -34,6 +34,7 @@ func consolidateCmd() *cobra.Command {
 			fmt.Printf("Lifecycle report:\n")
 			fmt.Printf("  Expired (TTL):  %d\n", report.Expired)
 			fmt.Printf("  Decayed:        %d\n", report.Decayed)
+			fmt.Printf("  Consolidated:   %d\n", report.Consolidated)
 			if dryRun {
 				fmt.Println("  (dry run — no changes applied)")
 			}
