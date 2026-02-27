@@ -20,6 +20,9 @@ func TestEstimateTokens(t *testing.T) {
 		{"single word", "hello", 1, 3},
 		{"short sentence", "Go is a great programming language", 5, 15},
 		{"longer text", strings.Repeat("word ", 100), 80, 200},
+		// cl100k_base calibration cases
+		{"pangram calibration", "The quick brown fox jumps over the lazy dog", 8, 15},
+		{"code-like text", "func foo() { return nil }", 4, 15},
 	}
 
 	for _, tt := range tests {
@@ -29,6 +32,30 @@ func TestEstimateTokens(t *testing.T) {
 			assert.LessOrEqual(t, tokens, tt.maxExpect)
 		})
 	}
+}
+
+func TestEstimateTokensAdditional(t *testing.T) {
+	t.Run("empty string returns zero", func(t *testing.T) {
+		assert.Equal(t, 0, tokenizer.EstimateTokens(""))
+	})
+
+	t.Run("single word returns at least one", func(t *testing.T) {
+		assert.GreaterOrEqual(t, tokenizer.EstimateTokens("hello"), 1)
+	})
+
+	t.Run("pangram 9-word calibration text", func(t *testing.T) {
+		// "The quick brown fox jumps over the lazy dog" — 9 words, 43 chars
+		// cl100k_base tokenizes this as ~9 tokens; heuristic should be in 8–15 range
+		tokens := tokenizer.EstimateTokens("The quick brown fox jumps over the lazy dog")
+		assert.GreaterOrEqual(t, tokens, 8)
+		assert.LessOrEqual(t, tokens, 15)
+	})
+
+	t.Run("code-like text has reasonable estimate", func(t *testing.T) {
+		tokens := tokenizer.EstimateTokens("func foo() { return nil }")
+		assert.GreaterOrEqual(t, tokens, 4)
+		assert.LessOrEqual(t, tokens, 20)
+	})
 }
 
 func TestTruncateToTokenBudget(t *testing.T) {
@@ -105,5 +132,24 @@ func TestFormatMemoriesWithBudget(t *testing.T) {
 		result, count := tokenizer.FormatMemoriesWithBudget(memories, 0)
 		assert.Equal(t, 0, count)
 		assert.Equal(t, "", result)
+	})
+
+	t.Run("respects budget — token count of result is within budget", func(t *testing.T) {
+		budget := 20
+		result, count := tokenizer.FormatMemoriesWithBudget(memories, budget)
+		assert.Greater(t, count, 0)
+		// The returned string should itself estimate to at most ~budget tokens.
+		// Allow a small overage for the separator tokens that are counted separately.
+		assert.LessOrEqual(t, tokenizer.EstimateTokens(result), budget+10)
+	})
+}
+
+func TestTruncateToTokenBudgetSmallBudget(t *testing.T) {
+	t.Run("budget 10 produces fewer tokens than original", func(t *testing.T) {
+		original := strings.Repeat("word ", 100) // ~157 tokens with new heuristic
+		budget := 10
+		result := tokenizer.TruncateToTokenBudget(original, budget)
+		assert.Less(t, len(result), len(original))
+		assert.LessOrEqual(t, tokenizer.EstimateTokens(result), budget*3)
 	})
 }
