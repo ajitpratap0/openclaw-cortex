@@ -93,8 +93,8 @@ func TestMetricsDedupSkip(t *testing.T) {
 	_ = st.Upsert(context.Background(), models.Memory{
 		ID: uuid.New().String(), Content: "duplicate memory",
 		Type: models.MemoryTypeFact, Scope: models.ScopeSession,
-		Visibility:   models.VisibilityPrivate,
-		CreatedAt:    time.Now(), UpdatedAt: time.Now(), LastAccessed: time.Now(),
+		Visibility: models.VisibilityPrivate,
+		CreatedAt:  time.Now(), UpdatedAt: time.Now(), LastAccessed: time.Now(),
 	}, []float32{0.1, 0.2, 0.3})
 
 	err := hook.Execute(context.Background(), hooks.PostTurnInput{

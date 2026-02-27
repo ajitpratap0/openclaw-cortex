@@ -43,6 +43,7 @@ func statsCmd() *cobra.Command {
 			fmt.Println("\nRuntime metrics (since process start):")
 			fmt.Printf("  %-30s %d\n", "recall_total", metrics.RecallTotal.Value())
 			fmt.Printf("  %-30s %d\n", "capture_total", metrics.CaptureTotal.Value())
+			fmt.Printf("  %-30s %d\n", "store_total:", metrics.StoreTotal.Value())
 			fmt.Printf("  %-30s %d\n", "dedup_skipped_total", metrics.DedupSkipped.Value())
 			fmt.Printf("  %-30s %d\n", "lifecycle_expired_total", metrics.LifecycleExpired.Value())
 			fmt.Printf("  %-30s %d\n", "lifecycle_decayed_total", metrics.LifecycleDecayed.Value())

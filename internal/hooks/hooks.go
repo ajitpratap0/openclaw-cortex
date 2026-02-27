@@ -208,6 +208,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			continue
 		}
 		metrics.Inc(metrics.CaptureTotal)
+		metrics.Inc(metrics.StoreTotal)
 		stored++
 	}
 
