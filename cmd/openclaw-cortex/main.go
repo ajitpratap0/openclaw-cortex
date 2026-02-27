@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -16,6 +19,8 @@ import (
 var cfg *config.Config
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
 	rootCmd := &cobra.Command{
 		Use:   "openclaw-cortex",
 		Short: "OpenClaw Cortex — hybrid layered memory system for AI agents",
@@ -42,7 +47,11 @@ func main() {
 		consolidateCmd(),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
+	rootCmd.SetContext(ctx)
+
+	err := rootCmd.Execute()
+	stop()
+	if err != nil {
 		os.Exit(1)
 	}
 }
@@ -77,8 +86,9 @@ func newStore(logger *slog.Logger) (store.Store, error) {
 
 func truncate(s string, maxLen int) string {
 	s = strings.ReplaceAll(s, "\n", " ")
-	if len(s) > maxLen {
-		return s[:maxLen] + "..."
+	runes := []rune(s)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen]) + "..."
 	}
 	return s
 }

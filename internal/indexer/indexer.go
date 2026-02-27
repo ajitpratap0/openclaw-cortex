@@ -17,6 +17,14 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
+const (
+	// dedupThreshold is the cosine similarity threshold above which a chunk is considered duplicate.
+	dedupThreshold = 0.95
+
+	// defaultIndexedConfidence is the confidence score assigned to file-indexed memories.
+	defaultIndexedConfidence = 0.8
+)
+
 // Indexer scans markdown files, chunks them, generates embeddings, and stores them.
 type Indexer struct {
 	embedder     embedder.Embedder
@@ -98,8 +106,10 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 		}
 
 		// Check for duplicates before inserting
-		dupes, err := idx.store.FindDuplicates(ctx, vec, 0.95)
-		if err == nil && len(dupes) > 0 {
+		dupes, err := idx.store.FindDuplicates(ctx, vec, dedupThreshold)
+		if err != nil {
+			idx.logger.Warn("dedup check failed, proceeding with store", "error", err)
+		} else if len(dupes) > 0 {
 			idx.logger.Debug("skipping duplicate chunk", "source", chunk.Source, "similar_to", dupes[0].Memory.ID)
 			continue
 		}
@@ -111,7 +121,7 @@ func (idx *Indexer) IndexFile(ctx context.Context, filePath string) (int, error)
 			Scope:        models.ScopePermanent,
 			Visibility:   models.VisibilityShared,
 			Content:      chunk.Content,
-			Confidence:   0.8,
+			Confidence:   defaultIndexedConfidence,
 			Source:       fmt.Sprintf("file:%s", chunk.Source),
 			Tags:         chunk.Tags,
 			CreatedAt:    now,

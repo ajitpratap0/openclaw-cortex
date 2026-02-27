@@ -9,8 +9,23 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
-// maxBoostMultiplier is the maximum raw boost value — used to normalize to [0,1].
-const maxBoostMultiplier = 1.5
+const (
+	// maxBoostMultiplier is the maximum raw boost value — used to normalize to [0,1].
+	maxBoostMultiplier = 1.5
+
+	// Default ranking weights for multi-factor recall scoring.
+	defaultSimilarityWeight = 0.5
+	defaultRecencyWeight    = 0.2
+	defaultFrequencyWeight  = 0.1
+	defaultTypeBoostWeight  = 0.1
+	defaultScopeBoostWeight = 0.1
+
+	// recencyHalfLifeHours is the exponential decay half-life (7 days) for recency scoring.
+	recencyHalfLifeHours = 168.0
+
+	// ln2 is the natural log of 2, used in exponential decay calculations.
+	ln2 = 0.693
+)
 
 // Weights controls the relative importance of each ranking factor.
 type Weights struct {
@@ -24,11 +39,11 @@ type Weights struct {
 // DefaultWeights returns sensible default ranking weights.
 func DefaultWeights() Weights {
 	return Weights{
-		Similarity: 0.5,
-		Recency:    0.2,
-		Frequency:  0.1,
-		TypeBoost:  0.1,
-		ScopeBoost: 0.1,
+		Similarity: defaultSimilarityWeight,
+		Recency:    defaultRecencyWeight,
+		Frequency:  defaultFrequencyWeight,
+		TypeBoost:  defaultTypeBoostWeight,
+		ScopeBoost: defaultScopeBoostWeight,
 	}
 }
 
@@ -61,7 +76,8 @@ func (r *Recaller) Rank(results []models.SearchResult, project string) []models.
 	now := time.Now().UTC()
 	ranked := make([]models.RecallResult, 0, len(results))
 
-	for _, sr := range results {
+	for i := range results {
+		sr := &results[i]
 		rr := models.RecallResult{
 			Memory:          sr.Memory,
 			SimilarityScore: sr.Score,
@@ -97,9 +113,7 @@ func recencyScore(lastAccessed time.Time, now time.Time) float64 {
 	if hoursAgo < 0 {
 		hoursAgo = 0
 	}
-	// Half-life of 168 hours (7 days)
-	halfLife := 168.0
-	return math.Exp(-0.693 * hoursAgo / halfLife)
+	return math.Exp(-ln2 * hoursAgo / recencyHalfLifeHours)
 }
 
 // frequencyScore uses log scale on access count. Returns [0,1].

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	pb "github.com/qdrant/go-client/qdrant"
@@ -15,7 +16,15 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
-const qdrantDialTimeout = 10 * time.Second
+const (
+	qdrantDialTimeout  = 10 * time.Second
+	qdrantReadTimeout  = 10 * time.Second
+	qdrantWriteTimeout = 30 * time.Second
+)
+
+func withTimeout(parent context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, d)
+}
 
 // QdrantStore implements Store using Qdrant's gRPC API.
 type QdrantStore struct {
@@ -31,7 +40,7 @@ type QdrantStore struct {
 func NewQdrantStore(host string, port int, collection string, dimension uint64, useTLS bool, logger *slog.Logger) (*QdrantStore, error) {
 	addr := fmt.Sprintf("%s:%d", host, port)
 
-	opts := []grpc.DialOption{}
+	var opts []grpc.DialOption
 	if !useTLS {
 		logger.Warn("Qdrant connection using insecure credentials (no TLS)")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -62,9 +71,12 @@ func NewQdrantStore(host string, port int, collection string, dimension uint64, 
 	}, nil
 }
 
+// EnsureCollection creates the vector collection if it doesn't exist.
 func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	// Check if collection exists
-	resp, err := q.collection.List(ctx, &pb.ListCollectionsRequest{})
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+	resp, err := q.collection.List(rctx, &pb.ListCollectionsRequest{})
 	if err != nil {
 		return fmt.Errorf("listing collections: %w", err)
 	}
@@ -77,7 +89,9 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	}
 
 	// Create collection
-	_, err = q.collection.Create(ctx, &pb.CreateCollection{
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err = q.collection.Create(wctx, &pb.CreateCollection{
 		CollectionName: q.collName,
 		VectorsConfig: &pb.VectorsConfig{
 			Config: &pb.VectorsConfig_Params{
@@ -97,11 +111,13 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	// Create payload indexes for common filter fields
 	indexFields := []string{"type", "scope", "visibility", "project", "source"}
 	for _, field := range indexFields {
-		_, err := q.points.CreateFieldIndex(ctx, &pb.CreateFieldIndexCollection{
+		ictx, icancel := withTimeout(ctx, qdrantWriteTimeout)
+		_, err := q.points.CreateFieldIndex(ictx, &pb.CreateFieldIndexCollection{
 			CollectionName: q.collName,
 			FieldName:      field,
 			FieldType:      pb.FieldType_FieldTypeKeyword.Enum(),
 		})
+		icancel() // cancel immediately rather than deferring inside a loop
 		if err != nil {
 			q.logger.Warn("creating field index", "field", field, "error", err)
 		}
@@ -110,7 +126,10 @@ func (q *QdrantStore) EnsureCollection(ctx context.Context) error {
 	return nil
 }
 
+// Upsert inserts or updates a memory with its embedding vector.
 func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector []float32) error {
+	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer cancel()
 	payload := memoryToPayload(memory)
 
 	_, err := q.points.Upsert(ctx, &pb.UpsertPoints{
@@ -137,7 +156,10 @@ func (q *QdrantStore) Upsert(ctx context.Context, memory models.Memory, vector [
 	return nil
 }
 
+// Search finds memories similar to the query vector.
 func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	req := &pb.SearchPoints{
 		CollectionName: q.collName,
 		Vector:         vector,
@@ -156,11 +178,7 @@ func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64
 
 	results := make([]models.SearchResult, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			q.logger.Warn("parsing search result", "error", err)
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		results = append(results, models.SearchResult{
 			Memory: *mem,
 			Score:  float64(point.GetScore()),
@@ -170,7 +188,10 @@ func (q *QdrantStore) Search(ctx context.Context, vector []float32, limit uint64
 	return results, nil
 }
 
+// Get retrieves a single memory by ID.
 func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	resp, err := q.points.Get(ctx, &pb.GetPoints{
 		CollectionName: q.collName,
 		Ids: []*pb.PointId{
@@ -187,10 +208,13 @@ func (q *QdrantStore) Get(ctx context.Context, id string) (*models.Memory, error
 	}
 
 	point := resp.GetResult()[0]
-	return payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
+	return payloadToMemory(point.GetId().GetUuid(), point.GetPayload()), nil
 }
 
+// Delete removes a memory by ID.
 func (q *QdrantStore) Delete(ctx context.Context, id string) error {
+	ctx, cancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer cancel()
 	_, err := q.points.Delete(ctx, &pb.DeletePoints{
 		CollectionName: q.collName,
 		Points: &pb.PointsSelector{
@@ -211,37 +235,52 @@ func (q *QdrantStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error) {
+// List returns memories matching the given filters with cursor-based pagination.
+func (q *QdrantStore) List(ctx context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	var filter *pb.Filter
 	if filters != nil {
 		filter = buildFilter(filters)
 	}
 
+	if limit > math.MaxUint32 {
+		limit = math.MaxUint32
+	}
 	limit32 := uint32(limit)
-	resp, err := q.points.Scroll(ctx, &pb.ScrollPoints{
+	req := &pb.ScrollPoints{
 		CollectionName: q.collName,
 		Filter:         filter,
 		Limit:          &limit32,
 		WithPayload:    &pb.WithPayloadSelector{SelectorOptions: &pb.WithPayloadSelector_Enable{Enable: true}},
-	})
+	}
+	if cursor != "" {
+		req.Offset = &pb.PointId{PointIdOptions: &pb.PointId_Uuid{Uuid: cursor}}
+	}
+
+	resp, err := q.points.Scroll(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("scrolling points: %w", err)
+		return nil, "", fmt.Errorf("scrolling points: %w", err)
 	}
 
 	memories := make([]models.Memory, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			q.logger.Warn("parsing list result", "error", err)
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		memories = append(memories, *mem)
 	}
 
-	return memories, nil
+	var nextCursor string
+	if npo := resp.GetNextPageOffset(); npo != nil {
+		nextCursor = npo.GetUuid()
+	}
+
+	return memories, nextCursor, nil
 }
 
+// FindDuplicates returns memories with cosine similarity above the threshold.
 func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
+	ctx, cancel := withTimeout(ctx, qdrantReadTimeout)
+	defer cancel()
 	resp, err := q.points.Search(ctx, &pb.SearchPoints{
 		CollectionName: q.collName,
 		Vector:         vector,
@@ -255,10 +294,7 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 
 	results := make([]models.SearchResult, 0, len(resp.GetResult()))
 	for _, point := range resp.GetResult() {
-		mem, err := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
-		if err != nil {
-			continue
-		}
+		mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
 		results = append(results, models.SearchResult{
 			Memory: *mem,
 			Score:  float64(point.GetScore()),
@@ -268,19 +304,23 @@ func (q *QdrantStore) FindDuplicates(ctx context.Context, vector []float32, thre
 	return results, nil
 }
 
-// UpdateAccessMetadata reads the current access_count and increments it, then
-// persists both last_accessed and the incremented access_count.
+// UpdateAccessMetadata reads the current access_count, increments it, and writes
+// both access_count and last_accessed via SetPayload. The read-modify-write is
+// intentionally non-atomic: an approximate count is acceptable for ranking, and
+// the simplicity outweighs the cost of a rare missed increment under concurrency.
 func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error {
-	// Read current point to get existing access_count.
+	// Read current access_count.
 	mem, err := q.Get(ctx, id)
 	if err != nil {
-		return fmt.Errorf("update access metadata: reading point %s: %w", id, err)
+		return fmt.Errorf("update access metadata: reading %s: %w", id, err)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	newCount := mem.AccessCount + 1
 
-	_, err = q.points.SetPayload(ctx, &pb.SetPayloadPoints{
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err = q.points.SetPayload(wctx, &pb.SetPayloadPoints{
 		CollectionName: q.collName,
 		PointsSelector: &pb.PointsSelector{
 			PointsSelectorOneOf: &pb.PointsSelector_Points{
@@ -305,7 +345,9 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 
 // Stats returns collection statistics. Type and scope counts are fetched concurrently.
 func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error) {
-	info, err := q.collection.Get(ctx, &pb.GetCollectionInfoRequest{
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+	info, err := q.collection.Get(rctx, &pb.GetCollectionInfoRequest{
 		CollectionName: q.collName,
 	})
 	if err != nil {
@@ -343,7 +385,9 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	for i, t := range tasks {
 		i, t := i, t
 		g.Go(func() error {
-			countResp, err := q.points.Count(gctx, &pb.CountPoints{
+			cctx, ccancel := withTimeout(gctx, qdrantReadTimeout)
+			defer ccancel()
+			countResp, err := q.points.Count(cctx, &pb.CountPoints{
 				CollectionName: q.collName,
 				Filter: &pb.Filter{
 					Must: []*pb.Condition{
@@ -388,6 +432,7 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	return stats, nil
 }
 
+// Close releases the gRPC connection.
 func (q *QdrantStore) Close() error {
 	if q.conn != nil {
 		return q.conn.Close()
@@ -399,14 +444,14 @@ func (q *QdrantStore) Close() error {
 
 func memoryToPayload(m models.Memory) map[string]*pb.Value {
 	payload := map[string]*pb.Value{
-		"type":       {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
-		"scope":      {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
-		"visibility": {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
-		"content":    {Kind: &pb.Value_StringValue{StringValue: m.Content}},
-		"confidence": {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
-		"source":     {Kind: &pb.Value_StringValue{StringValue: m.Source}},
-		"project":    {Kind: &pb.Value_StringValue{StringValue: m.Project}},
-		"ttl_seconds": {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
+		"type":          {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
+		"scope":         {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
+		"visibility":    {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
+		"content":       {Kind: &pb.Value_StringValue{StringValue: m.Content}},
+		"confidence":    {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
+		"source":        {Kind: &pb.Value_StringValue{StringValue: m.Source}},
+		"project":       {Kind: &pb.Value_StringValue{StringValue: m.Project}},
+		"ttl_seconds":   {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
 		"created_at":    {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339)}},
 		"updated_at":    {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339)}},
 		"last_accessed": {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339)}},
@@ -433,17 +478,17 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 	return payload
 }
 
-func payloadToMemory(id string, payload map[string]*pb.Value) (*models.Memory, error) {
+func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	m := &models.Memory{
-		ID:         id,
-		Type:       models.MemoryType(getStringValue(payload, "type")),
-		Scope:      models.MemoryScope(getStringValue(payload, "scope")),
-		Visibility: models.MemoryVisibility(getStringValue(payload, "visibility")),
-		Content:    getStringValue(payload, "content"),
-		Confidence: getDoubleValue(payload, "confidence"),
-		Source:     getStringValue(payload, "source"),
-		Project:    getStringValue(payload, "project"),
-		TTLSeconds: getIntValue(payload, "ttl_seconds"),
+		ID:          id,
+		Type:        models.MemoryType(getStringValue(payload, "type")),
+		Scope:       models.MemoryScope(getStringValue(payload, "scope")),
+		Visibility:  models.MemoryVisibility(getStringValue(payload, "visibility")),
+		Content:     getStringValue(payload, "content"),
+		Confidence:  getDoubleValue(payload, "confidence"),
+		Source:      getStringValue(payload, "source"),
+		Project:     getStringValue(payload, "project"),
+		TTLSeconds:  getIntValue(payload, "ttl_seconds"),
 		AccessCount: getIntValue(payload, "access_count"),
 	}
 
@@ -481,7 +526,7 @@ func payloadToMemory(id string, payload map[string]*pb.Value) (*models.Memory, e
 		}
 	}
 
-	return m, nil
+	return m
 }
 
 func buildFilter(f *SearchFilters) *pb.Filter {
@@ -537,6 +582,17 @@ func buildFilter(f *SearchFilters) *pb.Filter {
 				Field: &pb.FieldCondition{
 					Key:   "source",
 					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: *f.Source}},
+				},
+			},
+		})
+	}
+
+	for _, tag := range f.Tags {
+		conditions = append(conditions, &pb.Condition{
+			ConditionOneOf: &pb.Condition_Field{
+				Field: &pb.FieldCondition{
+					Key:   "tags",
+					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: tag}},
 				},
 			},
 		})

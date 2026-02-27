@@ -12,6 +12,9 @@ import (
 
 const pageSize uint64 = 500
 
+// maxListAllMemories is a safety cap to prevent unbounded memory loading.
+const maxListAllMemories = 50000
+
 // Report summarizes the results of a lifecycle run.
 type Report struct {
 	Expired int `json:"expired"`
@@ -55,20 +58,29 @@ func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 }
 
 // listAll paginates through all memories matching filters.
+// It stops after maxListAllMemories to prevent unbounded memory usage.
 func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]models.Memory, error) {
 	var all []models.Memory
-	var offset uint64
+	var cursor string
 
 	for {
-		page, err := m.store.List(ctx, filters, pageSize, offset)
+		page, nextCursor, err := m.store.List(ctx, filters, pageSize, cursor)
 		if err != nil {
 			return nil, err
 		}
 		all = append(all, page...)
+		if uint64(len(all)) >= maxListAllMemories {
+			m.logger.Warn("listAll hit safety cap, results truncated",
+				"cap", maxListAllMemories,
+				"loaded", len(all),
+			)
+			all = all[:maxListAllMemories]
+			break
+		}
 		if uint64(len(page)) < pageSize {
 			break
 		}
-		offset += uint64(len(page))
+		cursor = nextCursor
 	}
 
 	return all, nil
@@ -87,7 +99,8 @@ func (m *Manager) expireTTL(ctx context.Context, dryRun bool) (int, error) {
 	now := time.Now().UTC()
 	expired := 0
 
-	for _, mem := range memories {
+	for i := range memories {
+		mem := &memories[i]
 		if mem.TTLSeconds <= 0 {
 			continue
 		}
@@ -122,7 +135,8 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 	decayed := 0
 	decayThreshold := 24 * time.Hour // Session memories expire after 24h without access
 
-	for _, mem := range memories {
+	for i := range memories {
+		mem := &memories[i]
 		lastAccess := mem.LastAccessed
 		if lastAccess.IsZero() {
 			lastAccess = mem.CreatedAt

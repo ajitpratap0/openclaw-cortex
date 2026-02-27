@@ -13,7 +13,7 @@ import (
 // MockStore is an in-memory implementation of Store for testing.
 type MockStore struct {
 	mu       sync.RWMutex
-	memories map[string]storedMemory
+	memories map[string]*storedMemory
 }
 
 type storedMemory struct {
@@ -24,21 +24,24 @@ type storedMemory struct {
 // NewMockStore creates a new mock store.
 func NewMockStore() *MockStore {
 	return &MockStore{
-		memories: make(map[string]storedMemory),
+		memories: make(map[string]*storedMemory),
 	}
 }
 
+// EnsureCollection is a no-op for the mock store.
 func (m *MockStore) EnsureCollection(_ context.Context) error {
 	return nil
 }
 
+// Upsert inserts or updates a memory in the mock store.
 func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.memories[memory.ID] = storedMemory{memory: memory, vector: vector}
+	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
 
+// Search finds memories by cosine similarity to the query vector.
 func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, filters *SearchFilters) ([]models.SearchResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -71,6 +74,7 @@ func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, fi
 	return results, nil
 }
 
+// Get retrieves a single memory by ID.
 func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -82,6 +86,7 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 	return &mem, nil
 }
 
+// Delete removes a memory by ID.
 func (m *MockStore) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -89,7 +94,8 @@ func (m *MockStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64, offset uint64) ([]models.Memory, error) {
+// List returns memories matching filters with cursor-based pagination.
+func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64, cursor string) ([]models.Memory, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -110,20 +116,32 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 		}
 	}
 
-	// Apply offset.
-	if offset >= uint64(len(all)) {
-		return nil, nil
+	// Skip past the cursor (ID of last item from previous page).
+	if cursor != "" {
+		found := false
+		for i := range all {
+			if all[i].ID == cursor {
+				all = all[i+1:]
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, "", nil
+		}
 	}
-	all = all[offset:]
 
 	// Apply limit.
+	var nextCursor string
 	if limit > 0 && uint64(len(all)) > limit {
 		all = all[:limit]
+		nextCursor = all[len(all)-1].ID
 	}
 
-	return all, nil
+	return all, nextCursor, nil
 }
 
+// FindDuplicates returns memories with cosine similarity above the threshold.
 func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshold float64) ([]models.SearchResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -141,6 +159,7 @@ func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshol
 	return results, nil
 }
 
+// UpdateAccessMetadata updates the last-accessed timestamp and increments the access count.
 func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -150,10 +169,10 @@ func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	}
 	sm.memory.LastAccessed = time.Now().UTC()
 	sm.memory.AccessCount++
-	m.memories[id] = sm
 	return nil
 }
 
+// Stats returns collection statistics computed from the in-memory store.
 func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -172,6 +191,7 @@ func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	return stats, nil
 }
 
+// Close is a no-op for the mock store.
 func (m *MockStore) Close() error {
 	return nil
 }
@@ -196,6 +216,18 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	}
 	if f.Source != nil && mem.Source != *f.Source {
 		return false
+	}
+	for _, required := range f.Tags {
+		found := false
+		for _, t := range mem.Tags {
+			if t == required {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
 	}
 	return true
 }

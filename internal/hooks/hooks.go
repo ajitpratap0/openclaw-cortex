@@ -4,13 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
+	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
+
+// preTurnSearchLimit is the maximum number of candidate memories retrieved during pre-turn search.
+const preTurnSearchLimit = 50
 
 // PreTurnHook retrieves relevant memories before an agent turn.
 type PreTurnHook struct {
@@ -58,7 +66,7 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	}
 
 	// Search for relevant memories
-	results, err := h.store.Search(ctx, vec, 50, nil)
+	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, nil)
 	if err != nil {
 		return nil, fmt.Errorf("searching memories: %w", err)
 	}
@@ -68,8 +76,8 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 
 	// Format within token budget
 	var contents []string
-	for _, r := range ranked {
-		contents = append(contents, r.Memory.Content)
+	for i := range ranked {
+		contents = append(contents, ranked[i].Memory.Content)
 	}
 
 	formatted, count := tokenizer.FormatMemoriesWithBudget(contents, input.TokenBudget)
@@ -86,15 +94,26 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	}
 	if count <= len(ranked) {
 		output.Memories = ranked[:count]
+	} else {
+		output.Memories = ranked
 	}
 
 	h.logger.Info("pre-turn hook executed", "memories_recalled", count, "tokens_used", output.TokensUsed)
 	return output, nil
 }
 
+// dedupThreshold is intentionally stricter than the config default (0.92) to
+// avoid false-positive dedup on automatically captured memories, where content
+// overlap is more likely than with explicit user-stored memories.
+const dedupThreshold = 0.95
+
 // PostTurnHook captures memories from a completed agent turn.
 type PostTurnHook struct {
-	logger *slog.Logger
+	capturer   capture.Capturer
+	classifier classifier.Classifier
+	embedder   embedder.Embedder
+	store      store.Store
+	logger     *slog.Logger
 }
 
 // PostTurnInput contains the conversation turn data.
@@ -106,19 +125,84 @@ type PostTurnInput struct {
 }
 
 // NewPostTurnHook creates a post-turn hook handler.
-func NewPostTurnHook(logger *slog.Logger) *PostTurnHook {
-	return &PostTurnHook{logger: logger}
+func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedder.Embedder, st store.Store, logger *slog.Logger) *PostTurnHook {
+	return &PostTurnHook{
+		capturer:   cap,
+		classifier: cls,
+		embedder:   emb,
+		store:      st,
+		logger:     logger,
+	}
 }
 
-// Execute runs the post-turn hook (delegates to capture pipeline).
-func (h *PostTurnHook) Execute(_ context.Context, input PostTurnInput) error {
-	// In production, this would call the capture pipeline.
-	// The actual capture logic lives in internal/capture and is invoked via CLI.
-	h.logger.Info("post-turn hook",
+// Execute runs the post-turn hook: extract → classify → embed → dedup → store.
+func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
+	h.logger.Info("post-turn hook starting",
 		"session_id", input.SessionID,
 		"project", input.Project,
 		"user_msg_len", len(input.UserMessage),
 		"assistant_msg_len", len(input.AssistantMessage),
 	)
+
+	// 1. Extract candidate memories from the conversation turn.
+	captured, err := h.capturer.Extract(ctx, input.UserMessage, input.AssistantMessage)
+	if err != nil {
+		return fmt.Errorf("post-turn extract: %w", err)
+	}
+	if len(captured) == 0 {
+		h.logger.Debug("post-turn hook: no memories extracted")
+		return nil
+	}
+
+	now := time.Now().UTC()
+	stored := 0
+
+	for _, cm := range captured {
+		// 2. Classify – prefer the LLM-assigned type; only run the classifier if empty.
+		memType := cm.Type
+		if memType == "" {
+			memType = h.classifier.Classify(cm.Content)
+		}
+
+		// 3. Embed the content.
+		vec, err := h.embedder.Embed(ctx, cm.Content)
+		if err != nil {
+			h.logger.Warn("post-turn embed failed, skipping memory", "error", err)
+			continue
+		}
+
+		// 4. Dedup – skip if a near-duplicate already exists.
+		dupes, err := h.store.FindDuplicates(ctx, vec, dedupThreshold)
+		if err != nil {
+			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", err)
+		} else if len(dupes) > 0 {
+			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
+			continue
+		}
+
+		// 5. Store the new memory.
+		mem := models.Memory{
+			ID:           uuid.New().String(),
+			Type:         memType,
+			Scope:        models.ScopeSession,
+			Visibility:   models.VisibilityPrivate,
+			Content:      cm.Content,
+			Confidence:   cm.Confidence,
+			Tags:         cm.Tags,
+			Source:       "post-turn-hook",
+			Project:      input.Project,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+			LastAccessed: now,
+		}
+
+		if err := h.store.Upsert(ctx, mem, vec); err != nil {
+			h.logger.Warn("post-turn store failed", "error", err)
+			continue
+		}
+		stored++
+	}
+
+	h.logger.Info("post-turn hook completed", "extracted", len(captured), "stored", stored)
 	return nil
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -25,7 +24,7 @@ func recallCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 			query := args[0]
 
 			emb := newEmbedder(logger)
@@ -58,8 +57,8 @@ func recallCmd() *cobra.Command {
 
 			// Apply token budget
 			var contents []string
-			for _, r := range ranked {
-				contents = append(contents, r.Memory.Content)
+			for i := range ranked {
+				contents = append(contents, ranked[i].Memory.Content)
 			}
 
 			output, count := tokenizer.FormatMemoriesWithBudget(contents, budget)

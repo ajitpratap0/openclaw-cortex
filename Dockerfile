@@ -15,6 +15,6 @@ FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata
 
-COPY --from=builder /openclaw-cortex /usr/local/bin/cortex
+COPY --from=builder /openclaw-cortex /usr/local/bin/openclaw-cortex
 
 ENTRYPOINT ["openclaw-cortex"]

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func indexCmd() *cobra.Command {
 		Short: "Index markdown memory files into vector store",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			emb := newEmbedder(logger)
 			st, err := newStore(logger)
@@ -26,7 +25,7 @@ func indexCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.EnsureCollection(ctx); err != nil {
+			if err = st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("index: ensuring collection: %w", err)
 			}
 

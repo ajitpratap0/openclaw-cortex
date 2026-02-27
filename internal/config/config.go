@@ -8,6 +8,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	// DefaultChunkSize is the default character count per text chunk for indexing.
+	DefaultChunkSize = 512
+
+	// DefaultChunkOverlap is the default character overlap between adjacent chunks.
+	DefaultChunkOverlap = 64
+
+	// DefaultDedupThreshold is the default cosine similarity threshold for deduplication.
+	DefaultDedupThreshold = 0.92
+)
+
 // Config holds all configuration for cortex.
 type Config struct {
 	Qdrant  QdrantConfig  `mapstructure:"qdrant"`
@@ -17,6 +28,7 @@ type Config struct {
 	Logging LoggingConfig `mapstructure:"logging"`
 }
 
+// QdrantConfig holds Qdrant vector database connection settings.
 type QdrantConfig struct {
 	Host       string `mapstructure:"host"`
 	GRPCPort   int    `mapstructure:"grpc_port"`
@@ -25,11 +37,13 @@ type QdrantConfig struct {
 	UseTLS     bool   `mapstructure:"use_tls"`
 }
 
+// OllamaConfig holds Ollama embedding service settings.
 type OllamaConfig struct {
 	BaseURL string `mapstructure:"base_url"`
 	Model   string `mapstructure:"model"`
 }
 
+// ClaudeConfig holds Anthropic Claude API settings.
 type ClaudeConfig struct {
 	APIKey string `mapstructure:"api_key"`
 	Model  string `mapstructure:"model"`
@@ -50,6 +64,7 @@ func maskAPIKey(key string) string {
 	return key[:visible] + "****" + key[len(key)-visible:]
 }
 
+// MemoryConfig holds memory indexing and deduplication settings.
 type MemoryConfig struct {
 	MemoryDir       string  `mapstructure:"memory_dir"`
 	ChunkSize       int     `mapstructure:"chunk_size"`
@@ -59,6 +74,7 @@ type MemoryConfig struct {
 	VectorDimension uint64  `mapstructure:"vector_dimension"`
 }
 
+// LoggingConfig holds structured logging settings.
 type LoggingConfig struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
@@ -78,12 +94,12 @@ func Load() (*Config, error) {
 	v.SetDefault("ollama.base_url", "http://localhost:11434")
 	v.SetDefault("ollama.model", "nomic-embed-text")
 
-	v.SetDefault("claude.model", "claude-haiku-4-5-20241022")
+	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
 
 	v.SetDefault("memory.memory_dir", filepath.Join(homeDir(), ".openclaw", "workspace", "memory"))
-	v.SetDefault("memory.chunk_size", 512)
-	v.SetDefault("memory.chunk_overlap", 64)
-	v.SetDefault("memory.dedup_threshold", 0.92)
+	v.SetDefault("memory.chunk_size", DefaultChunkSize)
+	v.SetDefault("memory.chunk_overlap", DefaultChunkOverlap)
+	v.SetDefault("memory.dedup_threshold", DefaultDedupThreshold)
 	v.SetDefault("memory.default_ttl_hours", 720) // 30 days
 	v.SetDefault("memory.vector_dimension", 768)
 
@@ -118,7 +134,43 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("unmarshalling config: %w", err)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validating config: %w", err)
+	}
+
 	return &cfg, nil
+}
+
+// Validate checks that required configuration fields are set and consistent.
+func (c *Config) Validate() error {
+	if c.Qdrant.Host == "" {
+		return fmt.Errorf("qdrant.host must not be empty")
+	}
+	if c.Ollama.BaseURL == "" {
+		return fmt.Errorf("ollama.base_url must not be empty")
+	}
+	if c.Qdrant.Collection == "" {
+		return fmt.Errorf("qdrant.collection must not be empty")
+	}
+	if c.Memory.ChunkSize <= 0 {
+		return fmt.Errorf("memory.chunk_size must be greater than 0")
+	}
+	if c.Memory.ChunkOverlap < 0 {
+		return fmt.Errorf("memory.chunk_overlap must be >= 0")
+	}
+	if c.Memory.ChunkOverlap >= c.Memory.ChunkSize {
+		return fmt.Errorf("memory.chunk_overlap (%d) must be less than memory.chunk_size (%d)", c.Memory.ChunkOverlap, c.Memory.ChunkSize)
+	}
+	if c.Memory.DedupThreshold < 0 || c.Memory.DedupThreshold > 1 {
+		return fmt.Errorf("memory.dedup_threshold must be between 0 and 1")
+	}
+	if c.Memory.VectorDimension <= 0 {
+		return fmt.Errorf("memory.vector_dimension must be greater than 0")
+	}
+	if c.Memory.DefaultTTLHours < 0 {
+		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
+	}
+	return nil
 }
 
 func homeDir() string {

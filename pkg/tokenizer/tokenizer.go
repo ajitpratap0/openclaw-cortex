@@ -16,7 +16,7 @@ func EstimateTokens(text string) int {
 
 	// Heuristic: average of word-based and char-based estimates
 	wordEstimate := int(float64(words) * 1.3) // ~1.3 tokens per word
-	charEstimate := chars / 4                  // ~4 chars per token
+	charEstimate := chars / 4                 // ~4 chars per token
 
 	return (wordEstimate + charEstimate) / 2
 }

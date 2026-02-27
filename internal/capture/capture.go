@@ -5,12 +5,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
+
+// minCaptureConfidence is the minimum confidence score for an extracted memory to be kept.
+const minCaptureConfidence = 0.5
+
+// xmlEscape replaces characters that have special meaning in XML to prevent
+// prompt injection when embedding user content in XML-delimited templates.
+func xmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
+}
 
 // Capturer extracts structured memories from conversation text.
 type Capturer interface {
@@ -61,9 +76,10 @@ type extractionResponse struct {
 	Memories []models.CapturedMemory `json:"memories"`
 }
 
+// Extract analyzes a conversation turn and returns captured memories above the confidence threshold.
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
-	// Use XML delimiters to prevent prompt injection from user/assistant content.
-	prompt := fmt.Sprintf(extractionPromptTemplate, userMsg, assistantMsg)
+	// Escape XML-special characters to prevent prompt injection from user/assistant content.
+	prompt := fmt.Sprintf(extractionPromptTemplate, xmlEscape(userMsg), xmlEscape(assistantMsg))
 
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
@@ -83,9 +99,9 @@ func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg stri
 
 	// Extract text from response
 	var responseText string
-	for _, block := range resp.Content {
-		if block.Type == "text" {
-			responseText = block.Text
+	for i := range resp.Content {
+		if resp.Content[i].Type == "text" {
+			responseText = resp.Content[i].Text
 			break
 		}
 	}
@@ -110,7 +126,7 @@ func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg stri
 	// Filter out low-confidence extractions
 	var filtered []models.CapturedMemory
 	for _, m := range memories {
-		if m.Confidence >= 0.5 {
+		if m.Confidence >= minCaptureConfidence {
 			filtered = append(filtered, m)
 		}
 	}

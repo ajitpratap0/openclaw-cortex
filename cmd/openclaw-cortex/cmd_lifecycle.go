@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func consolidateCmd() *cobra.Command {
 		Short: "Run lifecycle management (TTL expiry, decay, consolidation)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			st, err := newStore(logger)
 			if err != nil {
@@ -53,7 +52,7 @@ func forgetCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			st, err := newStore(logger)
 			if err != nil {

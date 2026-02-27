@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,7 +22,7 @@ func searchCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 			query := args[0]
 
 			emb := newEmbedder(logger)
@@ -55,7 +54,8 @@ func searchCmd() *cobra.Command {
 				return fmt.Errorf("search: querying store: %w", err)
 			}
 
-			for i, r := range results {
+			for i := range results {
+				r := &results[i]
 				fmt.Printf("[%d] (%.4f) [%s] %s\n", i+1, r.Score, r.Memory.Type, truncate(r.Memory.Content, 120))
 				fmt.Printf("    ID: %s | Source: %s\n", r.Memory.ID, r.Memory.Source)
 			}

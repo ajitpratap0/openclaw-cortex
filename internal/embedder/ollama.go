@@ -15,6 +15,8 @@ import (
 
 const (
 	ollamaHTTPTimeout   = 30 * time.Second
+	ollamaMaxRetries    = 3
+	ollamaRetryBaseWait = 500 * time.Millisecond
 	embedBatchConcLimit = 5
 )
 
@@ -47,6 +49,7 @@ func NewOllamaEmbedder(baseURL, model string, dimension int, logger *slog.Logger
 	}
 }
 
+// Embed returns a vector embedding for the given text using the Ollama API.
 func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	reqBody := ollamaEmbedRequest{
 		Model:  o.model,
@@ -55,19 +58,49 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling request: %w", err)
+		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
 
-	url := o.baseURL + "/api/embeddings"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+	endpoint := o.baseURL + "/api/embeddings"
 
-	resp, err := o.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("calling Ollama API: %w", err)
+	var resp *http.Response
+	for attempt := 0; attempt < ollamaMaxRetries; attempt++ {
+		if attempt > 0 {
+			wait := ollamaRetryBaseWait * time.Duration(1<<(attempt-1))
+			o.logger.Warn("retrying Ollama request", "attempt", attempt+1, "wait", wait)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+			}
+		}
+
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
+		if reqErr != nil {
+			return nil, fmt.Errorf("creating request: %w", reqErr)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = o.client.Do(req)
+		if err != nil {
+			if attempt < ollamaMaxRetries-1 {
+				continue
+			}
+			return nil, fmt.Errorf("calling Ollama API: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			_ = resp.Body.Close()
+			if attempt < ollamaMaxRetries-1 {
+				continue
+			}
+			return nil, fmt.Errorf("ollama API returned %d after %d attempts", resp.StatusCode, ollamaMaxRetries)
+		}
+		break
+	}
+
+	if resp == nil {
+		return nil, fmt.Errorf("ollama API: no response after %d attempts", ollamaMaxRetries)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -124,6 +157,7 @@ func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 	return results, nil
 }
 
+// Dimension returns the embedding vector dimension.
 func (o *OllamaEmbedder) Dimension() int {
 	return o.dimension
 }

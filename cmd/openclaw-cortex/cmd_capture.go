@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -26,7 +25,7 @@ func captureCmd() *cobra.Command {
 		Short: "Extract memories from a conversation turn",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Validate that the API key is present before making any API call.
 			if cfg.Claude.APIKey == "" {
@@ -47,7 +46,7 @@ func captureCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.EnsureCollection(ctx); err != nil {
+			if err = st.EnsureCollection(ctx); err != nil {
 				return fmt.Errorf("capture: ensuring collection: %w", err)
 			}
 

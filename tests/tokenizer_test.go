@@ -11,8 +11,8 @@ import (
 
 func TestEstimateTokens(t *testing.T) {
 	tests := []struct {
-		name     string
-		text     string
+		name      string
+		text      string
 		minExpect int
 		maxExpect int
 	}{
