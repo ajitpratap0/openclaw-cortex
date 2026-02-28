@@ -55,6 +55,22 @@ func (f *failingUpsertStore) Stats(ctx context.Context) (*models.CollectionStats
 	return f.inner.Stats(ctx)
 }
 
+func (f *failingUpsertStore) UpsertEntity(ctx context.Context, entity models.Entity) error {
+	return f.inner.UpsertEntity(ctx, entity)
+}
+
+func (f *failingUpsertStore) GetEntity(ctx context.Context, id string) (*models.Entity, error) {
+	return f.inner.GetEntity(ctx, id)
+}
+
+func (f *failingUpsertStore) SearchEntities(ctx context.Context, name string) ([]models.Entity, error) {
+	return f.inner.SearchEntities(ctx, name)
+}
+
+func (f *failingUpsertStore) LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error {
+	return f.inner.LinkMemoryToEntity(ctx, entityID, memoryID)
+}
+
 func (f *failingUpsertStore) Close() error {
 	return f.inner.Close()
 }
