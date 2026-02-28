@@ -1,0 +1,20 @@
+site_name: OpenClaw Cortex
+site_description: Hybrid semantic memory system for AI agents
+site_url: https://ajitpratap0.github.io/openclaw-cortex/
+repo_url: https://github.com/ajitpratap0/openclaw-cortex
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Getting Started: quickstart.md
+  - Architecture: ARCHITECTURE.md
+  - Integrations:
+    - Claude Code Hooks: hooks.md
+    - HTTP API: api.md
+    - MCP Server: mcp.md
+  - Benchmarks: benchmarks.md

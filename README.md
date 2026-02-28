@@ -4,258 +4,281 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ajitpratap0/openclaw-cortex)](https://goreportcard.com/report/github.com/ajitpratap0/openclaw-cortex)
 [![GoDoc](https://pkg.go.dev/badge/github.com/ajitpratap0/openclaw-cortex)](https://pkg.go.dev/github.com/ajitpratap0/openclaw-cortex)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://ajitpratap0.github.io/openclaw-cortex/)
 
-Hybrid semantic memory system for AI agents. Combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.
+**Persistent, semantically searchable memory for AI agents — across sessions, projects, and context windows.**
+
+OpenClaw Cortex gives Claude and other AI agents long-term memory. It captures important information from conversations, classifies it by type and scope, and retrieves the most relevant context for each new turn — all within your token budget.
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ajitpratap0/openclaw-cortex/main/scripts/install.sh | bash
+```
+
+Or build from source (requires Go 1.23+):
+
+```bash
+git clone https://github.com/ajitpratap0/openclaw-cortex
+cd openclaw-cortex
+go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
+```
+
+## 3-Command Quickstart
+
+```bash
+docker compose up -d                                      # start Qdrant vector store
+ollama pull nomic-embed-text                              # pull the embedding model
+cortex capture "$(cat conversation.txt)"                  # store memories from a conversation
+```
+
+Then recall relevant context in your next session:
+
+```bash
+cortex recall "How do we handle database errors?" --budget 2000
+```
+
+## Why OpenClaw Cortex?
+
+| Feature | Naive conversation history | OpenClaw Cortex |
+|---------|--------------------------|-----------------|
+| Token limit | Hits context window, truncates | Token-budgeted recall: always fits |
+| Search | Sequential scan / none | Semantic vector search |
+| Ranking | Chronological only | Similarity + recency + frequency + type + scope |
+| Memory expiry | Manual | TTL, session decay, lifecycle consolidation |
+| Entity tracking | None | Automatic from conversation capture |
+| Cross-session | Context window only | Persists in Qdrant across all sessions |
+| API access | None | REST API + MCP server |
+| Project isolation | None | Per-project scoping and boosting |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    CLI / Hooks                       │
-│  index  search  recall  capture  store  consolidate  │
-├─────────────┬──────────────┬────────────────────────┤
-│   Indexer   │   Capturer   │      Recaller          │
-│  (markdown  │  (Claude     │  (multi-factor         │
-│   scanner)  │   Haiku)     │   ranking)             │
-├─────────────┴──────┬───────┴────────────────────────┤
-│     Classifier     │         Lifecycle              │
-│  (heuristic +      │  (TTL, decay,                  │
-│   LLM typing)      │   consolidation)               │
-├────────────────────┴────────────────────────────────┤
-│                   Embedder                           │
-│            (Ollama / nomic-embed-text)               │
-├─────────────────────────────────────────────────────┤
-│                     Store                            │
-│              (Qdrant gRPC client)                    │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                   Claude / AI Agent                       │
+│                                                          │
+│   Pre-Turn Hook ──> Recall ──> Inject context            │
+│   Post-Turn Hook ──> Capture ──> Store memories          │
+└──────────┬───────────────────────────────┬───────────────┘
+           │                               │
+           ▼                               ▼
+  CLI / HTTP API / MCP             Hook Integration
+  (index search recall             (Pre/Post Turn,
+   capture store consolidate)       graceful degradation)
+           │                               │
+           └──────────────┬───────────────┘
+                          │
+              ┌───────────▼────────────┐
+              │      Core Engine        │
+              │  Indexer  Capturer      │
+              │  Recaller Classifier    │
+              │  Lifecycle Manager      │
+              └────────┬────────────────┘
+                       │
+           ┌───────────▼──────────────┐
+           │  Embedder    Store        │
+           │  (Ollama)    (Qdrant gRPC)│
+           │  768-dim     vectors      │
+           └───────────────────────────┘
 ```
 
 ## Features
 
-- **Semantic Search**: Vector-based similarity search over all memories
-- **Smart Capture**: LLM-powered extraction of structured memories from conversations
-- **Classification**: Automatic categorization into rules, facts, episodes, procedures, preferences
-- **Multi-Factor Recall**: Ranking by similarity, recency, frequency, type priority, and scope
-- **Token Budget**: Fit recalled memories within configurable token limits
-- **Deduplication**: Cosine similarity-based duplicate detection before insertion
-- **Lifecycle Management**: TTL expiry, session decay, consolidation
-- **OpenClaw Integration**: Pre/post-turn hooks for seamless agent integration
+- **Semantic recall**: Vector similarity search (Qdrant gRPC, 768-dim `nomic-embed-text`)
+- **Smart capture**: Claude Haiku extracts structured memories from conversation turns
+- **Multi-factor ranking**: Similarity 50% + recency 20% + frequency 10% + type 10% + scope 10%
+- **Token-aware output**: Recalled memories trimmed to fit your token budget
+- **Deduplication**: Cosine similarity dedup (threshold: 0.92) prevents redundant storage
+- **Memory types**: `rule` (1.5x) / `procedure` (1.3x) / `fact` (1.0x) / `episode` (0.8x) / `preference` (0.7x)
+- **Lifecycle management**: TTL expiry, session decay, consolidation
+- **Claude Code hooks**: Pre/post-turn hooks with graceful degradation
+- **HTTP API**: REST endpoints for any LLM pipeline
+- **MCP server**: Native Model Context Protocol support for Claude Desktop
 
-## Quick Start
+## Documentation
 
-### Prerequisites
+Full documentation: **https://ajitpratap0.github.io/openclaw-cortex/**
 
-- Go 1.25+
-- [Task](https://taskfile.dev/) (`brew install go-task`)
-- Docker (for Qdrant)
-- Ollama with `nomic-embed-text` model
-- Anthropic API key (for capture feature)
-
-### Setup
-
-```bash
-# Start Qdrant
-task docker:up
-
-# Pull the embedding model
-ollama pull nomic-embed-text
-
-# Build cortex
-task build
-
-# Set API key for capture feature
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### Usage
-
-```bash
-# Index existing memory files
-openclaw-cortex index --path ~/.openclaw/workspace/memory/
-
-# Search memories
-openclaw-cortex search "how to deploy to production"
-openclaw-cortex search "error handling" --type rule --limit 5
-
-# Store a new memory
-openclaw-cortex store "Always run tests before deploying" --type rule --scope permanent --tags ci,deployment
-
-# Recall memories for a conversation turn (with token budget)
-openclaw-cortex recall "How should I structure the database schema?" --budget 2000 --project myapp
-
-# Capture memories from a conversation
-openclaw-cortex capture --user "What's the best way to handle errors in Go?" \
-               --assistant "In Go, always check error returns explicitly..."
-
-# View stats
-openclaw-cortex stats
-
-# Run lifecycle management
-openclaw-cortex consolidate
-openclaw-cortex consolidate --dry-run
-
-# Delete a memory
-openclaw-cortex forget <memory-id>
-
-# List memories with filters
-openclaw-cortex list --type rule --scope permanent --limit 20
-```
+| Guide | Description |
+|-------|-------------|
+| [Quickstart](https://ajitpratap0.github.io/openclaw-cortex/quickstart/) | End-to-end setup in 5 minutes |
+| [Architecture](https://ajitpratap0.github.io/openclaw-cortex/architecture/) | Layered call flows, data model, scoring formula |
+| [Claude Code Hooks](https://ajitpratap0.github.io/openclaw-cortex/hooks/) | Automatic memory for every conversation |
+| [HTTP API](https://ajitpratap0.github.io/openclaw-cortex/api/) | REST API reference |
+| [MCP Server](https://ajitpratap0.github.io/openclaw-cortex/mcp/) | Claude Desktop integration |
+| [Benchmarks](https://ajitpratap0.github.io/openclaw-cortex/benchmarks/) | Latency and throughput characteristics |
 
 ## Configuration
 
 Configuration is loaded from (in order of precedence):
-1. Environment variables (prefixed with `OPENCLAW_CORTEX_`)
-2. `~/.openclaw-cortex/config.yaml`
+1. Environment variables (prefixed `OPENCLAW_CORTEX_`)
+2. `~/.cortex/config.yaml`
 3. Built-in defaults
-
-### Config File
 
 ```yaml
 qdrant:
   host: localhost
   grpc_port: 6334
-  http_port: 6333
-  collection: openclaw_cortex_memories
-  use_tls: false
 
 ollama:
   base_url: http://localhost:11434
   model: nomic-embed-text
 
-claude:
-  model: claude-haiku-4-5-20251001
-
 memory:
-  memory_dir: ~/.openclaw/workspace/memory/
-  chunk_size: 512
-  chunk_overlap: 64
   dedup_threshold: 0.92
   default_ttl_hours: 720
-  vector_dimension: 768
-
-logging:
-  level: info
-  format: text
 ```
 
-### Environment Variables
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | — | Required for `capture` (Claude Haiku extraction) |
+| `OPENCLAW_CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
+| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ANTHROPIC_API_KEY` | Anthropic API key for capture | — |
-| `OPENCLAW_CORTEX_QDRANT_HOST` | Qdrant hostname | `localhost` |
-| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | Qdrant gRPC port | `6334` |
-| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | Ollama base URL | `http://localhost:11434` |
+## Claude Code Integration
 
-## Memory Model
+Add to `.claude/settings.json` in your project:
 
-### Types
+```json
+{
+  "hooks": {
+    "PreTurn": [{
+      "hooks": [{
+        "type": "command",
+        "command": "echo '{\"message\": \"{{HUMAN_TURN}}\", \"project\": \"my-project\", \"token_budget\": 2000}' | openclaw-cortex hook pre"
+      }]
+    }],
+    "PostTurn": [{
+      "hooks": [{
+        "type": "command",
+        "command": "echo '{\"user_message\": \"{{HUMAN_TURN}}\", \"assistant_message\": \"{{ASSISTANT_TURN}}\", \"session_id\": \"{{SESSION_ID}}\", \"project\": \"my-project\"}' | openclaw-cortex hook post"
+      }]
+    }]
+  }
+}
+```
 
-| Type | Description | Recall Priority |
-|------|-------------|-----------------|
-| `rule` | Operating principles, hard constraints | 1.5x |
-| `procedure` | How-to steps, processes, workflows | 1.3x |
-| `fact` | Declarative knowledge, definitions | 1.0x |
-| `episode` | Specific events with temporal context | 0.8x |
-| `preference` | User preferences, style choices | 0.7x |
-
-### Scopes
-
-| Scope | Behavior |
-|-------|----------|
-| `permanent` | Persists indefinitely |
-| `project` | Boosted when project context matches |
-| `session` | Auto-expires after 24h without access |
-| `ttl` | Expires after configured TTL |
-
-### Recall Scoring
-
-Final score = weighted combination of:
-- **Similarity** (0.5): Cosine distance from Qdrant
-- **Recency** (0.2): Exponential decay, 7-day half-life
-- **Frequency** (0.1): Log-scale access count
-- **Type Boost** (0.1): Priority multiplier per type
-- **Scope Boost** (0.1): Project-match bonus
-
-## Deployment
-
-### Docker
+Or use the quick installer:
 
 ```bash
-# Run Qdrant
-docker compose up -d
-
-# Build openclaw-cortex image
-docker build -t openclaw-cortex:latest .
-
-# Run cortex
-docker run --rm openclaw-cortex:latest search "query"
+openclaw-cortex hook install
 ```
 
-### Kubernetes
+Both hooks exit with code 0 even if services are unavailable — Claude is never blocked.
+
+## CLI Reference
 
 ```bash
-kubectl apply -f k8s/qdrant.yaml
-```
+# Store a memory
+openclaw-cortex store "Always run tests before merging" --type rule --scope permanent
 
-Creates a StatefulSet with PVC in the `cortex` namespace.
+# Recall with token budget
+openclaw-cortex recall "deployment process" --budget 2000 --project myapp
+
+# Capture memories from a conversation turn
+openclaw-cortex capture \
+  --user "How do I handle errors?" \
+  --assistant "Always wrap errors with fmt.Errorf and %w..."
+
+# Index markdown memory files
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
+
+# Search (raw similarity, no re-ranking)
+openclaw-cortex search "error handling" --type rule --limit 5
+
+# View stats
+openclaw-cortex stats
+
+# Run lifecycle management (TTL expiry, decay, consolidation)
+openclaw-cortex consolidate
+
+# Start HTTP API server
+openclaw-cortex serve --port 8080
+
+# Start MCP server (for Claude Desktop)
+openclaw-cortex mcp
+```
 
 ## Development
 
 ```bash
-# Run tests
-task test
+# Run all tests (race detector enabled)
+go test -v -race -count=1 ./...
 
-# Run tests with coverage
-task test:cover
+# Short tests only (no external services needed)
+go test -short -count=1 ./...
 
 # Lint
-task lint
-
-# Format
-task fmt
+golangci-lint run ./...
 
 # Build
+go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
+
+# Using Taskfile
+task test
+task lint
 task build
 ```
 
 ## Project Structure
 
 ```
-cortex/
-├── cmd/openclaw-cortex/main.go          # CLI entrypoint (cobra)
+openclaw-cortex/
+├── cmd/openclaw-cortex/    # CLI entrypoint (Cobra); all wiring of interfaces
 ├── internal/
-│   ├── config/config.go        # Viper-based configuration
-│   ├── models/memory.go        # Memory types, scopes, data structures
-│   ├── embedder/
-│   │   ├── embedder.go         # Embedder interface
-│   │   └── ollama.go           # Ollama HTTP API implementation
-│   ├── store/
-│   │   ├── store.go            # Store interface
-│   │   ├── qdrant.go           # Qdrant gRPC implementation
-│   │   └── mock_store.go       # In-memory mock for testing
-│   ├── indexer/indexer.go      # Markdown file scanner + chunker
-│   ├── capture/capture.go     # Claude Haiku memory extraction
-│   ├── classifier/classifier.go # Heuristic memory classification
-│   ├── recall/recall.go       # Multi-factor ranked recall
-│   ├── lifecycle/lifecycle.go # TTL, decay, consolidation
-│   └── hooks/hooks.go         # OpenClaw hook integration
-├── pkg/tokenizer/tokenizer.go # Token estimation + budgeting
-├── tests/                      # Comprehensive test suite
-├── skill/SKILL.md              # OpenClaw skill definition
-├── k8s/qdrant.yaml            # Kubernetes deployment
-├── docker-compose.yml          # Local Qdrant
-├── Dockerfile                  # Multi-stage build
-├── Taskfile.yml                # Build, test, lint targets (go-task)
-└── .golangci.yml              # Linter configuration
+│   ├── api/                # HTTP API server (REST endpoints)
+│   ├── capture/            # Claude Haiku memory extraction + conflict detection
+│   ├── classifier/         # Heuristic keyword scoring -> MemoryType
+│   ├── config/             # Viper-based configuration
+│   ├── embedder/           # Embedder interface + Ollama HTTP implementation
+│   ├── hooks/              # Pre/post-turn hook handlers
+│   ├── indexer/            # Markdown tree walker + section summarizer
+│   ├── lifecycle/          # TTL expiry, session decay, consolidation
+│   ├── mcp/                # MCP server (remember/recall/forget/search/stats)
+│   ├── metrics/            # In-process counters
+│   ├── models/             # Memory struct and type definitions
+│   ├── recall/             # Multi-factor ranker + optional Claude re-ranker
+│   └── store/              # Store interface, Qdrant gRPC, MockStore
+├── pkg/tokenizer/          # Token estimation and budget-aware formatting
+├── tests/                  # Black-box test suite (no live services needed)
+├── docs/                   # MkDocs documentation source
+├── scripts/install.sh      # Binary installer
+├── k8s/qdrant.yaml         # Kubernetes StatefulSet
+├── docker-compose.yml      # Local Qdrant
+└── Dockerfile              # Multi-stage build
 ```
 
 ## Tech Stack
 
-- **Go 1.25+** with structured logging (`slog`)
+- **Go 1.23+** with structured logging (`slog`)
 - **Qdrant** vector database (gRPC via `github.com/qdrant/go-client`)
-- **Ollama** for embeddings (`nomic-embed-text`, 768 dimensions)
+- **Ollama** for local embeddings (`nomic-embed-text`, 768 dimensions)
 - **Claude Haiku** for memory extraction (`github.com/anthropics/anthropic-sdk-go`)
-- **Cobra** CLI framework
-- **Viper** configuration management
-- **Testify** for test assertions
+- **Cobra** + **Viper** for CLI and configuration
+- **mcp-go** for Model Context Protocol server
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+```bash
+# Start a feature branch
+git checkout -b feat/short-description
+
+# Make changes, then verify
+go test -short -race -count=1 ./...
+golangci-lint run ./...
+
+# Push and open a PR
+git push -u origin feat/short-description
+gh pr create --title "feat: ..." --body "..."
+```
+
+Branch naming: `feat/<topic>`, `fix/<topic>`, `refactor/<topic>`, `test/<topic>`.
+
+`main` is protected — direct pushes are blocked. All changes go through a PR with CI checks.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
