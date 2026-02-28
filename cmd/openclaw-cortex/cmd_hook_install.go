@@ -62,6 +62,7 @@ If the file already exists the hooks section is merged; other keys are preserved
 
 	cmd.Flags().BoolVar(&globalFlag, "global", false, "Install into ~/.claude/settings.json instead of .claude/settings.json")
 	cmd.Flags().StringVar(&projectName, "project", "", "Project name (reserved for future use)")
+	_ = cmd.Flags().MarkHidden("project")
 
 	return cmd
 }

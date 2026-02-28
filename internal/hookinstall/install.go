@@ -5,9 +5,12 @@ package hookinstall
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -125,7 +128,7 @@ func readSettings(path string) (map[string]json.RawMessage, map[string][]HookMat
 	hooksMap := map[string][]HookMatcher{}
 
 	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return rawMap, hooksMap, nil
 	}
 	if err != nil {
@@ -152,8 +155,7 @@ func hasOCHook(matchers []HookMatcher) bool {
 	prefix := BinaryName
 	for i := range matchers {
 		for j := range matchers[i].Hooks {
-			cmd := matchers[i].Hooks[j].Command
-			if len(cmd) >= len(prefix) && cmd[:len(prefix)] == prefix {
+			if strings.HasPrefix(matchers[i].Hooks[j].Command, prefix) {
 				return true
 			}
 		}
