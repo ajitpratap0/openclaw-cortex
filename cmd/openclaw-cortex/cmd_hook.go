@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,10 +19,16 @@ import (
 const hookTimeout = 30 * time.Second
 
 // hookPreInput is the JSON input shape for `cortex hook pre`.
+// It matches the Claude Code UserPromptSubmit hook stdin payload.
 type hookPreInput struct {
-	Message     string `json:"message"`
-	Project     string `json:"project"`
-	TokenBudget int    `json:"token_budget"`
+	SessionID      string `json:"session_id"`
+	HookEventName  string `json:"hook_event_name"`
+	Prompt         string `json:"prompt"`          // the user's message
+	Cwd            string `json:"cwd"`             // working directory (used as project if Project not set)
+	TranscriptPath string `json:"transcript_path"` // for future use
+	// Keep these as optional with omitempty for backward compat:
+	Project     string `json:"project,omitempty"`      // override project name if provided
+	TokenBudget int    `json:"token_budget,omitempty"` // override budget if provided
 }
 
 // hookPreOutput is the JSON output shape for `cortex hook pre`.
@@ -31,11 +39,15 @@ type hookPreOutput struct {
 }
 
 // hookPostInput is the JSON input shape for `cortex hook post`.
+// It matches the Claude Code Stop hook stdin payload.
 type hookPostInput struct {
-	UserMessage      string `json:"user_message"`
-	AssistantMessage string `json:"assistant_message"`
-	SessionID        string `json:"session_id"`
-	Project          string `json:"project"`
+	SessionID            string `json:"session_id"`
+	HookEventName        string `json:"hook_event_name"`
+	LastAssistantMessage string `json:"last_assistant_message"` // Claude Code Stop event
+	// Keep these as optional for backward compat:
+	UserMessage      string `json:"user_message,omitempty"`
+	AssistantMessage string `json:"assistant_message,omitempty"`
+	Project          string `json:"project,omitempty"`
 }
 
 // hookPostOutput is the JSON output shape for `cortex hook post`.
@@ -49,7 +61,7 @@ func hookCmd() *cobra.Command {
 		Use:   "hook",
 		Short: "Claude Code hook integration (pre/post turn)",
 	}
-	cmd.AddCommand(hookPreCmd(), hookPostCmd())
+	cmd.AddCommand(hookPreCmd(), hookPostCmd(), hookInstallCmd())
 	return cmd
 }
 
@@ -81,21 +93,30 @@ func hookPreCmd() *cobra.Command {
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
 				logger.Error("hook pre: connecting to store", "error", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), continuing without memory context\n", storeErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
 			defer func() { _ = st.Close() }()
 
+			// Derive project: use explicit Project field if set, otherwise use the
+			// last path segment of Cwd (matches the typical Claude Code project name).
+			project := input.Project
+			if project == "" && input.Cwd != "" {
+				project = filepath.Base(input.Cwd)
+			}
+
 			recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
 			hook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
 			out, execErr := hook.Execute(ctx, hooks.PreTurnInput{
-				Message:     input.Message,
-				Project:     input.Project,
+				Message:     input.Prompt,
+				Project:     project,
 				TokenBudget: input.TokenBudget,
 			})
 			if execErr != nil {
 				logger.Error("hook pre: executing hook", "error", execErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory recall failed (%v), continuing without memory context\n", execErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -142,10 +163,26 @@ func hookPostCmd() *cobra.Command {
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
 				logger.Error("hook post: connecting to store", "error", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), skipping memory capture\n", storeErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
 			defer func() { _ = st.Close() }()
+
+			// Use LastAssistantMessage (Claude Code Stop event field) falling back to
+			// the legacy AssistantMessage field for backward compatibility.
+			assistantMsg := input.LastAssistantMessage
+			if assistantMsg == "" {
+				assistantMsg = input.AssistantMessage
+			}
+
+			// UserMessage is not available in the Claude Code Stop event payload.
+			// Log a warning and skip capture gracefully if it is not set.
+			if input.UserMessage == "" {
+				logger.Warn("hook post: user message not available from Stop event, skipping capture")
+				writePostOutput(hookPostOutput{Stored: false})
+				return nil
+			}
 
 			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
@@ -156,12 +193,13 @@ func hookPostCmd() *cobra.Command {
 			// capture.ClaudeCapturer.Extract — do not bypass with a raw Capturer implementation.
 			execErr := hook.Execute(ctx, hooks.PostTurnInput{
 				UserMessage:      input.UserMessage,
-				AssistantMessage: input.AssistantMessage,
+				AssistantMessage: assistantMsg,
 				SessionID:        input.SessionID,
 				Project:          input.Project,
 			})
 			if execErr != nil {
 				logger.Error("hook post: executing hook", "error", execErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory capture failed (%v), skipping\n", execErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
