@@ -23,9 +23,9 @@ const hookTimeout = 30 * time.Second
 type hookPreInput struct {
 	SessionID      string `json:"session_id"`
 	HookEventName  string `json:"hook_event_name"`
-	Prompt         string `json:"prompt"`           // the user's message
-	Cwd            string `json:"cwd"`              // working directory (used as project if Project not set)
-	TranscriptPath string `json:"transcript_path"`  // for future use
+	Prompt         string `json:"prompt"`          // the user's message
+	Cwd            string `json:"cwd"`             // working directory (used as project if Project not set)
+	TranscriptPath string `json:"transcript_path"` // for future use
 	// Keep these as optional with omitempty for backward compat:
 	Project     string `json:"project,omitempty"`      // override project name if provided
 	TokenBudget int    `json:"token_budget,omitempty"` // override budget if provided
