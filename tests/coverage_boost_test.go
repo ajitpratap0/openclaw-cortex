@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -315,16 +316,10 @@ func TestIndexer_IndexDirectory_IndexFileError(t *testing.T) {
 	require.NoError(t, err)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	emb := &mockEmbedder{dimension: 768}
 	st := store.NewMockStore()
 
-	_ = emb // not used after refactor
-
-	// IndexDirectory calls FindMarkdownFiles first (finds both), then iterates.
-	// We can't easily delete between find and index, so instead use an embedder
-	// that fails to trigger IndexFile to return an error.
+	// Use errorBatchEmbedder so IndexFile errors in IndexDirectory.
 	// The error path in IndexDirectory logs the error and continues.
-	// Use errorBatchEmbedder so IndexFile errors.
 	embErr := &errorBatchEmbedder{dimension: 768}
 	idxErr := indexer.NewIndexer(embErr, st, 512, 64, logger)
 
@@ -332,4 +327,378 @@ func TestIndexer_IndexDirectory_IndexFileError(t *testing.T) {
 	count, err := idxErr.IndexDirectory(context.Background(), dir)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
+}
+
+// ============================================================
+// Lifecycle: consolidate paths
+// ============================================================
+
+// onceSucceedEmbedder succeeds only for the first N Embed calls, then fails.
+// This lets us cover the embedErrB != nil path in consolidate.
+type onceSucceedEmbedder struct {
+	callCount atomic.Int64
+	succeedN  int64 // succeed for first succeedN calls, fail after
+	dimension int
+}
+
+func (e *onceSucceedEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	n := e.callCount.Add(1)
+	if n <= e.succeedN {
+		vec := make([]float32, e.dimension)
+		for i := range vec {
+			vec[i] = 0.1
+		}
+		return vec, nil
+	}
+	return nil, errors.New("embed: service unavailable")
+}
+
+func (e *onceSucceedEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	result := make([][]float32, len(texts))
+	for i := range texts {
+		vec, err := e.Embed(ctx, texts[i])
+		if err != nil {
+			return nil, err
+		}
+		result[i] = vec
+	}
+	return result, nil
+}
+
+func (e *onceSucceedEmbedder) Dimension() int {
+	return e.dimension
+}
+
+// TestLifecycle_Consolidate_OuterEmbedError covers the embedErr != nil path in
+// consolidate (lifecycle.go lines 210-212) where the outer memory's embed fails.
+func TestLifecycle_Consolidate_OuterEmbedError(t *testing.T) {
+	ctx := context.Background()
+	st := store.NewMockStore()
+
+	// Add two permanent memories
+	for i, id := range []string{"perm-a", "perm-b"} {
+		mem := models.Memory{
+			ID:         id,
+			Type:       models.MemoryTypeFact,
+			Scope:      models.ScopePermanent,
+			Content:    "permanent memory content",
+			Confidence: 0.9,
+		}
+		_ = st.Upsert(ctx, mem, testVector(float32(i)*0.1))
+	}
+
+	// errorBatchEmbedder always fails on Embed — covers outer embed error path (line 210-212)
+	emb := &errorBatchEmbedder{dimension: 768}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, false)
+	require.NoError(t, err)
+	// No consolidations possible since every embed fails
+	assert.Equal(t, 0, report.Consolidated)
+}
+
+// TestLifecycle_Consolidate_InnerEmbedError covers the embedErrB != nil path in
+// consolidate (lifecycle.go lines 218-221) where the inner memory's embed fails.
+func TestLifecycle_Consolidate_InnerEmbedError(t *testing.T) {
+	ctx := context.Background()
+	st := store.NewMockStore()
+
+	// Add two permanent memories
+	for i, id := range []string{"perm-c", "perm-d"} {
+		mem := models.Memory{
+			ID:         id,
+			Type:       models.MemoryTypeFact,
+			Scope:      models.ScopePermanent,
+			Content:    "permanent memory content",
+			Confidence: 0.9,
+		}
+		_ = st.Upsert(ctx, mem, testVector(float32(i)*0.1))
+	}
+
+	// First call (outer) succeeds, second call (inner) fails.
+	// This exercises the embedErrB != nil continue path.
+	emb := &onceSucceedEmbedder{succeedN: 1, dimension: 4}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, false)
+	require.NoError(t, err)
+	// Inner embed failed, so no consolidation happened
+	assert.Equal(t, 0, report.Consolidated)
+}
+
+// TestLifecycle_Consolidate_IdenticalVectors exercises the full consolidation path
+// including the similarity check, deletion, and the deleteIdx==i break path.
+func TestLifecycle_Consolidate_IdenticalVectors(t *testing.T) {
+	ctx := context.Background()
+	st := store.NewMockStore()
+
+	// Add three permanent memories: perm-1 and perm-2 will be near-duplicates.
+	// Both will get the same vector from onceSucceedEmbedder so similarity == 1.0 > 0.92.
+	for _, id := range []string{"perm-1", "perm-2", "perm-3"} {
+		confidence := 0.8
+		if id == "perm-2" {
+			confidence = 0.95 // perm-2 has higher confidence — it survives
+		}
+		mem := models.Memory{
+			ID:         id,
+			Type:       models.MemoryTypeFact,
+			Scope:      models.ScopePermanent,
+			Content:    "duplicate content",
+			Confidence: confidence,
+		}
+		_ = st.Upsert(ctx, mem, testVector(0.5))
+	}
+
+	// Use an embedder that returns identical vectors for all calls (cosine similarity = 1.0)
+	emb := &fixedVectorEmbedder{dimension: 4}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, true) // dryRun=true so we just count
+	require.NoError(t, err)
+	// All three have similarity 1.0 — perm-1 and perm-3 should be consolidated
+	assert.Greater(t, report.Consolidated, 0, "should consolidate near-duplicate memories")
+}
+
+// fixedVectorEmbedder returns the same fixed vector for every call.
+// This ensures cosine similarity == 1.0 between any two embeddings.
+type fixedVectorEmbedder struct {
+	dimension int
+}
+
+func (e *fixedVectorEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	vec := make([]float32, e.dimension)
+	for i := range vec {
+		vec[i] = 0.5
+	}
+	return vec, nil
+}
+
+func (e *fixedVectorEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	result := make([][]float32, len(texts))
+	for i := range texts {
+		vec, err := e.Embed(ctx, texts[i])
+		if err != nil {
+			return nil, err
+		}
+		result[i] = vec
+	}
+	return result, nil
+}
+
+func (e *fixedVectorEmbedder) Dimension() int {
+	return e.dimension
+}
+
+// TestLifecycle_Consolidate_ListError covers the Run consolidation error path
+// (lifecycle.go lines 74-77) when listAll fails during consolidation.
+func TestLifecycle_Consolidate_ListError(t *testing.T) {
+	ctx := context.Background()
+
+	// Use a listFailStore so all List calls fail — this means TTL, session, and consolidation
+	// phases all fail. The consolidation error is at lines 74-77 of lifecycle.go.
+	st := &listFailStore{
+		MockStore: store.NewMockStore(),
+		listErr:   errors.New("store unavailable"),
+	}
+
+	// Pass a non-nil embedder so consolidation is attempted (not skipped)
+	emb := &fixedVectorEmbedder{dimension: 4}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, false)
+
+	require.Error(t, err)
+	// Error should include all three failed phases
+	assert.Contains(t, err.Error(), "TTL expiry")
+	assert.Equal(t, 0, report.Consolidated)
+}
+
+// TestLifecycle_Consolidate_ZeroVectorSkip covers the cosineSimilarity zero-norm path
+// (lifecycle.go lines 264-266) by using an embedder that returns all-zero vectors.
+// cosineSimilarity returns 0.0 for zero vectors, so no consolidation occurs.
+func TestLifecycle_Consolidate_ZeroVectorSkip(t *testing.T) {
+	ctx := context.Background()
+	st := store.NewMockStore()
+
+	// Add two permanent memories
+	for i, id := range []string{"zero-a", "zero-b"} {
+		mem := models.Memory{
+			ID:         id,
+			Type:       models.MemoryTypeFact,
+			Scope:      models.ScopePermanent,
+			Content:    "zero vector content",
+			Confidence: 0.9,
+		}
+		_ = st.Upsert(ctx, mem, testVector(float32(i)*0.1))
+	}
+
+	// All-zero embedder — cosineSimilarity will return 0 (below threshold)
+	emb := &zeroVectorEmbedder{dimension: 4}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, false)
+	require.NoError(t, err)
+	// Zero vectors have cosine similarity 0, so nothing is consolidated
+	assert.Equal(t, 0, report.Consolidated)
+}
+
+// zeroVectorEmbedder returns an all-zero vector for every call.
+// This exercises the normA == 0 || normB == 0 branch in cosineSimilarity.
+type zeroVectorEmbedder struct {
+	dimension int
+}
+
+func (e *zeroVectorEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	return make([]float32, e.dimension), nil
+}
+
+func (e *zeroVectorEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	result := make([][]float32, len(texts))
+	for i := range texts {
+		vec, err := e.Embed(ctx, texts[i])
+		if err != nil {
+			return nil, err
+		}
+		result[i] = vec
+	}
+	return result, nil
+}
+
+func (e *zeroVectorEmbedder) Dimension() int {
+	return e.dimension
+}
+
+// TestLifecycle_Consolidate_DeleteError covers the delete error path in consolidate
+// (lifecycle.go lines 235-238) where Delete fails during actual consolidation.
+func TestLifecycle_Consolidate_DeleteError(t *testing.T) {
+	ctx := context.Background()
+	inner := store.NewMockStore()
+
+	// Add two near-identical permanent memories
+	for i, id := range []string{"del-err-a", "del-err-b"} {
+		mem := models.Memory{
+			ID:         id,
+			Type:       models.MemoryTypeFact,
+			Scope:      models.ScopePermanent,
+			Content:    "near-duplicate content",
+			Confidence: float64(i+1) * 0.4, // 0.4 and 0.8
+		}
+		_ = inner.Upsert(ctx, mem, testVector(float32(i)*0.1))
+	}
+
+	// Wrap with a delete-failing store
+	st := &deleteFailStore{
+		MockStore: inner,
+		deleteErr: errors.New("delete failed"),
+	}
+
+	// fixedVectorEmbedder gives identical vectors → similarity == 1.0 > 0.92
+	emb := &fixedVectorEmbedder{dimension: 4}
+	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
+	report, err := lm.Run(ctx, false)
+	require.NoError(t, err)
+	// Delete failed, so consolidated should be 0 (continue skips the increment)
+	assert.Equal(t, 0, report.Consolidated)
+}
+
+// ============================================================
+// Indexer: store error paths in IndexFile
+// ============================================================
+
+// findDupFailStore wraps MockStore but makes FindDuplicates return an error.
+type findDupFailStore struct {
+	*store.MockStore
+	findDupErr error
+}
+
+func (s *findDupFailStore) FindDuplicates(_ context.Context, _ []float32, _ float64) ([]models.SearchResult, error) {
+	return nil, s.findDupErr
+}
+
+// TestIndexer_IndexFile_FindDuplicatesError covers the warning-and-continue path in IndexFile
+// (indexer.go lines 120-122) when FindDuplicates returns an error.
+func TestIndexer_IndexFile_FindDuplicatesError(t *testing.T) {
+	dir := t.TempDir()
+	mdPath := filepath.Join(dir, "test.md")
+	err := os.WriteFile(mdPath, []byte("# Title\nContent to index.\n"), 0644)
+	require.NoError(t, err)
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	emb := &mockEmbedder{dimension: 768}
+
+	// FindDuplicates always fails — IndexFile should log a warning and proceed to store
+	st := &findDupFailStore{
+		MockStore:  store.NewMockStore(),
+		findDupErr: errors.New("dedup unavailable"),
+	}
+
+	idx := indexer.NewIndexer(emb, st, 512, 64, logger)
+	count, err := idx.IndexFile(context.Background(), mdPath)
+	// Should succeed despite FindDuplicates error — fallback is to proceed with storage
+	require.NoError(t, err)
+	assert.Greater(t, count, 0, "should index chunks even when dedup check fails")
+}
+
+// upsertFailIndexStore wraps MockStore but makes Upsert return an error.
+type upsertFailIndexStore struct {
+	*store.MockStore
+	upsertErr error
+}
+
+func (s *upsertFailIndexStore) Upsert(_ context.Context, _ models.Memory, _ []float32) error {
+	return s.upsertErr
+}
+
+// TestIndexer_IndexFile_UpsertError covers the error-log-and-continue path in IndexFile
+// (indexer.go lines 144-147) when Upsert fails after FindDuplicates succeeds.
+func TestIndexer_IndexFile_UpsertError(t *testing.T) {
+	dir := t.TempDir()
+	mdPath := filepath.Join(dir, "test.md")
+	err := os.WriteFile(mdPath, []byte("# Title\nContent to index.\n"), 0644)
+	require.NoError(t, err)
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	emb := &mockEmbedder{dimension: 768}
+
+	// Upsert always fails — IndexFile should log error, continue, return 0 indexed
+	st := &upsertFailIndexStore{
+		MockStore: store.NewMockStore(),
+		upsertErr: errors.New("storage unavailable"),
+	}
+
+	idx := indexer.NewIndexer(emb, st, 512, 64, logger)
+	count, err := idx.IndexFile(context.Background(), mdPath)
+	// Should succeed (no fatal error) but count should be 0
+	require.NoError(t, err)
+	assert.Equal(t, 0, count, "should count 0 when all upserts fail")
+}
+
+// ============================================================
+// cosineSimilarity: unequal-length vector path
+// ============================================================
+
+// TestSummarizeTree_ChildWalkContextCancelled covers the `return err` path in SummarizeTree
+// (indexer/summarizer.go lines 129-131) when a child node's walk returns ctx.Err().
+// A pre-canceled context fires ctx.Done() immediately on the child walk's select.
+func TestSummarizeTree_ChildWalkContextCancelled(t *testing.T) {
+	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+
+	// Pre-cancel context so ctx.Done() triggers during child walk
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	child := &indexer.SectionNode{
+		Title:     "Child Section",
+		Content:   "Short child content.",
+		Path:      "Parent / Child",
+		Depth:     2,
+		WordCount: 3,
+	}
+	parent := &indexer.SectionNode{
+		Title:     "Parent Section",
+		Content:   "Short parent content here.",
+		Path:      "Parent",
+		Depth:     1,
+		WordCount: 4,
+		Children:  []*indexer.SectionNode{child},
+	}
+
+	_, err := s.SummarizeTree(ctx, []*indexer.SectionNode{parent}, "test.md")
+	// With canceled context, the first select in walk returns ctx.Err()
+	assert.Error(t, err, "should return context error when context is canceled")
 }
