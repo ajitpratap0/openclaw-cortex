@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"time"
 
@@ -81,8 +80,7 @@ func hookPreCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
-				logger.Error("hook pre: connecting to store",
-					"error", fmt.Errorf("hook pre: connecting to store: %w", storeErr))
+				logger.Error("hook pre: connecting to store", "error", storeErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -97,8 +95,7 @@ func hookPreCmd() *cobra.Command {
 				TokenBudget: input.TokenBudget,
 			})
 			if execErr != nil {
-				logger.Error("hook pre: executing hook",
-					"error", fmt.Errorf("hook pre: executing hook: %w", execErr))
+				logger.Error("hook pre: executing hook", "error", execErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -144,8 +141,7 @@ func hookPostCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
-				logger.Error("hook post: connecting to store",
-					"error", fmt.Errorf("hook post: connecting to store: %w", storeErr))
+				logger.Error("hook post: connecting to store", "error", storeErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
@@ -156,6 +152,8 @@ func hookPostCmd() *cobra.Command {
 
 			hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThreshold)
 
+			// XML-escaping of user/assistant content is handled inside
+			// capture.ClaudeCapturer.Extract — do not bypass with a raw Capturer implementation.
 			execErr := hook.Execute(ctx, hooks.PostTurnInput{
 				UserMessage:      input.UserMessage,
 				AssistantMessage: input.AssistantMessage,
@@ -163,8 +161,7 @@ func hookPostCmd() *cobra.Command {
 				Project:          input.Project,
 			})
 			if execErr != nil {
-				logger.Error("hook post: executing hook",
-					"error", fmt.Errorf("hook post: executing hook: %w", execErr))
+				logger.Error("hook post: executing hook", "error", execErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
@@ -181,10 +178,14 @@ func writePreOutput(out hookPreOutput) {
 	enc, err := json.Marshal(out)
 	if err != nil {
 		// Last-resort: write the zero-value response as a literal.
-		_, _ = os.Stdout.WriteString(`{"context":"","memory_count":0,"tokens_used":0}`)
+		_, _ = os.Stdout.WriteString(`{"context":"","memory_count":0,"tokens_used":0}` + "\n")
 		return
 	}
-	_, _ = os.Stdout.Write(enc)
+	_, err = os.Stdout.Write(enc)
+	if err != nil {
+		return
+	}
+	_, _ = os.Stdout.WriteString("\n")
 }
 
 // writePostOutput marshals the post-turn output to stdout.
@@ -192,8 +193,12 @@ func writePreOutput(out hookPreOutput) {
 func writePostOutput(out hookPostOutput) {
 	enc, err := json.Marshal(out)
 	if err != nil {
-		_, _ = os.Stdout.WriteString(`{"stored":false}`)
+		_, _ = os.Stdout.WriteString(`{"stored":false}` + "\n")
 		return
 	}
-	_, _ = os.Stdout.Write(enc)
+	_, err = os.Stdout.Write(enc)
+	if err != nil {
+		return
+	}
+	_, _ = os.Stdout.WriteString("\n")
 }
