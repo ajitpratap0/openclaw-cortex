@@ -8,6 +8,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/google/uuid"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
@@ -48,6 +49,9 @@ type EntityExtractor struct {
 
 // NewEntityExtractor creates a new entity extractor backed by the Claude API.
 func NewEntityExtractor(apiKey, model string, logger *slog.Logger) *EntityExtractor {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	c := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &EntityExtractor{
 		client: &c,
@@ -107,6 +111,7 @@ func (e *EntityExtractor) Extract(ctx context.Context, content string) ([]models
 			et = models.EntityTypeConcept
 		}
 		entities = append(entities, models.Entity{
+			ID:      uuid.New().String(),
 			Name:    raw[i].Name,
 			Type:    et,
 			Aliases: raw[i].Aliases,

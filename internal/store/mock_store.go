@@ -259,7 +259,7 @@ func (m *MockStore) GetEntity(_ context.Context, id string) (*models.Entity, err
 
 	e, ok := m.entities[id]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 	}
 
 	// Deep-copy mutable fields.
@@ -294,8 +294,22 @@ func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Ent
 	var results []models.Entity
 	for _, e := range m.entities {
 		if strings.Contains(strings.ToLower(e.Name), nameLower) {
-			out := *e
-			results = append(results, out)
+			cp := *e
+			if len(e.Aliases) > 0 {
+				cp.Aliases = make([]string, len(e.Aliases))
+				copy(cp.Aliases, e.Aliases)
+			}
+			if len(e.MemoryIDs) > 0 {
+				cp.MemoryIDs = make([]string, len(e.MemoryIDs))
+				copy(cp.MemoryIDs, e.MemoryIDs)
+			}
+			if len(e.Metadata) > 0 {
+				cp.Metadata = make(map[string]any, len(e.Metadata))
+				for k, v := range e.Metadata {
+					cp.Metadata[k] = v
+				}
+			}
+			results = append(results, cp)
 		}
 	}
 	return results, nil

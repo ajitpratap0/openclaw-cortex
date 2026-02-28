@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 func entitiesCmd() *cobra.Command {
@@ -90,10 +93,10 @@ func entitiesGetCmd() *cobra.Command {
 
 			entity, err := st.GetEntity(ctx, args[0])
 			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					return fmt.Errorf("entities get: entity %s not found", args[0])
+				}
 				return fmt.Errorf("entities get: %w", err)
-			}
-			if entity == nil {
-				return fmt.Errorf("entities get: entity %s not found", args[0])
 			}
 
 			if outputJSON {

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -96,7 +97,8 @@ func TestMockStore_GetEntity_NotFound(t *testing.T) {
 	s := store.NewMockStore()
 
 	got, err := s.GetEntity(ctx, "nonexistent-id")
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, store.ErrNotFound), "expected ErrNotFound, got: %v", err)
 	assert.Nil(t, got)
 }
 
