@@ -79,6 +79,12 @@ func (c ClaudeConfig) String() string {
 	return fmt.Sprintf("ClaudeConfig{APIKey:%s, Model:%s}", masked, c.Model)
 }
 
+// String returns a safe representation of EmbedderConfig with the API key masked.
+func (c EmbedderConfig) String() string {
+	return fmt.Sprintf("EmbedderConfig{Provider:%s, OpenAIKey:%s, Model:%s, Dim:%d}",
+		c.Provider, maskAPIKey(c.OpenAIKey), c.OpenAIModel, c.OpenAIDim)
+}
+
 // maskAPIKey shows first 4 + last 4 chars, replacing the middle with asterisks.
 func maskAPIKey(key string) string {
 	const visible = 4
@@ -211,6 +217,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Memory.DefaultTTLHours < 0 {
 		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
+	}
+	if c.Embedder.Provider == "openai" && c.Embedder.OpenAIKey == "" {
+		return fmt.Errorf("embedder.openai_api_key must not be empty when provider is \"openai\"")
 	}
 	return nil
 }
