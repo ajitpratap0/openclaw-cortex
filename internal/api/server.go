@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -49,7 +50,9 @@ func (s *Server) Handler() http.Handler {
 	// Memory CRUD and search endpoints — wrapped with auth middleware.
 	mux.HandleFunc("POST /v1/remember", s.auth(s.handleRemember))
 	mux.HandleFunc("POST /v1/recall", s.auth(s.handleRecall))
+	mux.HandleFunc("GET /v1/memories", s.auth(s.handleList))
 	mux.HandleFunc("GET /v1/memories/{id}", s.auth(s.handleGetMemory))
+	mux.HandleFunc("PUT /v1/memories/{id}", s.auth(s.handleUpdate))
 	mux.HandleFunc("DELETE /v1/memories/{id}", s.auth(s.handleDeleteMemory))
 	mux.HandleFunc("POST /v1/search", s.auth(s.handleSearch))
 	mux.HandleFunc("GET /v1/stats", s.auth(s.handleStats))
@@ -233,6 +236,151 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// updateRequest is the body accepted by PUT /v1/memories/{id}.
+// All fields are optional — only non-zero values are applied.
+type updateRequest struct {
+	Content    string              `json:"content"`
+	Type       models.MemoryType   `json:"type"`
+	Scope      models.MemoryScope  `json:"scope"`
+	Tags       []string            `json:"tags"`
+	Project    string              `json:"project"`
+	Confidence float64             `json:"confidence"`
+}
+
+func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
+	var req updateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	mem, err := s.store.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			s.writeError(w, http.StatusNotFound, "memory not found")
+			return
+		}
+		s.logger.Error("failed to get memory for update", "id", id, "error", err)
+		s.writeError(w, http.StatusInternalServerError, "failed to get memory")
+		return
+	}
+
+	// Validate and apply patches.
+	if req.Type != "" {
+		if !req.Type.IsValid() {
+			s.writeError(w, http.StatusBadRequest, "invalid memory type")
+			return
+		}
+		mem.Type = req.Type
+	}
+	if req.Scope != "" {
+		if !req.Scope.IsValid() {
+			s.writeError(w, http.StatusBadRequest, "invalid memory scope")
+			return
+		}
+		mem.Scope = req.Scope
+	}
+	if req.Project != "" {
+		mem.Project = req.Project
+	}
+	if req.Confidence != 0 {
+		mem.Confidence = req.Confidence
+	}
+	if req.Tags != nil {
+		mem.Tags = req.Tags
+	}
+
+	var vec []float32
+	if req.Content != "" {
+		mem.Content = req.Content
+		vec, err = s.embedder.Embed(r.Context(), req.Content)
+		if err != nil {
+			s.logger.Error("failed to embed updated content", "id", id, "error", err)
+			s.writeError(w, http.StatusInternalServerError, "failed to generate embedding")
+			return
+		}
+	} else {
+		// Re-use a zero vector; the store will keep the existing embedding
+		// because Upsert is keyed on ID.
+		vec = make([]float32, s.embedder.Dimension())
+	}
+
+	mem.UpdatedAt = time.Now().UTC()
+	if upsertErr := s.store.Upsert(r.Context(), *mem, vec); upsertErr != nil {
+		s.logger.Error("failed to upsert updated memory", "id", id, "error", upsertErr)
+		s.writeError(w, http.StatusInternalServerError, "failed to update memory")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, mem)
+}
+
+// listResponse is returned by GET /v1/memories.
+type listResponse struct {
+	Memories   []models.Memory `json:"memories"`
+	NextCursor string          `json:"next_cursor"`
+}
+
+func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	var filters *store.SearchFilters
+
+	typeStr := q.Get("type")
+	scopeStr := q.Get("scope")
+	projectStr := q.Get("project")
+	tagsStr := q.Get("tags") // comma-separated
+
+	if typeStr != "" || scopeStr != "" || projectStr != "" || tagsStr != "" {
+		filters = &store.SearchFilters{}
+		if typeStr != "" {
+			mt := models.MemoryType(typeStr)
+			filters.Type = &mt
+		}
+		if scopeStr != "" {
+			ms := models.MemoryScope(scopeStr)
+			filters.Scope = &ms
+		}
+		if projectStr != "" {
+			filters.Project = &projectStr
+		}
+		if tagsStr != "" {
+			filters.Tags = strings.Split(tagsStr, ",")
+		}
+	}
+
+	limitStr := q.Get("limit")
+	var limit uint64 = 100
+	if limitStr != "" {
+		var parsed uint64
+		if _, scanErr := fmt.Sscanf(limitStr, "%d", &parsed); scanErr == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	cursor := q.Get("cursor")
+
+	memories, nextCursor, err := s.store.List(r.Context(), filters, limit, cursor)
+	if err != nil {
+		s.logger.Error("failed to list memories", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "failed to list memories")
+		return
+	}
+
+	if memories == nil {
+		memories = []models.Memory{}
+	}
+
+	s.writeJSON(w, http.StatusOK, listResponse{Memories: memories, NextCursor: nextCursor})
+}
+
 func (s *Server) handleGetMemory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -276,9 +424,12 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 
 // searchRequest is the body accepted by POST /v1/search.
 type searchRequest struct {
-	Message string `json:"message"`
-	Limit   int    `json:"limit"`
-	Project string `json:"project"`
+	Message string             `json:"message"`
+	Limit   int                `json:"limit"`
+	Project string             `json:"project"`
+	Type    models.MemoryType  `json:"type"`
+	Scope   models.MemoryScope `json:"scope"`
+	Tags    []string           `json:"tags"`
 }
 
 // searchResponse is returned by POST /v1/search.
@@ -310,9 +461,23 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var filters *store.SearchFilters
-	if req.Project != "" {
-		proj := req.Project
-		filters = &store.SearchFilters{Project: &proj}
+	if req.Project != "" || req.Type != "" || req.Scope != "" || len(req.Tags) > 0 {
+		filters = &store.SearchFilters{}
+		if req.Project != "" {
+			proj := req.Project
+			filters.Project = &proj
+		}
+		if req.Type != "" {
+			mt := req.Type
+			filters.Type = &mt
+		}
+		if req.Scope != "" {
+			ms := req.Scope
+			filters.Scope = &ms
+		}
+		if len(req.Tags) > 0 {
+			filters.Tags = req.Tags
+		}
 	}
 
 	results, err := s.store.Search(r.Context(), vec, uint64(req.Limit), filters)
