@@ -241,12 +241,12 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 // Project and Confidence use pointer types so callers can explicitly set
 // them to zero-like values (empty string or 0.0).
 type updateRequest struct {
-	Content    string              `json:"content"`
-	Type       models.MemoryType   `json:"type"`
-	Scope      models.MemoryScope  `json:"scope"`
-	Tags       []string            `json:"tags"`
-	Project    *string             `json:"project"`    // nil = not provided
-	Confidence *float64            `json:"confidence"` // nil = not provided
+	Content    string             `json:"content"`
+	Type       models.MemoryType  `json:"type"`
+	Scope      models.MemoryScope `json:"scope"`
+	Tags       []string           `json:"tags"`
+	Project    *string            `json:"project"`    // nil = not provided
+	Confidence *float64           `json:"confidence"` // nil = not provided
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
