@@ -51,8 +51,15 @@ Use - as the file path to read from stdin.`,
 			switch strings.ToLower(format) {
 			case "json":
 				dec := json.NewDecoder(r)
-				if decErr := dec.Decode(&memories); decErr != nil {
-					return fmt.Errorf("import: decoding JSON: %w", decErr)
+				if _, tokErr := dec.Token(); tokErr != nil {
+					return fmt.Errorf("import: parsing JSON array start: %w", tokErr)
+				}
+				for dec.More() {
+					var m models.Memory
+					if decErr := dec.Decode(&m); decErr != nil {
+						return fmt.Errorf("import: reading JSON record: %w", decErr)
+					}
+					memories = append(memories, m)
 				}
 			case "jsonl":
 				scanner := bufio.NewScanner(r)

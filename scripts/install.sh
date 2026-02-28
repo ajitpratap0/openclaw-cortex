@@ -114,7 +114,7 @@ main() {
     if curl -fsSL -o "$tmp_checksums" "$checksum_url" 2>/dev/null; then
         info "Verifying SHA256 checksum"
         local expected_hash
-        expected_hash="$(grep "${asset_name}" "$tmp_checksums" | awk '{print $1}')"
+        expected_hash="$(grep -F "  ${asset_name}" "$tmp_checksums" | head -1 | awk '{print $1}')"
         if [ -z "$expected_hash" ]; then
             warn "No checksum entry found for ${asset_name} in checksums.txt — skipping verification."
         else
