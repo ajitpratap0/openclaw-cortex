@@ -4,6 +4,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -40,8 +41,8 @@ type Server struct {
 	logger   *slog.Logger
 }
 
-// NewServer creates a new MCP server with the provided store and embedder.
-// Both st and emb must be non-nil.
+// NewServer creates a new MCP server. If st or emb are nil,
+// the corresponding tool calls will return an error response instead of panicking.
 func NewServer(st store.Store, emb embedder.Embedder, logger *slog.Logger) *Server {
 	s := &Server{
 		st:       st,
@@ -95,6 +96,27 @@ func (s *Server) HandleSearch(ctx context.Context, req mcpgo.CallToolRequest) (*
 // HandleStats is the exported handler for the "stats" tool.
 func (s *Server) HandleStats(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 	return s.handleStats(ctx, req)
+}
+
+// --- helpers ---
+
+// xmlEscape replaces characters that have special meaning in XML to prevent
+// prompt injection when embedding user content in XML-delimited templates.
+func xmlEscape(s string) string {
+	var buf strings.Builder
+	if err := xml.EscapeText(&buf, []byte(s)); err != nil {
+		return s
+	}
+	return buf.String()
+}
+
+// toolResultJSON marshals v to JSON and returns it as a tool text result.
+func toolResultJSON(v any) (*mcpgo.CallToolResult, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("mcp: marshaling result: %w", err)
+	}
+	return mcpgo.NewToolResultText(string(b)), nil
 }
 
 // --- tool definitions ---
@@ -173,6 +195,13 @@ func buildStatsTool() mcpgo.Tool {
 
 // handleRemember embeds content and upserts a new memory.
 func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	if s.st == nil {
+		return mcpgo.NewToolResultError("store is unavailable"), nil
+	}
+	if s.emb == nil {
+		return mcpgo.NewToolResultError("embedder is unavailable"), nil
+	}
+
 	content := req.GetString("content", "")
 	if strings.TrimSpace(content) == "" {
 		return mcpgo.NewToolResultError("content is required and must not be empty"), nil
@@ -202,6 +231,8 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 	}
 
 	project := req.GetString("project", "")
+
+	content = xmlEscape(content)
 
 	vec, err := s.emb.Embed(ctx, content)
 	if err != nil {
@@ -238,6 +269,13 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 
 // handleRecall embeds the query, searches, re-ranks, and formats results within the token budget.
 func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	if s.st == nil {
+		return mcpgo.NewToolResultError("store is unavailable"), nil
+	}
+	if s.emb == nil {
+		return mcpgo.NewToolResultError("embedder is unavailable"), nil
+	}
+
 	message := req.GetString("message", "")
 	if strings.TrimSpace(message) == "" {
 		return mcpgo.NewToolResultError("message is required and must not be empty"), nil
@@ -289,6 +327,10 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 
 // handleForget deletes a memory by ID.
 func (s *Server) handleForget(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	if s.st == nil {
+		return mcpgo.NewToolResultError("store is unavailable"), nil
+	}
+
 	id := req.GetString("id", "")
 	if strings.TrimSpace(id) == "" {
 		return mcpgo.NewToolResultError("id is required and must not be empty"), nil
@@ -308,6 +350,13 @@ func (s *Server) handleForget(ctx context.Context, req mcpgo.CallToolRequest) (*
 
 // handleSearch performs a raw semantic search and returns scored results.
 func (s *Server) handleSearch(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	if s.st == nil {
+		return mcpgo.NewToolResultError("store is unavailable"), nil
+	}
+	if s.emb == nil {
+		return mcpgo.NewToolResultError("embedder is unavailable"), nil
+	}
+
 	message := req.GetString("message", "")
 	if strings.TrimSpace(message) == "" {
 		return mcpgo.NewToolResultError("message is required and must not be empty"), nil
@@ -342,20 +391,13 @@ func (s *Server) handleSearch(ctx context.Context, req mcpgo.CallToolRequest) (*
 
 // handleStats returns collection statistics.
 func (s *Server) handleStats(ctx context.Context, _ mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	if s.st == nil {
+		return mcpgo.NewToolResultError("store is unavailable"), nil
+	}
+
 	stats, err := s.st.Stats(ctx)
 	if err != nil {
 		return mcpgo.NewToolResultErrorf("stats failed: %s", err.Error()), nil
 	}
 	return toolResultJSON(stats)
-}
-
-// --- helpers ---
-
-// toolResultJSON marshals v to JSON and returns it as a tool text result.
-func toolResultJSON(v any) (*mcpgo.CallToolResult, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("mcp: marshaling result: %w", err)
-	}
-	return mcpgo.NewToolResultText(string(b)), nil
 }

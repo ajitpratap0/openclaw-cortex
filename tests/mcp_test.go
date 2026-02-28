@@ -135,7 +135,8 @@ func TestMCPRemember_WithProjectAndConfidence(t *testing.T) {
 
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
-	id := out["id"].(string)
+	id, ok := out["id"].(string)
+	require.True(t, ok, "id should be a string")
 
 	mem, getErr := ms.Get(context.Background(), id)
 	require.NoError(t, getErr)
@@ -215,7 +216,8 @@ func TestMCPRecall_ReturnsStoredMemories(t *testing.T) {
 
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
-	memCount := out["memory_count"].(float64)
+	memCount, ok := out["memory_count"].(float64)
+	require.True(t, ok, "memory_count should be a float64")
 	assert.GreaterOrEqual(t, int(memCount), 1)
 }
 
@@ -242,7 +244,9 @@ func TestMCPRecall_EmptyStoreReturnsZeroCount(t *testing.T) {
 
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
-	assert.Equal(t, float64(0), out["memory_count"].(float64))
+	memCount, ok := out["memory_count"].(float64)
+	require.True(t, ok, "memory_count should be a float64")
+	assert.Equal(t, float64(0), memCount)
 }
 
 func TestMCPRecall_WithProjectContext(t *testing.T) {
@@ -264,7 +268,9 @@ func TestMCPRecall_WithProjectContext(t *testing.T) {
 
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
-	assert.GreaterOrEqual(t, out["memory_count"].(float64), float64(1))
+	memCount, ok := out["memory_count"].(float64)
+	require.True(t, ok, "memory_count should be a float64")
+	assert.GreaterOrEqual(t, memCount, float64(1))
 }
 
 // --- forget tests ---
@@ -374,11 +380,14 @@ func TestMCPSearch_WithProjectFilter(t *testing.T) {
 
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
-	results := out["results"].([]any)
+	results, ok := out["results"].([]any)
+	require.True(t, ok, "results should be a []any")
 	// Only alpha-project memories should be returned.
 	for _, r := range results {
-		entry := r.(map[string]any)
-		mem := entry["memory"].(map[string]any)
+		entry, ok := r.(map[string]any)
+		require.True(t, ok, "result entry should be a map[string]any")
+		mem, ok := entry["memory"].(map[string]any)
+		require.True(t, ok, "memory field should be a map[string]any")
 		assert.Equal(t, "alpha", mem["project"])
 	}
 }
@@ -397,7 +406,8 @@ func TestMCPSearch_EmptyStoreReturnsEmptyResults(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(textContent(t, result)), &out))
 	// results key should be present and nil/empty
 	if out["results"] != nil {
-		results := out["results"].([]any)
+		results, ok := out["results"].([]any)
+		require.True(t, ok, "results should be a []any")
 		assert.Empty(t, results)
 	}
 }

@@ -47,10 +47,17 @@ individual tool calls will return MCP error responses on failure.`,
 
 			logger.Info("mcp: openclaw-cortex MCP server starting", "transport", "stdio")
 
-			return mcpserver.ServeStdio(
-				srv.MCPServer(),
-				mcpserver.WithErrorLogger(errLogger),
-			)
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- mcpserver.ServeStdio(srv.MCPServer(), mcpserver.WithErrorLogger(errLogger))
+			}()
+			select {
+			case err := <-errCh:
+				return err
+			case <-cmd.Context().Done():
+				logger.Info("mcp: shutting down")
+				return nil
+			}
 		},
 	}
 
