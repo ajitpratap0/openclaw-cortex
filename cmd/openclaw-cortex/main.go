@@ -51,6 +51,7 @@ func main() {
 		entitiesCmd(),
 		serveCmd(),
 		hookCmd(),
+		mcpCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
