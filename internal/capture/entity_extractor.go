@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
 
 // entityExtractionPromptTemplate is the prompt used to identify entities in memory content.
@@ -63,7 +64,7 @@ func NewEntityExtractor(apiKey, model string, logger *slog.Logger) *EntityExtrac
 // Extract identifies entities in the given content using Claude.
 // On API error it logs a warning and returns (nil, nil) for graceful degradation.
 func (e *EntityExtractor) Extract(ctx context.Context, content string) ([]models.Entity, error) {
-	prompt := fmt.Sprintf(entityExtractionPromptTemplate, xmlEscape(content))
+	prompt := fmt.Sprintf(entityExtractionPromptTemplate, xmlutil.Escape(content))
 
 	resp, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(e.model),

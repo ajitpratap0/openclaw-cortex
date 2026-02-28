@@ -369,8 +369,9 @@ func (e *onceSucceedEmbedder) Dimension() int {
 	return e.dimension
 }
 
-// TestLifecycle_Consolidate_OuterEmbedError covers the embedErr != nil path in
-// consolidate (lifecycle.go lines 210-212) where the outer memory's embed fails.
+// TestLifecycle_Consolidate_OuterEmbedError covers the batch embed failure path in
+// consolidate where EmbedBatch fails for all memories.
+// With the batch approach, a complete EmbedBatch failure propagates as a Run error.
 func TestLifecycle_Consolidate_OuterEmbedError(t *testing.T) {
 	ctx := context.Background()
 	st := store.NewMockStore()
@@ -387,17 +388,20 @@ func TestLifecycle_Consolidate_OuterEmbedError(t *testing.T) {
 		_ = st.Upsert(ctx, mem, testVector(float32(i)*0.1))
 	}
 
-	// errorBatchEmbedder always fails on Embed — covers outer embed error path (line 210-212)
+	// errorBatchEmbedder always fails on EmbedBatch — consolidate returns an error.
 	emb := &errorBatchEmbedder{dimension: 768}
 	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
-	require.NoError(t, err)
-	// No consolidations possible since every embed fails
+	// EmbedBatch failure now propagates as a consolidation error from Run.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "consolidation")
+	// No consolidations possible since batch embed failed
 	assert.Equal(t, 0, report.Consolidated)
 }
 
-// TestLifecycle_Consolidate_InnerEmbedError covers the embedErrB != nil path in
-// consolidate (lifecycle.go lines 218-221) where the inner memory's embed fails.
+// TestLifecycle_Consolidate_InnerEmbedError covers the partial EmbedBatch failure path
+// where only some texts can be embedded. With the batch approach, any error in the batch
+// causes the whole consolidation phase to fail and propagate via Run.
 func TestLifecycle_Consolidate_InnerEmbedError(t *testing.T) {
 	ctx := context.Background()
 	st := store.NewMockStore()
@@ -414,13 +418,15 @@ func TestLifecycle_Consolidate_InnerEmbedError(t *testing.T) {
 		_ = st.Upsert(ctx, mem, testVector(float32(i)*0.1))
 	}
 
-	// First call (outer) succeeds, second call (inner) fails.
-	// This exercises the embedErrB != nil continue path.
+	// onceSucceedEmbedder with succeedN=1: batch fails on the 2nd text,
+	// so EmbedBatch returns an error — consolidate propagates it via Run.
 	emb := &onceSucceedEmbedder{succeedN: 1, dimension: 4}
 	lm := lifecycle.NewManager(st, emb, lifecycleLogger())
 	report, err := lm.Run(ctx, false)
-	require.NoError(t, err)
-	// Inner embed failed, so no consolidation happened
+	// Partial EmbedBatch failure propagates as a consolidation error.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "consolidation")
+	// No consolidations happened since the batch failed before pairwise comparison.
 	assert.Equal(t, 0, report.Consolidated)
 }
 

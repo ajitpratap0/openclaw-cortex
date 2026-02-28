@@ -3,12 +3,12 @@ package store
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
 // MockStore is an in-memory implementation of Store for testing.
@@ -67,7 +67,7 @@ func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, fi
 		if !matchesFilters(sm.memory, filters) {
 			continue
 		}
-		score := cosineSimilarity(vector, sm.vector)
+		score := vecmath.CosineSimilarity(vector, sm.vector)
 		mem := sm.memory
 		if len(mem.Tags) > 0 {
 			tags := make([]string, len(mem.Tags))
@@ -207,7 +207,7 @@ func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshol
 
 	var results []models.SearchResult
 	for _, sm := range m.memories {
-		score := cosineSimilarity(vector, sm.vector)
+		score := vecmath.CosineSimilarity(vector, sm.vector)
 		if score >= threshold {
 			mem := sm.memory
 			if len(mem.Tags) > 0 {
@@ -458,20 +458,4 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 		}
 	}
 	return true
-}
-
-func cosineSimilarity(a, b []float32) float64 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-	var dot, normA, normB float64
-	for i := range a {
-		dot += float64(a[i]) * float64(b[i])
-		normA += float64(a[i]) * float64(a[i])
-		normB += float64(b[i]) * float64(b[i])
-	}
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
