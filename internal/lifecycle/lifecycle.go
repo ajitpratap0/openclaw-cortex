@@ -225,12 +225,6 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 		return 0, fmt.Errorf("consolidate: batch embed failed: %w", batchErr)
 	}
 
-	// Build ID → vector map for pairwise in-memory comparison.
-	vecByID := make(map[string][]float32, len(memories))
-	for i := range memories {
-		vecByID[memories[i].ID] = vecs[i]
-	}
-
 	consolidated := 0
 	deleted := make(map[string]bool)
 
@@ -238,12 +232,12 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 		if deleted[memories[i].ID] {
 			continue
 		}
-		vecA := vecByID[memories[i].ID]
+		vecA := vecs[i]
 		for j := i + 1; j < len(memories); j++ {
 			if deleted[memories[j].ID] {
 				continue
 			}
-			vecB := vecByID[memories[j].ID]
+			vecB := vecs[j]
 			sim := vecmath.CosineSimilarity(vecA, vecB)
 			if sim > consolidationThreshold {
 				// Keep higher confidence, delete the other.

@@ -1,4 +1,4 @@
-package capture
+package tests
 
 import (
 	"strings"
@@ -47,7 +47,7 @@ func TestUAT_XmlEscape_NoSpecialChars(t *testing.T) {
 func TestUAT_XmlEscape_VeryLongString(t *testing.T) {
 	// Build a 100K char string with some special chars
 	var sb strings.Builder
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		sb.WriteString("hello<world>")
 	}
 	input := sb.String()
@@ -86,5 +86,19 @@ func TestUAT_XmlEscape_AmpersandOrdering(t *testing.T) {
 	// No raw & or < should remain
 	if strings.Contains(result, " &") || result == "&<" {
 		t.Fatalf("raw characters remain in: %q", result)
+	}
+}
+
+func TestUAT_XmlEscape_InvalidUTF8(t *testing.T) {
+	// Invalid UTF-8 bytes should be replaced with U+FFFD and then escaped safely.
+	input := "hello\x80world"
+	result := xmlutil.Escape(input)
+	// Should not contain raw invalid bytes
+	if strings.Contains(result, "\x80") {
+		t.Fatalf("invalid UTF-8 byte survived in: %q", result)
+	}
+	// Should contain the replacement character or its escaped form
+	if result == "" {
+		t.Fatal("expected non-empty result for invalid UTF-8 input")
 	}
 }

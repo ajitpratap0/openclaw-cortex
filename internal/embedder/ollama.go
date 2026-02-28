@@ -127,12 +127,18 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	return vec, nil
 }
 
-// EmbedBatch embeds multiple texts using a bounded worker pool (embedBatchWorkers goroutines).
-// This avoids spawning one goroutine per input text for large batches while still
-// processing texts concurrently.
+// EmbedBatch embeds multiple texts using a bounded worker pool (up to embedBatchWorkers
+// goroutines, capped at len(texts)). The pool is canceled on the first error so that
+// in-flight Ollama requests are aborted early rather than running to completion.
 func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	results := make([][]float32, len(texts))
-	errs := make([]error, len(texts))
+	if len(texts) == 0 {
+		return nil, nil
+	}
+
+	numWorkers := min(embedBatchWorkers, len(texts))
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	type job struct {
 		idx  int
@@ -144,15 +150,26 @@ func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 	}
 	close(jobs)
 
+	results := make([][]float32, len(texts))
+	errs := make([]error, len(texts))
+	var once sync.Once
 	var wg sync.WaitGroup
-	for range embedBatchWorkers {
+
+	for range numWorkers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
+				if ctx.Err() != nil {
+					errs[j.idx] = ctx.Err()
+					continue
+				}
 				vec, err := o.Embed(ctx, j.text)
 				results[j.idx] = vec
 				errs[j.idx] = err
+				if err != nil {
+					once.Do(func() { cancel() })
+				}
 			}
 		}()
 	}
