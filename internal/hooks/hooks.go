@@ -109,14 +109,19 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	return output, nil
 }
 
+// conflictCandidateLimit is the maximum number of similar memories passed to the
+// ConflictDetector for contradiction analysis.
+const conflictCandidateLimit = 5
+
 // PostTurnHook captures memories from a completed agent turn.
 type PostTurnHook struct {
-	capturer       capture.Capturer
-	classifier     classifier.Classifier
-	embedder       embedder.Embedder
-	store          store.Store
-	logger         *slog.Logger
-	dedupThreshold float64
+	capturer         capture.Capturer
+	classifier       classifier.Classifier
+	embedder         embedder.Embedder
+	store            store.Store
+	logger           *slog.Logger
+	dedupThreshold   float64
+	conflictDetector *capture.ConflictDetector // nil = disabled
 }
 
 // PostTurnInput contains the conversation turn data.
@@ -139,6 +144,15 @@ func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedd
 		logger:         logger,
 		dedupThreshold: dedupThreshold,
 	}
+}
+
+// WithConflictDetector sets an optional conflict detector on the hook.
+// When set, each new memory is checked against similar existing memories for
+// contradictions before being stored. On any detector error the memory is stored
+// as-is (graceful degradation).
+func (h *PostTurnHook) WithConflictDetector(cd *capture.ConflictDetector) *PostTurnHook {
+	h.conflictDetector = cd
+	return h
 }
 
 // Execute runs the post-turn hook: extract → classify → embed → dedup → store.
@@ -187,7 +201,30 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			continue
 		}
 
-		// 5. Store the new memory.
+		// 5. Contradiction detection — only when a ConflictDetector is configured.
+		var supersedesID string
+		if h.conflictDetector != nil {
+			candidates, searchErr := h.store.Search(ctx, vec, conflictCandidateLimit, nil)
+			if searchErr != nil {
+				h.logger.Warn("post-turn conflict search failed, skipping contradiction check", "error", searchErr)
+			} else {
+				mems := make([]models.Memory, len(candidates))
+				for i := range candidates {
+					mems[i] = candidates[i].Memory
+				}
+				contradicts, contradictedID, reason, _ := h.conflictDetector.Detect(ctx, cm.Content, mems)
+				if contradicts && contradictedID != "" {
+					h.logger.Info("post-turn contradiction detected",
+						"new_content", cm.Content,
+						"contradicted_id", contradictedID,
+						"reason", reason,
+					)
+					supersedesID = contradictedID
+				}
+			}
+		}
+
+		// 6. Store the new memory.
 		mem := models.Memory{
 			ID:           uuid.New().String(),
 			Type:         memType,
@@ -201,6 +238,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			CreatedAt:    now,
 			UpdatedAt:    now,
 			LastAccessed: now,
+			SupersedesID: supersedesID,
 		}
 
 		if err := h.store.Upsert(ctx, mem, vec); err != nil {
