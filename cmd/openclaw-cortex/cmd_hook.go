@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
@@ -49,7 +50,7 @@ func hookCmd() *cobra.Command {
 		Use:   "hook",
 		Short: "Claude Code hook integration (pre/post turn)",
 	}
-	cmd.AddCommand(hookPreCmd(), hookPostCmd())
+	cmd.AddCommand(hookPreCmd(), hookPostCmd(), hookInstallCmd())
 	return cmd
 }
 
@@ -81,6 +82,7 @@ func hookPreCmd() *cobra.Command {
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
 				logger.Error("hook pre: connecting to store", "error", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), continuing without memory context\n", storeErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -96,6 +98,7 @@ func hookPreCmd() *cobra.Command {
 			})
 			if execErr != nil {
 				logger.Error("hook pre: executing hook", "error", execErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory recall failed (%v), continuing without memory context\n", execErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -142,6 +145,7 @@ func hookPostCmd() *cobra.Command {
 			st, storeErr := newStore(logger)
 			if storeErr != nil {
 				logger.Error("hook post: connecting to store", "error", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), skipping memory capture\n", storeErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
@@ -162,6 +166,7 @@ func hookPostCmd() *cobra.Command {
 			})
 			if execErr != nil {
 				logger.Error("hook post: executing hook", "error", execErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory capture failed (%v), skipping\n", execErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}

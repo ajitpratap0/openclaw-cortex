@@ -38,24 +38,24 @@ Add the hooks to `.claude/settings.json` in your project directory:
   "hooks": {
     "PreToolUse": [],
     "PostToolUse": [],
-    "PreTurn": [
+    "UserPromptSubmit": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"message\": \"{{HUMAN_TURN}}\", \"project\": \"my-project\", \"token_budget\": 2000}' | openclaw-cortex hook pre"
+            "command": "openclaw-cortex hook pre"
           }
         ]
       }
     ],
-    "PostTurn": [
+    "Stop": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"user_message\": \"{{HUMAN_TURN}}\", \"assistant_message\": \"{{ASSISTANT_TURN}}\", \"session_id\": \"{{SESSION_ID}}\", \"project\": \"my-project\"}' | openclaw-cortex hook post"
+            "command": "openclaw-cortex hook post"
           }
         ]
       }
@@ -135,6 +135,33 @@ openclaw-cortex hook install
 ```
 
 This command writes the hook configuration to `.claude/settings.json` in the current directory. It will create the file if it does not exist, or merge the hooks into an existing configuration.
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--global` | Install into `~/.claude/settings.json` (user-level hooks, apply to all projects) |
+| `--project <name>` | Embed a project name in the hook configuration (optional) |
+
+### Examples
+
+Install hooks for the current project:
+
+```bash
+openclaw-cortex hook install
+```
+
+Install hooks globally (applies to all Claude Code sessions):
+
+```bash
+openclaw-cortex hook install --global
+```
+
+The command will warn if `openclaw-cortex` is not found in your `PATH`. If the settings file already contains `openclaw-cortex` hooks, the command is a no-op and prints a message indicating no changes were made.
+
+The installed hook events are:
+- `UserPromptSubmit` — fires when the user submits a prompt; triggers `openclaw-cortex hook pre` to inject relevant memories
+- `Stop` — fires when the assistant finishes generating; triggers `openclaw-cortex hook post` to capture new memories
 
 ## Environment Variables
 

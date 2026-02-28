@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cortex hook pre"
+            "command": "openclaw-cortex hook pre"
           }
         ]
       }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cortex hook post"
+            "command": "openclaw-cortex hook post"
           }
         ]
       }
