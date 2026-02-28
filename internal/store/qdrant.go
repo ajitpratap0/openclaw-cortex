@@ -456,6 +456,32 @@ func (q *QdrantStore) LinkMemoryToEntity(_ context.Context, _, _ string) error {
 	return nil
 }
 
+// GetChain follows the SupersedesID chain and returns the full history.
+// The chain is returned newest first. Stops when SupersedesID is empty, the
+// referenced memory is not found, or a cycle is detected.
+func (q *QdrantStore) GetChain(ctx context.Context, id string) ([]models.Memory, error) {
+	var chain []models.Memory
+	visited := make(map[string]bool)
+	currentID := id
+
+	for currentID != "" {
+		if visited[currentID] {
+			break
+		}
+		visited[currentID] = true
+
+		mem, err := q.Get(ctx, currentID)
+		if err != nil {
+			// Stop at a missing link — not an error for the caller.
+			break
+		}
+		chain = append(chain, *mem)
+		currentID = mem.SupersedesID
+	}
+
+	return chain, nil
+}
+
 // Close releases the gRPC connection.
 func (q *QdrantStore) Close() error {
 	if q.conn != nil {
@@ -467,19 +493,26 @@ func (q *QdrantStore) Close() error {
 // --- Helper functions ---
 
 func memoryToPayload(m models.Memory) map[string]*pb.Value {
+	var validUntilUnix int64
+	if !m.ValidUntil.IsZero() {
+		validUntilUnix = m.ValidUntil.Unix()
+	}
+
 	payload := map[string]*pb.Value{
-		"type":          {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
-		"scope":         {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
-		"visibility":    {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
-		"content":       {Kind: &pb.Value_StringValue{StringValue: m.Content}},
-		"confidence":    {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
-		"source":        {Kind: &pb.Value_StringValue{StringValue: m.Source}},
-		"project":       {Kind: &pb.Value_StringValue{StringValue: m.Project}},
-		"ttl_seconds":   {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
-		"created_at":    {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339Nano)}},
-		"updated_at":    {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339Nano)}},
-		"last_accessed": {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339Nano)}},
-		"access_count":  {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
+		"type":             {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
+		"scope":            {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
+		"visibility":       {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
+		"content":          {Kind: &pb.Value_StringValue{StringValue: m.Content}},
+		"confidence":       {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
+		"source":           {Kind: &pb.Value_StringValue{StringValue: m.Source}},
+		"project":          {Kind: &pb.Value_StringValue{StringValue: m.Project}},
+		"ttl_seconds":      {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
+		"created_at":       {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339Nano)}},
+		"updated_at":       {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339Nano)}},
+		"last_accessed":    {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339Nano)}},
+		"access_count":     {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
+		"supersedes_id":    {Kind: &pb.Value_StringValue{StringValue: m.SupersedesID}},
+		"valid_until_unix": {Kind: &pb.Value_IntegerValue{IntegerValue: validUntilUnix}},
 	}
 
 	// Tags as list
@@ -504,16 +537,17 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 
 func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	m := &models.Memory{
-		ID:          id,
-		Type:        models.MemoryType(getStringValue(payload, "type")),
-		Scope:       models.MemoryScope(getStringValue(payload, "scope")),
-		Visibility:  models.MemoryVisibility(getStringValue(payload, "visibility")),
-		Content:     getStringValue(payload, "content"),
-		Confidence:  getDoubleValue(payload, "confidence"),
-		Source:      getStringValue(payload, "source"),
-		Project:     getStringValue(payload, "project"),
-		TTLSeconds:  getIntValue(payload, "ttl_seconds"),
-		AccessCount: getIntValue(payload, "access_count"),
+		ID:           id,
+		Type:         models.MemoryType(getStringValue(payload, "type")),
+		Scope:        models.MemoryScope(getStringValue(payload, "scope")),
+		Visibility:   models.MemoryVisibility(getStringValue(payload, "visibility")),
+		Content:      getStringValue(payload, "content"),
+		Confidence:   getDoubleValue(payload, "confidence"),
+		Source:       getStringValue(payload, "source"),
+		Project:      getStringValue(payload, "project"),
+		TTLSeconds:   getIntValue(payload, "ttl_seconds"),
+		AccessCount:  getIntValue(payload, "access_count"),
+		SupersedesID: getStringValue(payload, "supersedes_id"),
 	}
 
 	// Parse timestamps
@@ -525,6 +559,11 @@ func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	}
 	if ts := getStringValue(payload, "last_accessed"); ts != "" {
 		m.LastAccessed = parseTime(ts)
+	}
+
+	// Parse ValidUntil from unix timestamp (0 means not set).
+	if unix := getIntValue(payload, "valid_until_unix"); unix != 0 {
+		m.ValidUntil = time.Unix(unix, 0).UTC()
 	}
 
 	// Parse tags

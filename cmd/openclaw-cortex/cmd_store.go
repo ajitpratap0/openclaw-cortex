@@ -13,12 +13,14 @@ import (
 
 func storeCmd() *cobra.Command {
 	var (
-		memType    string
-		scope      string
-		tags       string
-		project    string
-		confidence float64
-		ttlHours   int
+		memType      string
+		scope        string
+		tags         string
+		project      string
+		confidence   float64
+		ttlHours     int
+		supersedesID string
+		validUntil   string
 	)
 
 	cmd := &cobra.Command{
@@ -90,11 +92,20 @@ func storeCmd() *cobra.Command {
 				CreatedAt:    now,
 				UpdatedAt:    now,
 				LastAccessed: now,
+				SupersedesID: supersedesID,
 			}
 
 			if ttlHours > 0 {
 				mem.TTLSeconds = int64(ttlHours) * 3600
 				mem.Scope = models.ScopeSession // TTL memories are session-scoped by convention
+			}
+
+			if validUntil != "" {
+				dur, parseErr := parseDuration(validUntil)
+				if parseErr != nil {
+					return fmt.Errorf("store: invalid --valid-until %q: %w", validUntil, parseErr)
+				}
+				mem.ValidUntil = now.Add(dur)
 			}
 
 			if err := st.Upsert(ctx, mem, vec); err != nil {
@@ -112,7 +123,27 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&project, "project", "", "project name")
 	cmd.Flags().Float64Var(&confidence, "confidence", 0.9, "confidence score")
 	cmd.Flags().IntVar(&ttlHours, "ttl", 0, "time-to-live in hours (0 = permanent)")
+	cmd.Flags().StringVar(&supersedesID, "supersedes", "", "ID of memory this one replaces")
+	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	return cmd
+}
+
+// parseDuration extends time.ParseDuration to support a "d" suffix for days.
+func parseDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		// Parse "Xd" by treating the number as hours and multiplying by 24.
+		daysStr := strings.TrimSuffix(s, "d")
+		days, err := time.ParseDuration(daysStr + "h")
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration %q: %w", s, err)
+		}
+		return days * 24, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration %q: %w", s, err)
+	}
+	return d, nil
 }
 
 func validTypesString() string {

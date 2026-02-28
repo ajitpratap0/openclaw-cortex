@@ -88,6 +88,8 @@ type Memory struct {
 	LastAccessed time.Time        `json:"last_accessed"`
 	AccessCount  int64            `json:"access_count"`
 	Metadata     map[string]any   `json:"metadata,omitempty"`
+	SupersedesID string           `json:"supersedes_id,omitempty"` // ID of memory this replaces
+	ValidUntil   time.Time        `json:"valid_until,omitempty"`   // zero = never expires
 }
 
 // SearchResult wraps a Memory with its similarity score.

@@ -71,6 +71,10 @@ func (f *failingUpsertStore) LinkMemoryToEntity(ctx context.Context, entityID, m
 	return f.inner.LinkMemoryToEntity(ctx, entityID, memoryID)
 }
 
+func (f *failingUpsertStore) GetChain(ctx context.Context, id string) ([]models.Memory, error) {
+	return f.inner.GetChain(ctx, id)
+}
+
 func (f *failingUpsertStore) Close() error {
 	return f.inner.Close()
 }

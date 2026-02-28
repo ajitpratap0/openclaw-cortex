@@ -336,6 +336,32 @@ func (m *MockStore) LinkMemoryToEntity(_ context.Context, entityID, memoryID str
 	return nil
 }
 
+// GetChain follows the SupersedesID chain and returns the full history.
+// The chain is returned newest first. Stops when SupersedesID is empty or the
+// referenced memory is not found. A visited set prevents infinite loops.
+func (m *MockStore) GetChain(ctx context.Context, id string) ([]models.Memory, error) {
+	var chain []models.Memory
+	visited := make(map[string]bool)
+	currentID := id
+
+	for currentID != "" {
+		if visited[currentID] {
+			break
+		}
+		visited[currentID] = true
+
+		mem, err := m.Get(ctx, currentID)
+		if err != nil {
+			// Stop at a missing link — not an error for the caller.
+			break
+		}
+		chain = append(chain, *mem)
+		currentID = mem.SupersedesID
+	}
+
+	return chain, nil
+}
+
 // Close is a no-op for the mock store.
 func (m *MockStore) Close() error {
 	return nil

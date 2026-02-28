@@ -13,6 +13,7 @@ var (
 	DedupSkipped     = expvar.NewInt("cortex_dedup_skipped_total")
 	LifecycleExpired = expvar.NewInt("cortex_lifecycle_expired_total")
 	LifecycleDecayed = expvar.NewInt("cortex_lifecycle_decayed_total")
+	LifecycleRetired = expvar.NewInt("cortex_lifecycle_retired_total")
 )
 
 // Inc increments the given counter by 1.
