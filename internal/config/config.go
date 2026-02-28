@@ -26,6 +26,13 @@ type Config struct {
 	Claude  ClaudeConfig  `mapstructure:"claude"`
 	Memory  MemoryConfig  `mapstructure:"memory"`
 	Logging LoggingConfig `mapstructure:"logging"`
+	API     APIConfig     `mapstructure:"api"`
+}
+
+// APIConfig holds HTTP API server settings.
+type APIConfig struct {
+	ListenAddr string `mapstructure:"listen_addr"`
+	AuthToken  string `mapstructure:"auth_token"`
 }
 
 // QdrantConfig holds Qdrant vector database connection settings.
@@ -108,6 +115,9 @@ func Load() (*Config, error) {
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "text")
 
+	v.SetDefault("api.listen_addr", ":8080")
+	v.SetDefault("api.auth_token", "")
+
 	// Config file
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -123,6 +133,8 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("qdrant.host", "OPENCLAW_CORTEX_QDRANT_HOST")
 	_ = v.BindEnv("qdrant.grpc_port", "OPENCLAW_CORTEX_QDRANT_GRPC_PORT")
 	_ = v.BindEnv("ollama.base_url", "OPENCLAW_CORTEX_OLLAMA_BASE_URL")
+	_ = v.BindEnv("api.listen_addr", "OPENCLAW_CORTEX_API_LISTEN_ADDR")
+	_ = v.BindEnv("api.auth_token", "OPENCLAW_CORTEX_API_AUTH_TOKEN")
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
