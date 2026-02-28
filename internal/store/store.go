@@ -53,6 +53,11 @@ type Store interface {
 	// LinkMemoryToEntity adds a memory ID to an entity's memory list.
 	LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error
 
+	// GetChain follows the SupersedesID chain and returns the full history.
+	// The chain is returned newest first, stopping when SupersedesID is empty
+	// or the referenced memory is not found.
+	GetChain(ctx context.Context, id string) ([]models.Memory, error)
+
 	// Close cleans up resources.
 	Close() error
 }

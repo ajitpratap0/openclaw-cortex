@@ -28,6 +28,7 @@ type Report struct {
 	Expired      int `json:"expired"`
 	Decayed      int `json:"decayed"`
 	Consolidated int `json:"consolidated"`
+	Retired      int `json:"retired"`
 }
 
 // Manager handles memory lifecycle operations.
@@ -76,6 +77,14 @@ func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 		errs = append(errs, fmt.Errorf("consolidation: %w", consolidateErr))
 	}
 	report.Consolidated = consolidated
+
+	// 4. Retire memories whose ValidUntil has passed
+	retired, retireErr := m.retireExpiredFacts(ctx, dryRun)
+	if retireErr != nil {
+		m.logger.Error("lifecycle: fact retirement failed", "error", retireErr)
+		errs = append(errs, fmt.Errorf("fact retirement: %w", retireErr))
+	}
+	report.Retired = retired
 
 	if len(errs) > 0 {
 		return report, fmt.Errorf("lifecycle: %w", errors.Join(errs...))
@@ -248,6 +257,43 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 	}
 
 	return consolidated, nil
+}
+
+// retireExpiredFacts marks memories with ValidUntil < now as retired by deleting them.
+// It scans permanent and project memories (TTL-scoped memories are handled by expireTTL).
+// Returns the count of retired memories.
+func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, error) {
+	now := time.Now().UTC()
+	retired := 0
+
+	for _, scope := range []models.MemoryScope{models.ScopePermanent, models.ScopeProject} {
+		sc := scope
+		filters := &store.SearchFilters{Scope: &sc}
+		memories, err := m.listAll(ctx, filters)
+		if err != nil {
+			return retired, fmt.Errorf("retireExpiredFacts: listing %s memories: %w", scope, err)
+		}
+
+		for i := range memories {
+			mem := &memories[i]
+			if mem.ValidUntil.IsZero() {
+				continue
+			}
+			if !mem.ValidUntil.Before(now) {
+				continue
+			}
+			m.logger.Info("retiring expired fact", "id", mem.ID, "valid_until", mem.ValidUntil)
+			if !dryRun {
+				if delErr := m.store.Delete(ctx, mem.ID); delErr != nil {
+					m.logger.Error("deleting retired memory", "id", mem.ID, "error", delErr)
+					continue
+				}
+			}
+			retired++
+		}
+	}
+
+	return retired, nil
 }
 
 // cosineSimilarity computes the cosine similarity between two float32 vectors.
