@@ -28,12 +28,12 @@ const (
 // It uses text-embedding-3-small with a configurable dimensions parameter
 // to maintain compatibility with existing Qdrant collections.
 type OpenAIEmbedder struct {
-	apiKey     string
-	model      string
-	dimensions int
+	apiKey      string
+	model       string
+	dimensions  int
 	endpointURL string
-	client     *http.Client
-	logger     *slog.Logger
+	client      *http.Client
+	logger      *slog.Logger
 }
 
 // openAIEmbedRequest is the JSON body sent to the OpenAI embeddings endpoint.
