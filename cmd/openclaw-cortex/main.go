@@ -48,6 +48,7 @@ func main() {
 		getCmd(),
 		exportCmd(),
 		healthCmd(),
+		entitiesCmd(),
 	)
 
 	rootCmd.SetContext(ctx)

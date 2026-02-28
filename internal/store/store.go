@@ -41,6 +41,18 @@ type Store interface {
 	// Stats returns collection statistics.
 	Stats(ctx context.Context) (*models.CollectionStats, error)
 
+	// UpsertEntity inserts or updates an entity.
+	UpsertEntity(ctx context.Context, entity models.Entity) error
+
+	// GetEntity retrieves a single entity by ID.
+	GetEntity(ctx context.Context, id string) (*models.Entity, error)
+
+	// SearchEntities finds entities whose name contains the given string.
+	SearchEntities(ctx context.Context, name string) ([]models.Entity, error)
+
+	// LinkMemoryToEntity adds a memory ID to an entity's memory list.
+	LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error
+
 	// Close cleans up resources.
 	Close() error
 }

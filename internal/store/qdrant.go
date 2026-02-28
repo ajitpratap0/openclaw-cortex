@@ -436,6 +436,26 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	return stats, nil
 }
 
+// UpsertEntity is a stub — Qdrant entity storage is not yet implemented.
+func (q *QdrantStore) UpsertEntity(_ context.Context, _ models.Entity) error {
+	return fmt.Errorf("qdrant entity storage: not yet implemented")
+}
+
+// GetEntity is a stub — returns nil, nil until Qdrant entity storage is implemented.
+func (q *QdrantStore) GetEntity(_ context.Context, _ string) (*models.Entity, error) {
+	return nil, nil
+}
+
+// SearchEntities is a stub — returns an empty slice until Qdrant entity storage is implemented.
+func (q *QdrantStore) SearchEntities(_ context.Context, _ string) ([]models.Entity, error) {
+	return nil, nil
+}
+
+// LinkMemoryToEntity is a stub — returns nil until Qdrant entity storage is implemented.
+func (q *QdrantStore) LinkMemoryToEntity(_ context.Context, _, _ string) error {
+	return nil
+}
+
 // Close releases the gRPC connection.
 func (q *QdrantStore) Close() error {
 	if q.conn != nil {

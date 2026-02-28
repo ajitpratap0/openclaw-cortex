@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 type MockStore struct {
 	mu       sync.RWMutex
 	memories map[string]*storedMemory
+	entities map[string]*models.Entity
 }
 
 type storedMemory struct {
@@ -25,6 +27,7 @@ type storedMemory struct {
 func NewMockStore() *MockStore {
 	return &MockStore{
 		memories: make(map[string]*storedMemory),
+		entities: make(map[string]*models.Entity),
 	}
 }
 
@@ -218,6 +221,119 @@ func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	}
 
 	return stats, nil
+}
+
+// UpsertEntity inserts or updates an entity in the mock store.
+func (m *MockStore) UpsertEntity(_ context.Context, entity models.Entity) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Deep-copy mutable fields to prevent external mutation.
+	e := entity
+	if len(entity.Aliases) > 0 {
+		aliases := make([]string, len(entity.Aliases))
+		copy(aliases, entity.Aliases)
+		e.Aliases = aliases
+	}
+	if len(entity.MemoryIDs) > 0 {
+		ids := make([]string, len(entity.MemoryIDs))
+		copy(ids, entity.MemoryIDs)
+		e.MemoryIDs = ids
+	}
+	if len(entity.Metadata) > 0 {
+		meta := make(map[string]any, len(entity.Metadata))
+		for k, v := range entity.Metadata {
+			meta[k] = v
+		}
+		e.Metadata = meta
+	}
+
+	m.entities[e.ID] = &e
+	return nil
+}
+
+// GetEntity retrieves a single entity by ID.
+func (m *MockStore) GetEntity(_ context.Context, id string) (*models.Entity, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	e, ok := m.entities[id]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
+
+	// Deep-copy mutable fields.
+	out := *e
+	if len(e.Aliases) > 0 {
+		aliases := make([]string, len(e.Aliases))
+		copy(aliases, e.Aliases)
+		out.Aliases = aliases
+	}
+	if len(e.MemoryIDs) > 0 {
+		ids := make([]string, len(e.MemoryIDs))
+		copy(ids, e.MemoryIDs)
+		out.MemoryIDs = ids
+	}
+	if len(e.Metadata) > 0 {
+		meta := make(map[string]any, len(e.Metadata))
+		for k, v := range e.Metadata {
+			meta[k] = v
+		}
+		out.Metadata = meta
+	}
+
+	return &out, nil
+}
+
+// SearchEntities finds entities whose name contains the given substring (case-insensitive).
+func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Entity, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	nameLower := strings.ToLower(name)
+	var results []models.Entity
+	for _, e := range m.entities {
+		if strings.Contains(strings.ToLower(e.Name), nameLower) {
+			cp := *e
+			if len(e.Aliases) > 0 {
+				cp.Aliases = make([]string, len(e.Aliases))
+				copy(cp.Aliases, e.Aliases)
+			}
+			if len(e.MemoryIDs) > 0 {
+				cp.MemoryIDs = make([]string, len(e.MemoryIDs))
+				copy(cp.MemoryIDs, e.MemoryIDs)
+			}
+			if len(e.Metadata) > 0 {
+				cp.Metadata = make(map[string]any, len(e.Metadata))
+				for k, v := range e.Metadata {
+					cp.Metadata[k] = v
+				}
+			}
+			results = append(results, cp)
+		}
+	}
+	return results, nil
+}
+
+// LinkMemoryToEntity adds a memory ID to an entity's MemoryIDs list.
+func (m *MockStore) LinkMemoryToEntity(_ context.Context, entityID, memoryID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	e, ok := m.entities[entityID]
+	if !ok {
+		return fmt.Errorf("entity %s not found", entityID)
+	}
+
+	// Check for duplicates.
+	for _, id := range e.MemoryIDs {
+		if id == memoryID {
+			return nil
+		}
+	}
+
+	e.MemoryIDs = append(e.MemoryIDs, memoryID)
+	return nil
 }
 
 // Close is a no-op for the mock store.
