@@ -8,16 +8,15 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 const (
-	ollamaHTTPTimeout   = 30 * time.Second
-	ollamaMaxRetries    = 3
-	ollamaRetryBaseWait = 500 * time.Millisecond
-	embedBatchConcLimit = 5
+	ollamaHTTPTimeout    = 30 * time.Second
+	ollamaMaxRetries     = 3
+	ollamaRetryBaseWait  = 500 * time.Millisecond
+	embedBatchWorkers    = 8
 )
 
 // OllamaEmbedder implements Embedder using the Ollama HTTP API.
@@ -128,31 +127,41 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	return vec, nil
 }
 
-// EmbedBatch embeds multiple texts concurrently (up to embedBatchConcLimit goroutines).
+// EmbedBatch embeds multiple texts using a bounded worker pool (embedBatchWorkers goroutines).
+// This avoids spawning one goroutine per input text for large batches while still
+// processing texts concurrently.
 func (o *OllamaEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	results := make([][]float32, len(texts))
-	sem := make(chan struct{}, embedBatchConcLimit)
+	errs := make([]error, len(texts))
 
-	g, gctx := errgroup.WithContext(ctx)
-
-	for i, text := range texts {
-		i, text := i, text // capture loop vars
-		g.Go(func() error {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			vec, err := o.Embed(gctx, text)
-			if err != nil {
-				return fmt.Errorf("embedding text at index %d: %w", i, err)
-			}
-			// Each goroutine writes to a unique index; no mutex needed.
-			results[i] = vec
-			return nil
-		})
+	type job struct {
+		idx  int
+		text string
 	}
+	jobs := make(chan job, len(texts))
+	for i, t := range texts {
+		jobs <- job{i, t}
+	}
+	close(jobs)
 
-	if err := g.Wait(); err != nil {
-		return nil, err
+	var wg sync.WaitGroup
+	for range embedBatchWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				vec, err := o.Embed(ctx, j.text)
+				results[j.idx] = vec
+				errs[j.idx] = err
+			}
+		}()
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			return nil, fmt.Errorf("embedding text at index %d: %w", i, err)
+		}
 	}
 	return results, nil
 }

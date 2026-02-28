@@ -11,6 +11,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
 
 // conflictDetectorMaxTokens is the maximum number of tokens Claude can use for
@@ -73,10 +74,10 @@ func (d *ConflictDetector) Detect(ctx context.Context, newContent string, candid
 	// Build the numbered list of existing memories for the prompt.
 	var sb strings.Builder
 	for i := range candidates {
-		fmt.Fprintf(&sb, "[%s] %s\n", xmlEscape(candidates[i].ID), xmlEscape(candidates[i].Content))
+		fmt.Fprintf(&sb, "[%s] %s\n", xmlutil.Escape(candidates[i].ID), xmlutil.Escape(candidates[i].Content))
 	}
 
-	prompt := fmt.Sprintf(conflictPromptTemplate, xmlEscape(newContent), sb.String())
+	prompt := fmt.Sprintf(conflictPromptTemplate, xmlutil.Escape(newContent), sb.String())
 
 	resp, err := d.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(d.model),

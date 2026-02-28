@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
 const pageSize uint64 = 500
@@ -195,6 +195,8 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 }
 
 // consolidate merges near-duplicate permanent memories, keeping the higher-confidence one.
+// It embeds all memories in a single batch call to minimize Ollama round-trips, then
+// performs pairwise cosine similarity comparison in memory.
 func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 	if m.emb == nil {
 		m.logger.Debug("lifecycle: consolidation skipped (no embedder configured)")
@@ -208,6 +210,27 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 		return 0, fmt.Errorf("listing permanent memories: %w", err)
 	}
 
+	if len(memories) == 0 {
+		return 0, nil
+	}
+
+	// Collect content strings for a single batch embed call (1 Ollama round-trip instead of N).
+	contents := make([]string, len(memories))
+	for i := range memories {
+		contents[i] = memories[i].Content
+	}
+
+	vecs, batchErr := m.emb.EmbedBatch(ctx, contents)
+	if batchErr != nil {
+		return 0, fmt.Errorf("consolidate: batch embed failed: %w", batchErr)
+	}
+
+	// Build ID → vector map for pairwise in-memory comparison.
+	vecByID := make(map[string][]float32, len(memories))
+	for i := range memories {
+		vecByID[memories[i].ID] = vecs[i]
+	}
+
 	consolidated := 0
 	deleted := make(map[string]bool)
 
@@ -215,22 +238,15 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 		if deleted[memories[i].ID] {
 			continue
 		}
-		vecA, embedErr := m.emb.Embed(ctx, memories[i].Content)
-		if embedErr != nil {
-			m.logger.Warn("consolidate: embed failed", "id", memories[i].ID, "error", embedErr)
-			continue
-		}
+		vecA := vecByID[memories[i].ID]
 		for j := i + 1; j < len(memories); j++ {
 			if deleted[memories[j].ID] {
 				continue
 			}
-			vecB, embedErrB := m.emb.Embed(ctx, memories[j].Content)
-			if embedErrB != nil {
-				continue
-			}
-			sim := cosineSimilarity(vecA, vecB)
+			vecB := vecByID[memories[j].ID]
+			sim := vecmath.CosineSimilarity(vecA, vecB)
 			if sim > consolidationThreshold {
-				// Keep higher confidence, delete the other
+				// Keep higher confidence, delete the other.
 				keepIdx, deleteIdx := i, j
 				if memories[j].Confidence > memories[i].Confidence {
 					keepIdx, deleteIdx = j, i
@@ -297,19 +313,3 @@ func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, err
 	return retired, nil
 }
 
-// cosineSimilarity computes the cosine similarity between two float32 vectors.
-func cosineSimilarity(a, b []float32) float64 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-	var dot, normA, normB float64
-	for i := range a {
-		dot += float64(a[i]) * float64(b[i])
-		normA += float64(a[i]) * float64(a[i])
-		normB += float64(b[i]) * float64(b[i])
-	}
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
-}

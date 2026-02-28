@@ -11,6 +11,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
 
 const (
@@ -67,7 +68,7 @@ func (r *Reasoner) ReRank(ctx context.Context, query string, results []models.Re
 	// Build numbered memory list for the prompt.
 	var sb strings.Builder
 	for i := range candidates {
-		fmt.Fprintf(&sb, "[%d] %s\n", i, reasonerXMLEscape(candidates[i].Memory.Content))
+		fmt.Fprintf(&sb, "[%d] %s\n", i, xmlutil.Escape(candidates[i].Memory.Content))
 	}
 
 	prompt := fmt.Sprintf(`You are a memory relevance ranker for an AI agent memory system.
@@ -80,7 +81,7 @@ Output ONLY a valid JSON array of integers, nothing else. Example: [2, 0, 3, 1]
 
 <memories>
 %s</memories>`,
-		reasonerXMLEscape(query),
+		xmlutil.Escape(query),
 		sb.String(),
 	)
 
@@ -137,13 +138,3 @@ Output ONLY a valid JSON array of integers, nothing else. Example: [2, 0, 3, 1]
 	return append(reranked, tail...), nil
 }
 
-// reasonerXMLEscape escapes characters that have special meaning in XML to
-// prevent prompt injection when embedding user/memory content in XML tags.
-func reasonerXMLEscape(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	return s
-}

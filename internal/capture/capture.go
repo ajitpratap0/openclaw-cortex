@@ -5,27 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
 
 // minCaptureConfidence is the minimum confidence score for an extracted memory to be kept.
 const minCaptureConfidence = 0.5
-
-// xmlEscape replaces characters that have special meaning in XML to prevent
-// prompt injection when embedding user content in XML-delimited templates.
-func xmlEscape(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	return s
-}
 
 // Capturer extracts structured memories from conversation text.
 type Capturer interface {
@@ -79,7 +68,7 @@ type extractionResponse struct {
 // Extract analyzes a conversation turn and returns captured memories above the confidence threshold.
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
 	// Escape XML-special characters to prevent prompt injection from user/assistant content.
-	prompt := fmt.Sprintf(extractionPromptTemplate, xmlEscape(userMsg), xmlEscape(assistantMsg))
+	prompt := fmt.Sprintf(extractionPromptTemplate, xmlutil.Escape(userMsg), xmlutil.Escape(assistantMsg))
 
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
