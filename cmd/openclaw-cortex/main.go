@@ -16,15 +16,18 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
+var version = "dev"
+
 var cfg *config.Config
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	rootCmd := &cobra.Command{
-		Use:   "openclaw-cortex",
-		Short: "OpenClaw Cortex — hybrid layered memory system for AI agents",
-		Long:  "Cortex combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.",
+		Use:     "openclaw-cortex",
+		Short:   "OpenClaw Cortex — hybrid layered memory system for AI agents",
+		Long:    "Cortex combines file-based structured memory with vector-based semantic memory for compaction-proof, searchable, classified memory.",
+		Version: version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 			cfg, err = config.Load()

@@ -43,6 +43,7 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
           VERSION: ${{ github.ref_name }}
         run: |
           go build \
