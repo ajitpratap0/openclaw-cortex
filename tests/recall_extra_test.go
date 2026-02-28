@@ -12,7 +12,7 @@ import (
 )
 
 func TestRecallRecencyScore_ZeroTime(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	results := []models.SearchResult{
 		{Memory: models.Memory{
@@ -32,7 +32,7 @@ func TestRecallRecencyScore_ZeroTime(t *testing.T) {
 
 func TestRecallRecencyScore_FutureTime(t *testing.T) {
 	// LastAccessed in the future should clamp to 0 hours and give max score
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	results := []models.SearchResult{
 		{Memory: models.Memory{
@@ -52,7 +52,7 @@ func TestRecallRecencyScore_FutureTime(t *testing.T) {
 
 func TestRecallTypeBoostScore_UnknownType(t *testing.T) {
 	// A memory with an unknown type should get default boost (1.0/1.5)
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -73,7 +73,7 @@ func TestRecallTypeBoostScore_UnknownType(t *testing.T) {
 
 func TestRecallScopeBoostScore_NoProject(t *testing.T) {
 	// When project is empty, all memories get default scope boost
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -95,7 +95,7 @@ func TestRecallScopeBoostScore_NoProject(t *testing.T) {
 
 func TestRecallScopeBoostScore_WrongProject(t *testing.T) {
 	// Project-scoped memory for a different project should get low scope boost
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -117,7 +117,7 @@ func TestRecallScopeBoostScore_WrongProject(t *testing.T) {
 
 func TestRecallScopeBoostScore_PermanentWithProject(t *testing.T) {
 	// Permanent scope should get 1.0 scope boost even when querying with a project
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
@@ -164,7 +164,7 @@ func TestRecallWeightsValidate_NegativeWeight(t *testing.T) {
 
 func TestRecallRankSortOrder(t *testing.T) {
 	// Items should be sorted descending by FinalScore
-	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLogger(t))
 
 	now := time.Now().UTC()
 	results := []models.SearchResult{
