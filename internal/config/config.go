@@ -21,12 +21,13 @@ const (
 
 // Config holds all configuration for cortex.
 type Config struct {
-	Qdrant  QdrantConfig  `mapstructure:"qdrant"`
-	Ollama  OllamaConfig  `mapstructure:"ollama"`
-	Claude  ClaudeConfig  `mapstructure:"claude"`
-	Memory  MemoryConfig  `mapstructure:"memory"`
-	Logging LoggingConfig `mapstructure:"logging"`
-	API     APIConfig     `mapstructure:"api"`
+	Qdrant   QdrantConfig   `mapstructure:"qdrant"`
+	Ollama   OllamaConfig   `mapstructure:"ollama"`
+	Claude   ClaudeConfig   `mapstructure:"claude"`
+	Memory   MemoryConfig   `mapstructure:"memory"`
+	Logging  LoggingConfig  `mapstructure:"logging"`
+	API      APIConfig      `mapstructure:"api"`
+	Embedder EmbedderConfig `mapstructure:"embedder"`
 }
 
 // APIConfig holds HTTP API server settings.
@@ -48,6 +49,22 @@ type QdrantConfig struct {
 type OllamaConfig struct {
 	BaseURL string `mapstructure:"base_url"`
 	Model   string `mapstructure:"model"`
+}
+
+// EmbedderConfig selects which embedding provider to use and holds provider-specific settings.
+type EmbedderConfig struct {
+	// Provider selects the embedding backend: "ollama" (default) or "openai".
+	Provider string `mapstructure:"provider"`
+
+	// OpenAIKey is the OpenAI API key. May also be supplied via OPENCLAW_CORTEX_OPENAI_API_KEY.
+	OpenAIKey string `mapstructure:"openai_api_key"`
+
+	// OpenAIModel is the OpenAI embedding model. Defaults to "text-embedding-3-small".
+	OpenAIModel string `mapstructure:"openai_model"`
+
+	// OpenAIDim is the number of dimensions requested from the OpenAI API.
+	// Defaults to 768 to maintain compatibility with existing Qdrant collections.
+	OpenAIDim int `mapstructure:"openai_dimensions"`
 }
 
 // ClaudeConfig holds Anthropic Claude API settings.
@@ -102,6 +119,10 @@ func Load() (*Config, error) {
 	v.SetDefault("ollama.base_url", "http://localhost:11434")
 	v.SetDefault("ollama.model", "nomic-embed-text")
 
+	v.SetDefault("embedder.provider", "ollama")
+	v.SetDefault("embedder.openai_model", "text-embedding-3-small")
+	v.SetDefault("embedder.openai_dimensions", 768)
+
 	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
 
 	v.SetDefault("memory.memory_dir", filepath.Join(homeDir(), ".openclaw", "workspace", "memory"))
@@ -135,6 +156,10 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("ollama.base_url", "OPENCLAW_CORTEX_OLLAMA_BASE_URL")
 	_ = v.BindEnv("api.listen_addr", "OPENCLAW_CORTEX_API_LISTEN_ADDR")
 	_ = v.BindEnv("api.auth_token", "OPENCLAW_CORTEX_API_AUTH_TOKEN")
+	_ = v.BindEnv("embedder.provider", "OPENCLAW_CORTEX_EMBEDDER_PROVIDER")
+	_ = v.BindEnv("embedder.openai_api_key", "OPENCLAW_CORTEX_OPENAI_API_KEY")
+	_ = v.BindEnv("embedder.openai_model", "OPENCLAW_CORTEX_OPENAI_MODEL")
+	_ = v.BindEnv("embedder.openai_dimensions", "OPENCLAW_CORTEX_OPENAI_DIMENSIONS")
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
