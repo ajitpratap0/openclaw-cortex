@@ -118,8 +118,8 @@ func hookPreCmd() *cobra.Command {
 // On ANY error it exits 0 with `{"stored": false}` so it never blocks Claude.
 func hookPostCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "post",
-		Short: "Post-turn hook: capture memories from a completed Claude turn",
+		Use:           "post",
+		Short:         "Post-turn hook: capture memories from a completed Claude turn",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
