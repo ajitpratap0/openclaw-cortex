@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -17,6 +18,10 @@ const (
 	openAIHTTPTimeout  = 30 * time.Second
 	openAIDefaultModel = "text-embedding-3-small"
 	openAIDefaultDim   = 768
+
+	openAIMaxRetries    = 3
+	openAIMaxRetryAfter = 60 * time.Second
+	maxResponseSize     = 10 * 1024 * 1024 // 10 MB
 )
 
 // OpenAIEmbedder implements Embedder using the OpenAI Embeddings API.
@@ -115,6 +120,7 @@ func (o *OpenAIEmbedder) Dimension() int {
 // embedBatch calls the OpenAI embeddings API with a slice of input strings.
 // The response items are sorted by index before being returned so the output
 // order always matches the input order.
+// It retries up to openAIMaxRetries times on 429 and 5xx responses.
 func (o *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	reqBody := openAIEmbedRequest{
 		Model:      o.model,
@@ -127,22 +133,57 @@ func (o *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]fl
 		return nil, fmt.Errorf("openai embedder: marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.endpointURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("openai embedder: creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+o.apiKey)
+	var (
+		resp    *http.Response
+		rawBody []byte
+	)
 
-	resp, err := o.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openai embedder: calling API: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	for attempt := 0; attempt < openAIMaxRetries; attempt++ {
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, o.endpointURL, bytes.NewReader(bodyBytes))
+		if reqErr != nil {
+			return nil, fmt.Errorf("openai embedder: creating request: %w", reqErr)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+o.apiKey)
 
-	rawBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("openai embedder: reading response body: %w", err)
+		resp, err = o.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("openai embedder: calling API: %w", err)
+		}
+
+		rawBody, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("openai embedder: reading response body: %w", err)
+		}
+
+		// Retry on 429 (rate limit) and 5xx (server errors).
+		if resp.StatusCode == http.StatusTooManyRequests {
+			if attempt < openAIMaxRetries-1 {
+				wait := parseRetryAfter(resp.Header.Get("Retry-After"), openAIMaxRetryAfter)
+				o.logger.Warn("openai rate limited, retrying", "attempt", attempt+1, "wait", wait)
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(wait):
+				}
+				continue
+			}
+		} else if resp.StatusCode >= 500 {
+			if attempt < openAIMaxRetries-1 {
+				wait := time.Duration(1<<attempt) * time.Second // 1s, 2s, 4s
+				o.logger.Warn("openai server error, retrying", "attempt", attempt+1, "status", resp.StatusCode, "wait", wait)
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(wait):
+				}
+				continue
+			}
+		}
+
+		// Non-retryable response or final attempt — exit loop.
+		break
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -150,7 +191,11 @@ func (o *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]fl
 		if jsonErr := json.Unmarshal(rawBody, &apiErr); jsonErr == nil && apiErr.Error.Message != "" {
 			return nil, fmt.Errorf("openai embedder: API error %d: %s", resp.StatusCode, apiErr.Error.Message)
 		}
-		return nil, fmt.Errorf("openai embedder: API returned %d: %s", resp.StatusCode, string(rawBody))
+		bodyPreview := string(rawBody)
+		if len(bodyPreview) > 512 {
+			bodyPreview = bodyPreview[:512] + "..."
+		}
+		return nil, fmt.Errorf("openai embedder: API returned %d: %s", resp.StatusCode, bodyPreview)
 	}
 
 	var result openAIEmbedResponse
@@ -174,4 +219,22 @@ func (o *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]fl
 
 	o.logger.Debug("generated embeddings via OpenAI", "model", o.model, "count", len(vecs), "dimension", o.dimensions)
 	return vecs, nil
+}
+
+// parseRetryAfter parses the Retry-After header value (seconds as integer) and
+// returns a wait duration capped at maxWait. Falls back to 1 second if the
+// header is absent or cannot be parsed.
+func parseRetryAfter(header string, maxWait time.Duration) time.Duration {
+	if header == "" {
+		return time.Second
+	}
+	secs, err := strconv.Atoi(header)
+	if err != nil || secs <= 0 {
+		return time.Second
+	}
+	wait := time.Duration(secs) * time.Second
+	if wait > maxWait {
+		return maxWait
+	}
+	return wait
 }
