@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	pb "github.com/qdrant/go-client/qdrant"
@@ -37,6 +38,9 @@ type QdrantStore struct {
 	collName   string
 	dimension  uint64
 	logger     *slog.Logger
+
+	entityCollOnce sync.Once
+	entityCollErr  error
 }
 
 // NewQdrantStore creates a new Qdrant store connection.
@@ -443,10 +447,11 @@ func (q *QdrantStore) entityCollName() string {
 	return q.collName + "_entities"
 }
 
-// ensureEntityCollection creates the entity collection if it does not yet exist.
+// doEnsureEntityCollection is the internal implementation that creates the entity
+// collection if it does not yet exist. It is called at most once via sync.Once.
 // Entities do not have meaningful embedding vectors, so the collection is created
 // with a dimension-1 dummy vector to satisfy Qdrant's requirement.
-func (q *QdrantStore) ensureEntityCollection(ctx context.Context) error {
+func (q *QdrantStore) doEnsureEntityCollection(ctx context.Context) error {
 	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
 	defer rcancel()
 	resp, err := q.collection.List(rctx, &pb.ListCollectionsRequest{})
@@ -482,6 +487,16 @@ func (q *QdrantStore) ensureEntityCollection(ctx context.Context) error {
 	return nil
 }
 
+// ensureEntityCollection guarantees the entity collection exists, running the
+// actual check-and-create logic at most once per QdrantStore instance via
+// sync.Once to prevent concurrent goroutines from racing to create it.
+func (q *QdrantStore) ensureEntityCollection(ctx context.Context) error {
+	q.entityCollOnce.Do(func() {
+		q.entityCollErr = q.doEnsureEntityCollection(ctx)
+	})
+	return q.entityCollErr
+}
+
 // entityToPayload converts an Entity into a Qdrant payload map.
 func entityToPayload(e models.Entity) map[string]*pb.Value {
 	aliasValues := make([]*pb.Value, len(e.Aliases))
@@ -504,6 +519,8 @@ func entityToPayload(e models.Entity) map[string]*pb.Value {
 	}
 
 	if len(e.Metadata) > 0 {
+		// On marshal failure, metadata is silently dropped — consistent with
+		// the memoryToPayload pattern used for Memory payloads.
 		metaBytes, err := json.Marshal(e.Metadata)
 		if err == nil {
 			payload["metadata"] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: string(metaBytes)}}
@@ -571,7 +588,7 @@ func (q *QdrantStore) UpsertEntity(ctx context.Context, entity models.Entity) er
 				Id: &pb.PointId{PointIdOptions: &pb.PointId_Uuid{Uuid: entity.ID}},
 				Vectors: &pb.Vectors{
 					VectorsOptions: &pb.Vectors_Vector{
-						Vector: &pb.Vector{Data: []float32{0.0}},
+						Vector: &pb.Vector{Data: []float32{1.0}},
 					},
 				},
 				Payload: payload,
@@ -672,7 +689,12 @@ func (q *QdrantStore) SearchEntities(ctx context.Context, name string) ([]models
 	return results, nil
 }
 
-// LinkMemoryToEntity adds memoryID to the entity's MemoryIDs list (idempotent).
+// LinkMemoryToEntity links a memory to an entity using read-modify-write.
+// This is intentionally non-atomic: concurrent calls may lose a link if they
+// race to update the same entity. This is an acceptable trade-off for the
+// initial implementation.
+//
+// The method is idempotent: if memoryID is already linked, it returns nil.
 func (q *QdrantStore) LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error {
 	entity, err := q.GetEntity(ctx, entityID)
 	if err != nil {
