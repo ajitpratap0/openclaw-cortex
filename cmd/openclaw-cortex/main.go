@@ -76,6 +76,14 @@ func newLogger() *slog.Logger {
 }
 
 func newEmbedder(logger *slog.Logger) embedder.Embedder {
+	if cfg.Embedder.Provider == "openai" {
+		return embedder.NewOpenAIEmbedder(
+			cfg.Embedder.OpenAIKey,
+			cfg.Embedder.OpenAIModel,
+			cfg.Embedder.OpenAIDim,
+			logger,
+		)
+	}
 	return embedder.NewOllamaEmbedder(
 		cfg.Ollama.BaseURL,
 		cfg.Ollama.Model,
