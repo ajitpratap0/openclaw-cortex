@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -67,7 +68,7 @@ func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
 		}
 		header := r.Header.Get("Authorization")
 		token, ok := strings.CutPrefix(header, "Bearer ")
-		if !ok || token != s.authToken {
+		if !ok || subtle.ConstantTimeCompare([]byte(token), []byte(s.authToken)) != 1 {
 			s.writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
@@ -98,6 +99,7 @@ type rememberResponse struct {
 }
 
 func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 	var req rememberRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "invalid request body")
@@ -116,6 +118,15 @@ func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Confidence == 0 {
 		req.Confidence = 0.9
+	}
+
+	if !req.Type.IsValid() {
+		s.writeError(w, http.StatusBadRequest, "invalid memory type")
+		return
+	}
+	if !req.Scope.IsValid() {
+		s.writeError(w, http.StatusBadRequest, "invalid memory scope")
+		return
 	}
 
 	vec, err := s.embedder.Embed(r.Context(), req.Content)
@@ -165,6 +176,7 @@ type recallResponse struct {
 }
 
 func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 	var req recallRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "invalid request body")
@@ -206,11 +218,16 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 		contents = append(contents, ranked[i].Memory.Content)
 	}
 
-	ctx, count := tokenizer.FormatMemoriesWithBudget(contents, req.Budget)
-	tokensUsed := tokenizer.EstimateTokens(ctx)
+	formattedCtx, count := tokenizer.FormatMemoriesWithBudget(contents, req.Budget)
+	tokensUsed := tokenizer.EstimateTokens(formattedCtx)
+
+	// Update access metadata for returned memories.
+	for i := 0; i < count && i < len(ranked); i++ {
+		_ = s.store.UpdateAccessMetadata(r.Context(), ranked[i].Memory.ID)
+	}
 
 	s.writeJSON(w, http.StatusOK, recallResponse{
-		Context:     ctx,
+		Context:     formattedCtx,
 		MemoryCount: count,
 		TokensUsed:  tokensUsed,
 	})
@@ -270,6 +287,7 @@ type searchResponse struct {
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "invalid request body")

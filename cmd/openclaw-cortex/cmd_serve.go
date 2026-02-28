@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -33,13 +30,13 @@ func serveCmd() *cobra.Command {
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
 
 			httpSrv := &http.Server{
-				Addr:    cfg.API.ListenAddr,
-				Handler: srv.Handler(),
+				Addr:              cfg.API.ListenAddr,
+				Handler:           srv.Handler(),
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      60 * time.Second,
+				IdleTimeout:       120 * time.Second,
 			}
-
-			// Listen for OS signals to trigger graceful shutdown.
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 			errCh := make(chan error, 1)
 			go func() {
@@ -51,8 +48,8 @@ func serveCmd() *cobra.Command {
 			}()
 
 			select {
-			case sig := <-sigCh:
-				logger.Info("shutting down", "signal", sig)
+			case <-cmd.Context().Done():
+				logger.Info("shutting down")
 			case startErr := <-errCh:
 				if startErr != nil {
 					return startErr
