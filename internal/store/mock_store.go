@@ -68,8 +68,21 @@ func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, fi
 			continue
 		}
 		score := cosineSimilarity(vector, sm.vector)
+		mem := sm.memory
+		if len(mem.Tags) > 0 {
+			tags := make([]string, len(mem.Tags))
+			copy(tags, mem.Tags)
+			mem.Tags = tags
+		}
+		if len(mem.Metadata) > 0 {
+			meta := make(map[string]any, len(mem.Metadata))
+			for k, v := range mem.Metadata {
+				meta[k] = v
+			}
+			mem.Metadata = meta
+		}
 		results = append(results, models.SearchResult{
-			Memory: sm.memory,
+			Memory: mem,
 			Score:  score,
 		})
 	}
@@ -196,8 +209,21 @@ func (m *MockStore) FindDuplicates(_ context.Context, vector []float32, threshol
 	for _, sm := range m.memories {
 		score := cosineSimilarity(vector, sm.vector)
 		if score >= threshold {
+			mem := sm.memory
+			if len(mem.Tags) > 0 {
+				tags := make([]string, len(mem.Tags))
+				copy(tags, mem.Tags)
+				mem.Tags = tags
+			}
+			if len(mem.Metadata) > 0 {
+				meta := make(map[string]any, len(mem.Metadata))
+				for k, v := range mem.Metadata {
+					meta[k] = v
+				}
+				mem.Metadata = meta
+			}
 			results = append(results, models.SearchResult{
-				Memory: sm.memory,
+				Memory: mem,
 				Score:  score,
 			})
 		}

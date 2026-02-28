@@ -121,7 +121,7 @@ func buildRememberTool() mcpgo.Tool {
 			mcpgo.Description("Memory type: rule, fact, episode, procedure, or preference (default: fact)"),
 		),
 		mcpgo.WithString("scope",
-			mcpgo.Description("Memory scope: permanent, project, session, or ttl (default: permanent)"),
+			mcpgo.Description("Memory scope: permanent, project, session, or ttl (default: session)"),
 		),
 		mcpgo.WithString("project",
 			mcpgo.Description("Project name for project-scoped memories"),
