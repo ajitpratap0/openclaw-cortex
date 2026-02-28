@@ -50,6 +50,7 @@ func main() {
 		healthCmd(),
 		entitiesCmd(),
 		serveCmd(),
+		hookCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
