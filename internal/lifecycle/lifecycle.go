@@ -259,9 +259,9 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 	return consolidated, nil
 }
 
-// retireExpiredFacts marks memories with ValidUntil < now as retired by deleting them.
+// retireExpiredFacts deletes memories whose ValidUntil has passed.
 // It scans permanent and project memories (TTL-scoped memories are handled by expireTTL).
-// Returns the count of retired memories.
+// Returns the count of deleted memories.
 func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, error) {
 	now := time.Now().UTC()
 	retired := 0
@@ -288,6 +288,7 @@ func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, err
 					m.logger.Error("deleting retired memory", "id", mem.ID, "error", delErr)
 					continue
 				}
+				metrics.Inc(metrics.LifecycleRetired) // only incremented on actual deletes, not dry-run
 			}
 			retired++
 		}

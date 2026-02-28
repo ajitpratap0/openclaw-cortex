@@ -456,9 +456,30 @@ func (q *QdrantStore) LinkMemoryToEntity(_ context.Context, _, _ string) error {
 	return nil
 }
 
-// GetChain is not yet implemented for QdrantStore.
-func (q *QdrantStore) GetChain(_ context.Context, _ string) ([]models.Memory, error) {
-	return nil, fmt.Errorf("GetChain: not implemented for QdrantStore")
+// GetChain follows the SupersedesID chain and returns the full history.
+// The chain is returned newest first. Stops when SupersedesID is empty, the
+// referenced memory is not found, or a cycle is detected.
+func (q *QdrantStore) GetChain(ctx context.Context, id string) ([]models.Memory, error) {
+	var chain []models.Memory
+	visited := make(map[string]bool)
+	currentID := id
+
+	for currentID != "" {
+		if visited[currentID] {
+			break
+		}
+		visited[currentID] = true
+
+		mem, err := q.Get(ctx, currentID)
+		if err != nil {
+			// Stop at a missing link — not an error for the caller.
+			break
+		}
+		chain = append(chain, *mem)
+		currentID = mem.SupersedesID
+	}
+
+	return chain, nil
 }
 
 // Close releases the gRPC connection.

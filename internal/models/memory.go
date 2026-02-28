@@ -42,7 +42,6 @@ const (
 	ScopeProject   MemoryScope = "project"
 	ScopeSession   MemoryScope = "session"
 	ScopeTTL       MemoryScope = "ttl"
-	ScopeRetired   MemoryScope = "retired"
 )
 
 // ValidMemoryScopes is the set of all valid memory scopes.

@@ -131,6 +131,7 @@ func storeCmd() *cobra.Command {
 // parseDuration extends time.ParseDuration to support a "d" suffix for days.
 func parseDuration(s string) (time.Duration, error) {
 	if strings.HasSuffix(s, "d") {
+		// Parse "Xd" by treating the number as hours and multiplying by 24.
 		daysStr := strings.TrimSuffix(s, "d")
 		days, err := time.ParseDuration(daysStr + "h")
 		if err != nil {
