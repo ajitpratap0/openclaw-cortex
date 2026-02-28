@@ -34,7 +34,7 @@ jobs:
         run: go build -v ./...
 
       - name: Run tests
-        run: go test -race -short -count=1 -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... ./...
+        run: go test -race -short -count=1 -coverprofile=coverage.txt -covermode=atomic -coverpkg=./internal/...,./pkg/... ./...
 
       - name: Run go vet
         run: go vet ./...
@@ -44,7 +44,7 @@ jobs:
         run: |
           COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | tr -d '%')
           echo "Total coverage: ${COVERAGE}%"
-          THRESHOLD=30
+          THRESHOLD=50
           if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
             echo "Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
             exit 1
