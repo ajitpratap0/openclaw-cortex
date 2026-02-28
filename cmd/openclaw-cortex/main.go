@@ -46,6 +46,7 @@ func main() {
 		statsCmd(),
 		consolidateCmd(),
 		getCmd(),
+		updateCmd(),
 		exportCmd(),
 		healthCmd(),
 		entitiesCmd(),
