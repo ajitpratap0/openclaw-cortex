@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	pb "github.com/qdrant/go-client/qdrant"
@@ -436,23 +437,261 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	return stats, nil
 }
 
-// UpsertEntity is a stub — Qdrant entity storage is not yet implemented.
-func (q *QdrantStore) UpsertEntity(_ context.Context, _ models.Entity) error {
-	return fmt.Errorf("qdrant entity storage: not yet implemented")
+// entityCollName returns the name of the entity collection derived from the
+// main collection name.
+func (q *QdrantStore) entityCollName() string {
+	return q.collName + "_entities"
 }
 
-// GetEntity is a stub — returns ErrNotFound until Qdrant entity storage is implemented.
-func (q *QdrantStore) GetEntity(_ context.Context, id string) (*models.Entity, error) {
-	return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+// ensureEntityCollection creates the entity collection if it does not yet exist.
+// Entities do not have meaningful embedding vectors, so the collection is created
+// with a dimension-1 dummy vector to satisfy Qdrant's requirement.
+func (q *QdrantStore) ensureEntityCollection(ctx context.Context) error {
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+	resp, err := q.collection.List(rctx, &pb.ListCollectionsRequest{})
+	if err != nil {
+		return fmt.Errorf("listing collections for entity check: %w", err)
+	}
+
+	name := q.entityCollName()
+	for _, c := range resp.GetCollections() {
+		if c.GetName() == name {
+			return nil
+		}
+	}
+
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err = q.collection.Create(wctx, &pb.CreateCollection{
+		CollectionName: name,
+		VectorsConfig: &pb.VectorsConfig{
+			Config: &pb.VectorsConfig_Params{
+				Params: &pb.VectorParams{
+					Size:     1,
+					Distance: pb.Distance_Cosine,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("creating entity collection %s: %w", name, err)
+	}
+
+	q.logger.Info("created entity collection", "name", name)
+	return nil
 }
 
-// SearchEntities is a stub — returns an empty slice until Qdrant entity storage is implemented.
-func (q *QdrantStore) SearchEntities(_ context.Context, _ string) ([]models.Entity, error) {
-	return nil, nil
+// entityToPayload converts an Entity into a Qdrant payload map.
+func entityToPayload(e models.Entity) map[string]*pb.Value {
+	aliasValues := make([]*pb.Value, len(e.Aliases))
+	for i, a := range e.Aliases {
+		aliasValues[i] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: a}}
+	}
+
+	memIDValues := make([]*pb.Value, len(e.MemoryIDs))
+	for i, mid := range e.MemoryIDs {
+		memIDValues[i] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: mid}}
+	}
+
+	payload := map[string]*pb.Value{
+		"name":       {Kind: &pb.Value_StringValue{StringValue: e.Name}},
+		"type":       {Kind: &pb.Value_StringValue{StringValue: string(e.Type)}},
+		"created_at": {Kind: &pb.Value_StringValue{StringValue: e.CreatedAt.Format(time.RFC3339Nano)}},
+		"updated_at": {Kind: &pb.Value_StringValue{StringValue: e.UpdatedAt.Format(time.RFC3339Nano)}},
+		"aliases":    {Kind: &pb.Value_ListValue{ListValue: &pb.ListValue{Values: aliasValues}}},
+		"memory_ids": {Kind: &pb.Value_ListValue{ListValue: &pb.ListValue{Values: memIDValues}}},
+	}
+
+	if len(e.Metadata) > 0 {
+		metaBytes, err := json.Marshal(e.Metadata)
+		if err == nil {
+			payload["metadata"] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: string(metaBytes)}}
+		}
+	}
+
+	return payload
 }
 
-// LinkMemoryToEntity is a stub — returns nil until Qdrant entity storage is implemented.
-func (q *QdrantStore) LinkMemoryToEntity(_ context.Context, _, _ string) error {
+// payloadToEntity converts a Qdrant payload map back to an Entity.
+func payloadToEntity(id string, payload map[string]*pb.Value) *models.Entity {
+	e := &models.Entity{
+		ID:   id,
+		Name: getStringValue(payload, "name"),
+		Type: models.EntityType(getStringValue(payload, "type")),
+	}
+
+	if ts := getStringValue(payload, "created_at"); ts != "" {
+		e.CreatedAt = parseTime(ts)
+	}
+	if ts := getStringValue(payload, "updated_at"); ts != "" {
+		e.UpdatedAt = parseTime(ts)
+	}
+
+	if aliasVal, ok := payload["aliases"]; ok {
+		if lv := aliasVal.GetListValue(); lv != nil {
+			for _, v := range lv.GetValues() {
+				e.Aliases = append(e.Aliases, v.GetStringValue())
+			}
+		}
+	}
+
+	if memIDVal, ok := payload["memory_ids"]; ok {
+		if lv := memIDVal.GetListValue(); lv != nil {
+			for _, v := range lv.GetValues() {
+				e.MemoryIDs = append(e.MemoryIDs, v.GetStringValue())
+			}
+		}
+	}
+
+	if metaStr := getStringValue(payload, "metadata"); metaStr != "" {
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(metaStr), &meta); err == nil {
+			e.Metadata = meta
+		}
+	}
+
+	return e
+}
+
+// UpsertEntity inserts or updates an entity in the Qdrant entity collection.
+func (q *QdrantStore) UpsertEntity(ctx context.Context, entity models.Entity) error {
+	if err := q.ensureEntityCollection(ctx); err != nil {
+		return err
+	}
+
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+
+	payload := entityToPayload(entity)
+	_, err := q.points.Upsert(wctx, &pb.UpsertPoints{
+		CollectionName: q.entityCollName(),
+		Points: []*pb.PointStruct{
+			{
+				Id: &pb.PointId{PointIdOptions: &pb.PointId_Uuid{Uuid: entity.ID}},
+				Vectors: &pb.Vectors{
+					VectorsOptions: &pb.Vectors_Vector{
+						Vector: &pb.Vector{Data: []float32{0.0}},
+					},
+				},
+				Payload: payload,
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("upserting entity %s: %w", entity.ID, err)
+	}
+
+	q.logger.Debug("upserted entity", "id", entity.ID, "name", entity.Name)
+	return nil
+}
+
+// GetEntity retrieves a single entity by ID from the Qdrant entity collection.
+func (q *QdrantStore) GetEntity(ctx context.Context, id string) (*models.Entity, error) {
+	if err := q.ensureEntityCollection(ctx); err != nil {
+		return nil, err
+	}
+
+	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+	defer rcancel()
+
+	resp, err := q.points.Get(rctx, &pb.GetPoints{
+		CollectionName: q.entityCollName(),
+		Ids: []*pb.PointId{
+			{PointIdOptions: &pb.PointId_Uuid{Uuid: id}},
+		},
+		WithPayload: &pb.WithPayloadSelector{SelectorOptions: &pb.WithPayloadSelector_Enable{Enable: true}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting entity %s: %w", id, err)
+	}
+
+	if len(resp.GetResult()) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
+
+	point := resp.GetResult()[0]
+	return payloadToEntity(point.GetId().GetUuid(), point.GetPayload()), nil
+}
+
+// SearchEntities finds entities whose Name or Aliases contain the given substring
+// (case-insensitive). It uses Qdrant's Scroll API to fetch all entities and
+// filters in Go.
+func (q *QdrantStore) SearchEntities(ctx context.Context, name string) ([]models.Entity, error) {
+	if err := q.ensureEntityCollection(ctx); err != nil {
+		return nil, err
+	}
+
+	nameLower := strings.ToLower(name)
+	const pageSize = 100
+	limit := uint32(pageSize)
+
+	var results []models.Entity
+	var offset *pb.PointId
+
+	for {
+		rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
+		req := &pb.ScrollPoints{
+			CollectionName: q.entityCollName(),
+			Limit:          &limit,
+			WithPayload:    &pb.WithPayloadSelector{SelectorOptions: &pb.WithPayloadSelector_Enable{Enable: true}},
+			Offset:         offset,
+		}
+
+		resp, err := q.points.Scroll(rctx, req)
+		rcancel()
+		if err != nil {
+			return nil, fmt.Errorf("scrolling entities: %w", err)
+		}
+
+		for _, point := range resp.GetResult() {
+			e := payloadToEntity(point.GetId().GetUuid(), point.GetPayload())
+
+			// Match on name.
+			if strings.Contains(strings.ToLower(e.Name), nameLower) {
+				results = append(results, *e)
+				continue
+			}
+
+			// Match on any alias.
+			for _, alias := range e.Aliases {
+				if strings.Contains(strings.ToLower(alias), nameLower) {
+					results = append(results, *e)
+					break
+				}
+			}
+		}
+
+		npo := resp.GetNextPageOffset()
+		if npo == nil {
+			break
+		}
+		offset = npo
+	}
+
+	return results, nil
+}
+
+// LinkMemoryToEntity adds memoryID to the entity's MemoryIDs list (idempotent).
+func (q *QdrantStore) LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error {
+	entity, err := q.GetEntity(ctx, entityID)
+	if err != nil {
+		return fmt.Errorf("link memory to entity: getting entity %s: %w", entityID, err)
+	}
+
+	// Check for duplicates.
+	for _, id := range entity.MemoryIDs {
+		if id == memoryID {
+			return nil
+		}
+	}
+
+	entity.MemoryIDs = append(entity.MemoryIDs, memoryID)
+
+	if err := q.UpsertEntity(ctx, *entity); err != nil {
+		return fmt.Errorf("link memory to entity: upserting entity %s: %w", entityID, err)
+	}
+
 	return nil
 }
 

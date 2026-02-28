@@ -325,7 +325,8 @@ func (m *MockStore) GetEntity(_ context.Context, id string) (*models.Entity, err
 	return &out, nil
 }
 
-// SearchEntities finds entities whose name contains the given substring (case-insensitive).
+// SearchEntities finds entities whose Name or any Alias contains the given
+// substring (case-insensitive).
 func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Entity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -333,7 +334,17 @@ func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Ent
 	nameLower := strings.ToLower(name)
 	var results []models.Entity
 	for _, e := range m.entities {
-		if strings.Contains(strings.ToLower(e.Name), nameLower) {
+		matched := strings.Contains(strings.ToLower(e.Name), nameLower)
+		if !matched {
+			for _, alias := range e.Aliases {
+				if strings.Contains(strings.ToLower(alias), nameLower) {
+					matched = true
+					break
+				}
+			}
+		}
+
+		if matched {
 			cp := *e
 			if len(e.Aliases) > 0 {
 				cp.Aliases = make([]string, len(e.Aliases))
