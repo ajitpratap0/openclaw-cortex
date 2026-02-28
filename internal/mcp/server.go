@@ -4,7 +4,6 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -99,16 +98,6 @@ func (s *Server) HandleStats(ctx context.Context, req mcpgo.CallToolRequest) (*m
 }
 
 // --- helpers ---
-
-// xmlEscape replaces characters that have special meaning in XML to prevent
-// prompt injection when embedding user content in XML-delimited templates.
-func xmlEscape(s string) string {
-	var buf strings.Builder
-	if err := xml.EscapeText(&buf, []byte(s)); err != nil {
-		return s
-	}
-	return buf.String()
-}
 
 // toolResultJSON marshals v to JSON and returns it as a tool text result.
 func toolResultJSON(v any) (*mcpgo.CallToolResult, error) {
@@ -216,7 +205,7 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 		memType = candidate
 	}
 
-	memScope := models.ScopePermanent
+	memScope := models.ScopeSession
 	if sc := req.GetString("scope", ""); sc != "" {
 		candidate := models.MemoryScope(sc)
 		if !candidate.IsValid() {
@@ -231,8 +220,6 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 	}
 
 	project := req.GetString("project", "")
-
-	content = xmlEscape(content)
 
 	vec, err := s.emb.Embed(ctx, content)
 	if err != nil {

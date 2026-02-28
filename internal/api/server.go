@@ -223,7 +223,9 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 
 	// Update access metadata for returned memories.
 	for i := 0; i < count && i < len(ranked); i++ {
-		_ = s.store.UpdateAccessMetadata(r.Context(), ranked[i].Memory.ID)
+		if err := s.store.UpdateAccessMetadata(r.Context(), ranked[i].Memory.ID); err != nil {
+			s.logger.Warn("handleRecall: UpdateAccessMetadata", "id", ranked[i].Memory.ID, "error", err)
+		}
 	}
 
 	s.writeJSON(w, http.StatusOK, recallResponse{

@@ -100,7 +100,9 @@ func recallCmd() *cobra.Command {
 
 			// Update access metadata for returned memories
 			for i := 0; i < count && i < len(ranked); i++ {
-				_ = st.UpdateAccessMetadata(ctx, ranked[i].Memory.ID)
+				if updateErr := st.UpdateAccessMetadata(ctx, ranked[i].Memory.ID); updateErr != nil {
+					logger.Warn("recall: UpdateAccessMetadata", "id", ranked[i].Memory.ID, "error", updateErr)
+				}
 			}
 
 			return nil

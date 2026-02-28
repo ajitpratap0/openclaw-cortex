@@ -136,7 +136,21 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 		if !matchesFilters(sm.memory, filters) {
 			continue
 		}
-		all = append(all, sm.memory)
+		mem := sm.memory
+		// Deep-copy mutable fields to prevent callers from mutating stored data.
+		if len(mem.Tags) > 0 {
+			tags := make([]string, len(mem.Tags))
+			copy(tags, mem.Tags)
+			mem.Tags = tags
+		}
+		if len(mem.Metadata) > 0 {
+			meta := make(map[string]any, len(mem.Metadata))
+			for k, v := range mem.Metadata {
+				meta[k] = v
+			}
+			mem.Metadata = meta
+		}
+		all = append(all, mem)
 	}
 
 	// Sort by ID for deterministic pagination.
