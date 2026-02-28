@@ -109,14 +109,19 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	return output, nil
 }
 
+// conflictCandidateLimit is the maximum number of similar memories passed to the
+// ConflictDetector for contradiction analysis.
+const conflictCandidateLimit = 5
+
 // PostTurnHook captures memories from a completed agent turn.
 type PostTurnHook struct {
-	capturer       capture.Capturer
-	classifier     classifier.Classifier
-	embedder       embedder.Embedder
-	store          store.Store
-	logger         *slog.Logger
-	dedupThreshold float64
+	capturer         capture.Capturer
+	classifier       classifier.Classifier
+	embedder         embedder.Embedder
+	store            store.Store
+	logger           *slog.Logger
+	dedupThreshold   float64
+	conflictDetector *capture.ConflictDetector // nil = disabled
 }
 
 // PostTurnInput contains the conversation turn data.
@@ -141,6 +146,16 @@ func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedd
 	}
 }
 
+// WithConflictDetector configures an optional ConflictDetector.
+// Must be called before the hook is used concurrently.
+// When set, each new memory is checked against similar existing memories for
+// contradictions before being stored. On any detector error the memory is stored
+// as-is (graceful degradation).
+func (h *PostTurnHook) WithConflictDetector(cd *capture.ConflictDetector) *PostTurnHook {
+	h.conflictDetector = cd
+	return h
+}
+
 // Execute runs the post-turn hook: extract → classify → embed → dedup → store.
 func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	h.logger.Info("post-turn hook starting",
@@ -163,7 +178,8 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	now := time.Now().UTC()
 	stored := 0
 
-	for _, cm := range captured {
+	for i := range captured {
+		cm := captured[i]
 		// 2. Classify – prefer the LLM-assigned type; only run the classifier if empty.
 		memType := cm.Type
 		if memType == "" {
@@ -171,23 +187,46 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 		}
 
 		// 3. Embed the content.
-		vec, err := h.embedder.Embed(ctx, cm.Content)
-		if err != nil {
-			h.logger.Warn("post-turn embed failed, skipping memory", "error", err)
+		vec, embedErr := h.embedder.Embed(ctx, cm.Content)
+		if embedErr != nil {
+			h.logger.Warn("post-turn embed failed, skipping memory", "error", embedErr)
 			continue
 		}
 
 		// 4. Dedup – skip if a near-duplicate already exists.
-		dupes, err := h.store.FindDuplicates(ctx, vec, h.dedupThreshold)
-		if err != nil {
-			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", err)
+		dupes, dedupErr := h.store.FindDuplicates(ctx, vec, h.dedupThreshold)
+		if dedupErr != nil {
+			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", dedupErr)
 		} else if len(dupes) > 0 {
 			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
 			metrics.Inc(metrics.DedupSkipped)
 			continue
 		}
 
-		// 5. Store the new memory.
+		// 5. Contradiction detection — only when a ConflictDetector is configured.
+		var supersedesID string
+		if h.conflictDetector != nil {
+			candidates, searchErr := h.store.Search(ctx, vec, conflictCandidateLimit, nil)
+			if searchErr != nil {
+				h.logger.Warn("post-turn conflict search failed, skipping contradiction check", "error", searchErr)
+			} else {
+				mems := make([]models.Memory, len(candidates))
+				for j := range candidates {
+					mems[j] = candidates[j].Memory
+				}
+				contradicts, contradictedID, reason, _ := h.conflictDetector.Detect(ctx, cm.Content, mems)
+				if contradicts && contradictedID != "" {
+					h.logger.Info("post-turn contradiction detected",
+						"new_content", cm.Content,
+						"contradicted_id", contradictedID,
+						"reason", reason,
+					)
+					supersedesID = contradictedID
+				}
+			}
+		}
+
+		// 6. Store the new memory.
 		mem := models.Memory{
 			ID:           uuid.New().String(),
 			Type:         memType,
@@ -201,10 +240,11 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			CreatedAt:    now,
 			UpdatedAt:    now,
 			LastAccessed: now,
+			SupersedesID: supersedesID,
 		}
 
-		if err := h.store.Upsert(ctx, mem, vec); err != nil {
-			h.logger.Warn("post-turn store failed", "error", err)
+		if upsertErr := h.store.Upsert(ctx, mem, vec); upsertErr != nil {
+			h.logger.Warn("post-turn store failed", "error", upsertErr)
 			continue
 		}
 		metrics.Inc(metrics.CaptureTotal)
