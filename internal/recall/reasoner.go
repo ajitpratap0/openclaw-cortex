@@ -137,4 +137,3 @@ Output ONLY a valid JSON array of integers, nothing else. Example: [2, 0, 3, 1]
 	r.logger.Debug("reasoner: re-ranked results", "candidates", len(candidates), "order", order)
 	return append(reranked, tail...), nil
 }
-

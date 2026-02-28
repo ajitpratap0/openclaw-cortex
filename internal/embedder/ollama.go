@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	ollamaHTTPTimeout    = 30 * time.Second
-	ollamaMaxRetries     = 3
-	ollamaRetryBaseWait  = 500 * time.Millisecond
-	embedBatchWorkers    = 8
+	ollamaHTTPTimeout   = 30 * time.Second
+	ollamaMaxRetries    = 3
+	ollamaRetryBaseWait = 500 * time.Millisecond
+	embedBatchWorkers   = 8
 )
 
 // OllamaEmbedder implements Embedder using the Ollama HTTP API.

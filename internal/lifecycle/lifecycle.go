@@ -306,4 +306,3 @@ func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, err
 
 	return retired, nil
 }
-
