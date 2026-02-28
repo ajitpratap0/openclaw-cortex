@@ -239,14 +239,16 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateRequest is the body accepted by PUT /v1/memories/{id}.
-// All fields are optional — only non-zero values are applied.
+// All fields are optional — only non-nil/non-zero values are applied.
+// Project and Confidence use pointer types so callers can explicitly set
+// them to zero-like values (empty string or 0.0).
 type updateRequest struct {
 	Content    string              `json:"content"`
 	Type       models.MemoryType   `json:"type"`
 	Scope      models.MemoryScope  `json:"scope"`
 	Tags       []string            `json:"tags"`
-	Project    string              `json:"project"`
-	Confidence float64             `json:"confidence"`
+	Project    *string             `json:"project"`    // nil = not provided
+	Confidence *float64            `json:"confidence"` // nil = not provided
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
@@ -289,11 +291,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		mem.Scope = req.Scope
 	}
-	if req.Project != "" {
-		mem.Project = req.Project
+	if req.Project != nil {
+		mem.Project = *req.Project
 	}
-	if req.Confidence != 0 {
-		mem.Confidence = req.Confidence
+	if req.Confidence != nil {
+		mem.Confidence = *req.Confidence
 	}
 	if req.Tags != nil {
 		mem.Tags = req.Tags
@@ -309,9 +311,13 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// Re-use a zero vector; the store will keep the existing embedding
-		// because Upsert is keyed on ID.
-		vec = make([]float32, s.embedder.Dimension())
+		// Re-embed existing content to preserve the vector (no content change).
+		vec, err = s.embedder.Embed(r.Context(), mem.Content)
+		if err != nil {
+			s.logger.Error("failed to re-embed existing content", "id", id, "error", err)
+			s.writeError(w, http.StatusInternalServerError, "embedding failed: "+err.Error())
+			return
+		}
 	}
 
 	mem.UpdatedAt = time.Now().UTC()
@@ -344,10 +350,18 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		filters = &store.SearchFilters{}
 		if typeStr != "" {
 			mt := models.MemoryType(typeStr)
+			if !mt.IsValid() {
+				s.writeError(w, http.StatusBadRequest, "invalid type filter")
+				return
+			}
 			filters.Type = &mt
 		}
 		if scopeStr != "" {
 			ms := models.MemoryScope(scopeStr)
+			if !ms.IsValid() {
+				s.writeError(w, http.StatusBadRequest, "invalid scope filter")
+				return
+			}
 			filters.Scope = &ms
 		}
 		if projectStr != "" {
@@ -358,6 +372,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	const maxListLimit uint64 = 1000
 	limitStr := q.Get("limit")
 	var limit uint64 = 100
 	if limitStr != "" {
@@ -365,6 +380,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		if _, scanErr := fmt.Sscanf(limitStr, "%d", &parsed); scanErr == nil && parsed > 0 {
 			limit = parsed
 		}
+	}
+	if limit > maxListLimit {
+		limit = maxListLimit
 	}
 
 	cursor := q.Get("cursor")

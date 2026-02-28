@@ -87,9 +87,11 @@ func updateCmd() *cobra.Command {
 					return fmt.Errorf("update: embedding new content: %w", err)
 				}
 			} else {
-				// Use a zero vector so the existing embedding is preserved in Qdrant
-				// (Qdrant upsert by ID replaces the payload but keeps vector if same).
-				vec = make([]float32, emb.Dimension())
+				// Re-embed existing content to preserve the vector (no content change).
+				vec, err = emb.Embed(ctx, mem.Content)
+				if err != nil {
+					return fmt.Errorf("update: re-embedding existing content: %w", err)
+				}
 			}
 
 			mem.UpdatedAt = time.Now().UTC()

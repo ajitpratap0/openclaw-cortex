@@ -289,7 +289,7 @@ func TestAPI_ListMemories(t *testing.T) {
 	ts, st := newTestServer(t, "")
 
 	now := time.Now().UTC()
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		seedMemory(t, st, models.Memory{
 			ID:           fmt.Sprintf("list-all-%03d", i),
 			Type:         models.MemoryTypeFact,
@@ -460,7 +460,7 @@ func TestAPI_ListMemories_Limit(t *testing.T) {
 	ts, st := newTestServer(t, "")
 
 	now := time.Now().UTC()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		seedMemory(t, st, models.Memory{
 			ID:           fmt.Sprintf("list-limit-%03d", i),
 			Type:         models.MemoryTypeFact,
