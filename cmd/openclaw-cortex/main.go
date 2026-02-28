@@ -48,6 +48,7 @@ func main() {
 		getCmd(),
 		updateCmd(),
 		exportCmd(),
+		importCmd(),
 		healthCmd(),
 		entitiesCmd(),
 		serveCmd(),
