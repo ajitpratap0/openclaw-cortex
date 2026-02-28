@@ -5,14 +5,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/ajitpratap0/openclaw-cortex/main/scripts/install.sh | bash
 #
 # Environment variables:
-#   INSTALL_DIR    Installation directory (default: /usr/local/bin)
+#   INSTALL_DIR    Installation directory (default: ~/.local/bin if writable, else /usr/local/bin)
 #   VERSION        Release version to install (default: latest)
 
 set -euo pipefail
 
 REPO="ajitpratap0/openclaw-cortex"
 BINARY_NAME="openclaw-cortex"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 VERSION="${VERSION:-latest}"
 
 # --- helpers ---
@@ -66,42 +65,91 @@ resolve_version() {
     fi
 }
 
+# --- pick install directory ---
+
+resolve_install_dir() {
+    if [ -n "${INSTALL_DIR:-}" ]; then
+        echo "$INSTALL_DIR"
+        return
+    fi
+    local local_bin="$HOME/.local/bin"
+    if [ -w "$local_bin" ] || mkdir -p "$local_bin" 2>/dev/null; then
+        echo "$local_bin"
+    else
+        echo "/usr/local/bin"
+    fi
+}
+
 # --- download and install ---
 
 main() {
     need_cmd curl
     need_cmd chmod
 
-    local os arch version download_url tmp_file
+    local os arch version asset_name download_url checksum_url tmp_file tmp_checksums install_dir
 
     os="$(detect_os)"
     arch="$(detect_arch)"
     version="$(resolve_version)"
+    install_dir="$(resolve_install_dir)"
+
+    # Asset names use underscores: openclaw-cortex_linux_amd64
+    asset_name="${BINARY_NAME}_${os}_${arch}"
 
     info "Installing ${BINARY_NAME} ${version} (${os}/${arch})"
 
-    download_url="https://github.com/${REPO}/releases/download/${version}/${BINARY_NAME}-${os}-${arch}"
+    download_url="https://github.com/${REPO}/releases/download/${version}/${asset_name}"
+    checksum_url="https://github.com/${REPO}/releases/download/${version}/checksums.txt"
 
     tmp_file="$(mktemp)"
-    trap 'rm -f "$tmp_file"' EXIT
+    tmp_checksums="$(mktemp)"
+    trap 'rm -f "$tmp_file" "$tmp_checksums"' EXIT
 
     info "Downloading from ${download_url}"
     if ! curl -fsSL -o "$tmp_file" "$download_url"; then
-        error "Download failed. Check that release ${version} exists at https://github.com/${REPO}/releases"
+        error "Download failed. Check that release ${version} exists at https://github.com/${REPO}/releases and asset ${asset_name} is present."
+    fi
+
+    # Verify SHA256 checksum if checksums.txt is available.
+    if curl -fsSL -o "$tmp_checksums" "$checksum_url" 2>/dev/null; then
+        info "Verifying SHA256 checksum"
+        local expected_hash
+        expected_hash="$(grep "${asset_name}" "$tmp_checksums" | awk '{print $1}')"
+        if [ -z "$expected_hash" ]; then
+            warn "No checksum entry found for ${asset_name} in checksums.txt — skipping verification."
+        else
+            local actual_hash
+            if command -v sha256sum &>/dev/null; then
+                actual_hash="$(sha256sum "$tmp_file" | awk '{print $1}')"
+            elif command -v shasum &>/dev/null; then
+                actual_hash="$(shasum -a 256 "$tmp_file" | awk '{print $1}')"
+            else
+                warn "Neither sha256sum nor shasum found — skipping checksum verification."
+                actual_hash=""
+            fi
+            if [ -n "$actual_hash" ] && [ "$actual_hash" != "$expected_hash" ]; then
+                error "SHA256 checksum mismatch for ${asset_name}. Expected: ${expected_hash}, got: ${actual_hash}. The download may be corrupted."
+            fi
+            if [ -n "$actual_hash" ]; then
+                info "Checksum verified OK"
+            fi
+        fi
+    else
+        warn "Could not download checksums.txt — skipping checksum verification."
     fi
 
     chmod +x "$tmp_file"
 
-    # Verify the install directory exists and is writable; use sudo if needed.
-    if [ ! -d "$INSTALL_DIR" ]; then
-        warn "Install directory ${INSTALL_DIR} does not exist. Creating it."
-        if ! mkdir -p "$INSTALL_DIR" 2>/dev/null; then
-            info "Creating ${INSTALL_DIR} requires sudo."
-            sudo mkdir -p "$INSTALL_DIR"
+    # Ensure the install directory exists and is writable; use sudo if needed.
+    if [ ! -d "$install_dir" ]; then
+        warn "Install directory ${install_dir} does not exist. Creating it."
+        if ! mkdir -p "$install_dir" 2>/dev/null; then
+            info "Creating ${install_dir} requires sudo."
+            sudo mkdir -p "$install_dir"
         fi
     fi
 
-    local dest="${INSTALL_DIR}/${BINARY_NAME}"
+    local dest="${install_dir}/${BINARY_NAME}"
     if ! mv "$tmp_file" "$dest" 2>/dev/null; then
         info "Moving binary to ${dest} requires sudo."
         sudo mv "$tmp_file" "$dest"
@@ -114,6 +162,15 @@ main() {
     if ! "$dest" --version &>/dev/null; then
         warn "Binary installed but '${BINARY_NAME} --version' did not exit cleanly. This may be normal if dependencies are missing."
     fi
+
+    # Warn if install_dir is not in PATH.
+    case ":${PATH}:" in
+        *":${install_dir}:"*) ;;
+        *)
+            warn "${install_dir} is not in your PATH."
+            warn "Add it with: export PATH=\"${install_dir}:\$PATH\""
+            ;;
+    esac
 
     # --- next steps ---
 
