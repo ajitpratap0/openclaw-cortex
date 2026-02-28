@@ -112,10 +112,10 @@ func (m *Manager) listAll(ctx context.Context, filters *store.SearchFilters) ([]
 			all = all[:maxListAllMemories]
 			break
 		}
-		if uint64(len(page)) < pageSize {
+		cursor = nextCursor
+		if cursor == "" {
 			break
 		}
-		cursor = nextCursor
 	}
 
 	return all, nil

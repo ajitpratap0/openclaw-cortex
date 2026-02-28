@@ -115,5 +115,21 @@ func (d *ConflictDetector) Detect(ctx context.Context, newContent string, candid
 		return false, "", "", nil
 	}
 
+	if result.Contradicts && result.ContradictedID != "" {
+		// Validate the ID actually came from candidates
+		valid := false
+		for i := range candidates {
+			if candidates[i].ID == result.ContradictedID {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			d.logger.Warn("conflict_detector: ContradictedID not found in candidates, ignoring",
+				"contradicted_id", result.ContradictedID)
+			return false, "", "", nil
+		}
+	}
+
 	return result.Contradicts, result.ContradictedID, result.Reason, nil
 }

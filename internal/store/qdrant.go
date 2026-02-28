@@ -441,9 +441,9 @@ func (q *QdrantStore) UpsertEntity(_ context.Context, _ models.Entity) error {
 	return fmt.Errorf("qdrant entity storage: not yet implemented")
 }
 
-// GetEntity is a stub — returns nil, nil until Qdrant entity storage is implemented.
-func (q *QdrantStore) GetEntity(_ context.Context, _ string) (*models.Entity, error) {
-	return nil, nil
+// GetEntity is a stub — returns ErrNotFound until Qdrant entity storage is implemented.
+func (q *QdrantStore) GetEntity(_ context.Context, id string) (*models.Entity, error) {
+	return nil, fmt.Errorf("%w: %s", ErrNotFound, id)
 }
 
 // SearchEntities is a stub — returns an empty slice until Qdrant entity storage is implemented.

@@ -29,6 +29,10 @@ func serveCmd() *cobra.Command {
 
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
 
+			if cfg.API.AuthToken == "" {
+				logger.Warn("HTTP API: auth is DISABLED; set OPENCLAW_CORTEX_API_AUTH_TOKEN or cfg.api.auth_token for production use")
+			}
+
 			httpSrv := &http.Server{
 				Addr:              cfg.API.ListenAddr,
 				Handler:           srv.Handler(),
