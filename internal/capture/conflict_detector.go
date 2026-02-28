@@ -73,7 +73,7 @@ func (d *ConflictDetector) Detect(ctx context.Context, newContent string, candid
 	// Build the numbered list of existing memories for the prompt.
 	var sb strings.Builder
 	for i := range candidates {
-		fmt.Fprintf(&sb, "[%s] %s\n", candidates[i].ID, xmlEscape(candidates[i].Content))
+		fmt.Fprintf(&sb, "[%s] %s\n", xmlEscape(candidates[i].ID), xmlEscape(candidates[i].Content))
 	}
 
 	prompt := fmt.Sprintf(conflictPromptTemplate, xmlEscape(newContent), sb.String())
