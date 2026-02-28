@@ -207,4 +207,3 @@ func TestLifecycle_ManySessionsMultiPage(t *testing.T) {
 
 	assert.Equal(t, 501, report.Decayed, "should report all 501 sessions as decayed")
 }
-
