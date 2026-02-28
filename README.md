@@ -27,15 +27,16 @@ go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
 ## 3-Command Quickstart
 
 ```bash
-docker compose up -d                                      # start Qdrant vector store
-ollama pull nomic-embed-text                              # pull the embedding model
-cortex capture "$(cat conversation.txt)"                  # store memories from a conversation
+docker compose up -d                                           # start Qdrant vector store
+ollama pull nomic-embed-text                                   # pull the embedding model
+openclaw-cortex store "Always run tests before merging" \
+  --type rule --scope permanent                                # store your first memory
 ```
 
 Then recall relevant context in your next session:
 
 ```bash
-cortex recall "How do we handle database errors?" --budget 2000
+openclaw-cortex recall "What are the testing requirements?" --budget 2000
 ```
 
 ## Why OpenClaw Cortex?
@@ -112,7 +113,7 @@ Full documentation: **https://ajitpratap0.github.io/openclaw-cortex/**
 
 Configuration is loaded from (in order of precedence):
 1. Environment variables (prefixed `OPENCLAW_CORTEX_`)
-2. `~/.cortex/config.yaml`
+2. `~/.openclaw-cortex/config.yaml`
 3. Built-in defaults
 
 ```yaml
@@ -159,12 +160,6 @@ Add to `.claude/settings.json` in your project:
 }
 ```
 
-Or use the quick installer:
-
-```bash
-openclaw-cortex hook install
-```
-
 Both hooks exit with code 0 even if services are unavailable — Claude is never blocked.
 
 ## CLI Reference
@@ -193,8 +188,8 @@ openclaw-cortex stats
 # Run lifecycle management (TTL expiry, decay, consolidation)
 openclaw-cortex consolidate
 
-# Start HTTP API server
-openclaw-cortex serve --port 8080
+# Start HTTP API server (default :8080, configure via OPENCLAW_CORTEX_API_LISTEN_ADDR)
+openclaw-cortex serve
 
 # Start MCP server (for Claude Desktop)
 openclaw-cortex mcp

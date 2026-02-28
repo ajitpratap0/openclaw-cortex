@@ -83,13 +83,28 @@ This sends the conversation turn to Claude Haiku, which extracts structured memo
 
 ## Step 7: Wire up Claude Code hooks
 
-To get automatic memory injection in every Claude Code conversation:
+To get automatic memory injection in every Claude Code conversation, add the hook configuration to `.claude/settings.json` in your project:
 
-```bash
-openclaw-cortex hook install
+```json
+{
+  "hooks": {
+    "PreTurn": [{
+      "hooks": [{
+        "type": "command",
+        "command": "echo '{\"message\": \"{{HUMAN_TURN}}\", \"project\": \"my-project\", \"token_budget\": 2000}' | openclaw-cortex hook pre"
+      }]
+    }],
+    "PostTurn": [{
+      "hooks": [{
+        "type": "command",
+        "command": "echo '{\"user_message\": \"{{HUMAN_TURN}}\", \"assistant_message\": \"{{ASSISTANT_TURN}}\", \"session_id\": \"{{SESSION_ID}}\", \"project\": \"my-project\"}' | openclaw-cortex hook post"
+      }]
+    }]
+  }
+}
 ```
 
-This writes the hook configuration to `.claude/settings.json` in your current directory. See [Claude Code Hooks](hooks.md) for manual configuration and options.
+See [Claude Code Hooks](hooks.md) for full details and options.
 
 ## Verify everything works
 
@@ -106,7 +121,7 @@ openclaw-cortex list --limit 10
 
 ## Configuration
 
-The default configuration works out of the box if Qdrant and Ollama are running locally. To customize, create `~/.cortex/config.yaml`:
+The default configuration works out of the box if Qdrant and Ollama are running locally. To customize, create `~/.openclaw-cortex/config.yaml`:
 
 ```yaml
 qdrant:

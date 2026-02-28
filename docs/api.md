@@ -5,24 +5,28 @@ OpenClaw Cortex exposes a REST API for integrating with external tools and LLM p
 ## Start the server
 
 ```bash
-openclaw-cortex serve --port 8080
+openclaw-cortex serve
 ```
 
-With an auth token:
+The listen address defaults to `:8080`. Configure it via `~/.openclaw-cortex/config.yaml` or environment variables:
 
 ```bash
-openclaw-cortex serve --port 8080 --auth-token my-secret-token
+# Custom port
+OPENCLAW_CORTEX_API_LISTEN_ADDR=:9090 openclaw-cortex serve
+
+# With auth token
+OPENCLAW_CORTEX_API_AUTH_TOKEN=my-secret-token openclaw-cortex serve
 ```
 
 ## Authentication
 
-When `--auth-token` is set, all endpoints except `GET /healthz` require a `Bearer` token:
+When `api.auth_token` is set (via config or `OPENCLAW_CORTEX_API_AUTH_TOKEN`), all endpoints except `GET /healthz` require a `Bearer` token:
 
 ```
 Authorization: Bearer my-secret-token
 ```
 
-If no `--auth-token` is set, auth is disabled and all endpoints are open.
+If no auth token is configured, auth is disabled and all endpoints are open.
 
 ## Base URL
 
@@ -69,10 +73,10 @@ Store a memory. Embeds the content and upserts it to the vector store.
 |-------|------|----------|---------|-------------|
 | `content` | string | yes | — | The text to remember |
 | `type` | string | no | `fact` | One of: `rule`, `fact`, `episode`, `procedure`, `preference` |
-| `scope` | string | no | `permanent` | One of: `permanent`, `project`, `session`, `ttl` |
+| `scope` | string | no | `session` | One of: `permanent`, `project`, `session`, `ttl` |
 | `tags` | []string | no | `[]` | Arbitrary labels |
 | `project` | string | no | `""` | Project name (used with `scope=project`) |
-| `confidence` | float64 | no | `1.0` | Confidence score 0.0–1.0; values below 0.5 are rejected |
+| `confidence` | float64 | no | `1.0` | Confidence score 0.0–1.0 |
 
 **Response** `200 OK`:
 
@@ -80,15 +84,6 @@ Store a memory. Embeds the content and upserts it to the vector store.
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "stored": true
-}
-```
-
-**Response** `409 Conflict` (duplicate detected):
-
-```json
-{
-  "id": "",
-  "stored": false
 }
 ```
 
@@ -283,7 +278,6 @@ Common status codes:
 | `400` | Bad request — missing required fields or invalid values |
 | `401` | Unauthorized — missing or invalid Bearer token |
 | `404` | Not found — memory ID does not exist |
-| `409` | Conflict — duplicate memory detected |
 | `500` | Internal server error — Qdrant or Ollama unavailable |
 
 ## Request Size Limit

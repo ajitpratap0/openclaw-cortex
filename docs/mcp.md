@@ -98,8 +98,7 @@ What do we know about naming conventions in this codebase?
 ```json
 {
   "context": "--- Relevant Memories ---\n[rule] Always use snake_case for database columns...\n[preference] Prefer camelCase for Go variable names...\n",
-  "memory_count": 2,
-  "tokens_used": 67
+  "memory_count": 2
 }
 ```
 

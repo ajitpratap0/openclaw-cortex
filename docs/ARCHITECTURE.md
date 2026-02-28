@@ -165,15 +165,17 @@ score = 0.5 * similarity
 recency = exp(-ln(2) * daysSinceAccess / 7)
 ```
 
-**Frequency** (10%): Log-scale access count:
+**Frequency** (10%): Log₂-scale access count, capped at 1.0:
 
 ```
-frequency = log(1 + accessCount) / log(1 + maxCount)
+frequency = min(1.0, log2(1 + accessCount) / 10)
 ```
+
+This saturates at ~1000 accesses (log₂(1001) ≈ 10).
 
 **Type boost** (10%): Multiplier based on memory type priority (see table above).
 
-**Scope boost** (10%): A 0.2 bonus when `scope=project` and the memory's project matches the query's project. This surfaces project-specific context over global memories when a project is specified.
+**Scope boost** (10%): Normalized multiplier. Project-scoped memories whose project matches the query receive a score of 1.0 (vs. 0.67 for `permanent`-scope and 0.53 for `session`/`ttl`). This surfaces project-specific context over global memories when a project is specified.
 
 ## Key Design Decisions
 
