@@ -19,15 +19,23 @@ const (
 	DefaultDedupThreshold = 0.92
 )
 
+// CaptureQualityConfig controls capture extraction quality.
+type CaptureQualityConfig struct {
+	ContextWindowTurns           int     `mapstructure:"context_window_turns"`
+	ReinforcementThreshold       float64 `mapstructure:"reinforcement_threshold"`
+	ReinforcementConfidenceBoost float64 `mapstructure:"reinforcement_confidence_boost"`
+}
+
 // Config holds all configuration for cortex.
 type Config struct {
-	Qdrant   QdrantConfig   `mapstructure:"qdrant"`
-	Ollama   OllamaConfig   `mapstructure:"ollama"`
-	Claude   ClaudeConfig   `mapstructure:"claude"`
-	Memory   MemoryConfig   `mapstructure:"memory"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
-	API      APIConfig      `mapstructure:"api"`
-	Embedder EmbedderConfig `mapstructure:"embedder"`
+	Qdrant         QdrantConfig         `mapstructure:"qdrant"`
+	Ollama         OllamaConfig         `mapstructure:"ollama"`
+	Claude         ClaudeConfig         `mapstructure:"claude"`
+	Memory         MemoryConfig         `mapstructure:"memory"`
+	Logging        LoggingConfig        `mapstructure:"logging"`
+	API            APIConfig            `mapstructure:"api"`
+	Embedder       EmbedderConfig       `mapstructure:"embedder"`
+	CaptureQuality CaptureQualityConfig `mapstructure:"capture_quality"`
 }
 
 // APIConfig holds HTTP API server settings.
@@ -144,6 +152,10 @@ func Load() (*Config, error) {
 
 	v.SetDefault("api.listen_addr", ":8080")
 	v.SetDefault("api.auth_token", "")
+
+	v.SetDefault("capture_quality.context_window_turns", 3)
+	v.SetDefault("capture_quality.reinforcement_threshold", 0.80)
+	v.SetDefault("capture_quality.reinforcement_confidence_boost", 0.05)
 
 	// Config file
 	v.SetConfigName("config")
