@@ -178,12 +178,24 @@ Final score = weighted combination of:
 
 ### Pre-Turn Hook (inject memories)
 ```bash
-openclaw-cortex recall "$CURRENT_MESSAGE" --budget 2000 --project "$PROJECT" --context json
+openclaw-cortex hook pre    # reads stdin JSON event from Claude Code, writes context JSON
 ```
 
 ### Post-Turn Hook (capture memories)
 ```bash
-openclaw-cortex capture --user "$USER_MSG" --assistant "$ASSISTANT_MSG" --session-id "$SESSION_ID"
+openclaw-cortex hook post   # reads stdin JSON event, extracts and stores memories
+```
+
+### HTTP API (v0.2.0+)
+```bash
+openclaw-cortex serve       # start REST API on :8080
+# POST /v1/remember, POST /v1/recall, GET /v1/memories/{id}, DELETE /v1/memories/{id}
+# POST /v1/search, GET /v1/stats, GET /healthz
+```
+
+### MCP Server (v0.2.0+)
+```bash
+openclaw-cortex mcp         # Model Context Protocol over stdio (Claude Desktop)
 ```
 
 ### Periodic Maintenance
@@ -218,23 +230,62 @@ task fmt          # Format code
 task build        # Build binary
 ```
 
+## v0.3.0 Features (2026-03-09)
+
+### Threshold-Gated Re-Ranking
+
+When the top-4 recall scores have a spread ≤ 0.15 (ambiguous ranking), `ShouldRerank`
+dispatches candidates to Claude for intelligent re-ordering. A `context.WithTimeout` enforces
+latency budgets: 100 ms for hooks, 3 s for CLI. On timeout or API error, the original
+multi-factor ranking is used. Re-ranking fires on ~10–30% of recalls.
+
+### Conflict Engine
+
+When a new memory contradicts an existing one, the conflict engine:
+1. **Detects** the contradiction using Claude (ConflictDetector in `internal/capture/`)
+2. **Tags** both memories with a shared `ConflictGroupID` and `status="active"`
+3. **Surfaces** the conflict inline during recall (`[conflicts with: <id>]`)
+4. **Resolves** during `cortex consolidate`: highest-confidence memory wins, others → `status="resolved"`
+
+### Confidence Reinforcement
+
+When a new capture has 0.80 ≤ similarity < 0.92 to an existing memory (close but not
+duplicate), `UpdateReinforcement` increments the existing memory's confidence by 0.05 and
+its `reinforced_count` by 1. The new candidate is discarded. Frequently-observed facts
+converge toward confidence = 1.0 over time.
+
+### Multi-Turn Capture
+
+PostTurnHook reads the last N turns from the JSONL transcript and passes them to
+Claude Haiku via `ExtractWithContext`. Configure with `capture_quality.context_window_turns`.
+
+### Session Pre-Warm Cache
+
+PostTurnHook writes ranked results to `~/.cortex/rerank_cache/<sid>.json` (5-min TTL).
+PreTurnHook reads the cache for zero-latency injection on session resume.
+
+---
+
 ## Project Structure
 
 ```
 openclaw-cortex/
 ├── cmd/openclaw-cortex/main.go   # CLI entrypoint (cobra)
 ├── internal/
-│   ├── config/          # Viper-based configuration
-│   ├── models/          # Memory types, data structures
-│   ├── embedder/        # Ollama HTTP embedding client
-│   ├── store/           # Qdrant gRPC store + mock
-│   ├── indexer/         # Markdown scanner + chunker
-│   ├── capture/         # Claude Haiku memory extraction
+│   ├── api/             # HTTP API server (REST endpoints, v0.2.0+)
+│   ├── capture/         # Claude Haiku memory extraction + conflict detection
 │   ├── classifier/      # Heuristic memory classification
-│   ├── recall/          # Multi-factor ranked recall
-│   ├── lifecycle/       # TTL, decay, consolidation
-│   └── hooks/           # OpenClaw hook integration
-├── pkg/tokenizer/       # Token estimation + budgeting
+│   ├── config/          # Viper-based configuration
+│   ├── embedder/        # Ollama + OpenAI embedding clients
+│   ├── hooks/           # Pre/post-turn hook handlers
+│   ├── indexer/         # Markdown scanner + section summarizer
+│   ├── lifecycle/       # TTL, decay, consolidation, conflict resolution
+│   ├── mcp/             # MCP server (Claude Desktop integration, v0.2.0+)
+│   ├── metrics/         # In-process expvar counters
+│   ├── models/          # Memory types, data structures
+│   ├── recall/          # Multi-factor ranker + Claude re-ranker (reasoner.go)
+│   └── store/           # Qdrant gRPC store + MockStore
+├── pkg/tokenizer/       # Token estimation + budget-aware formatting
 ├── skill/SKILL.md       # OpenClaw skill definition
 ├── k8s/qdrant.yaml      # Kubernetes manifests
 ├── Taskfile.yml         # Build, test, lint targets

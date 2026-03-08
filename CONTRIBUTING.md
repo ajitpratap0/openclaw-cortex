@@ -95,6 +95,7 @@ cortex/
 - Store tests use `mock_store.go` (in-memory Qdrant replacement)
 - Run with race detection: `task test`
 - Coverage report: `task test:cover` → opens `coverage.html`
+- Tests live in `tests/` (black-box package), not co-located with source packages
 
 ## Code Style
 
@@ -102,3 +103,9 @@ cortex/
 - Use `slog` for structured logging
 - Keep interfaces minimal (defined in consumer packages)
 - golangci-lint config in `.golangci.yml`
+
+## Good First Issues
+
+Issues labeled [`good-first-issue`](https://github.com/ajitpratap0/openclaw-cortex/labels/good-first-issue)
+are a great place to start. They are scoped, well-described, and don't require deep
+knowledge of the whole codebase.
