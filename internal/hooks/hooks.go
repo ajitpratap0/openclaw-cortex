@@ -18,15 +18,23 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
+// RerankConfig holds re-ranking thresholds and latency budget for the hook.
+type RerankConfig struct {
+	ScoreSpreadThreshold float64
+	LatencyBudgetMs      int
+}
+
 // preTurnSearchLimit is the maximum number of candidate memories retrieved during pre-turn search.
 const preTurnSearchLimit = 50
 
 // PreTurnHook retrieves relevant memories before an agent turn.
 type PreTurnHook struct {
-	embedder embedder.Embedder
-	store    store.Store
-	recaller *recall.Recaller
-	logger   *slog.Logger
+	embedder  embedder.Embedder
+	store     store.Store
+	recaller  *recall.Recaller
+	reasoner  *recall.Reasoner // nil = disabled
+	rerankCfg RerankConfig
+	logger    *slog.Logger
 }
 
 // PreTurnInput contains the context for a pre-turn hook.
@@ -34,6 +42,7 @@ type PreTurnInput struct {
 	Message     string `json:"message"`
 	Project     string `json:"project"`
 	TokenBudget int    `json:"token_budget"`
+	SessionID   string `json:"session_id"`
 }
 
 // PreTurnOutput contains the memories to inject into context.
@@ -52,6 +61,14 @@ func NewPreTurnHook(emb embedder.Embedder, st store.Store, recaller *recall.Reca
 		recaller: recaller,
 		logger:   logger,
 	}
+}
+
+// WithReasoner attaches an optional Reasoner for threshold-gated re-ranking.
+// Must be called before the hook is used concurrently.
+func (h *PreTurnHook) WithReasoner(r *recall.Reasoner, cfg RerankConfig) *PreTurnHook {
+	h.reasoner = r
+	h.rerankCfg = cfg
+	return h
 }
 
 // Execute runs the pre-turn hook.
@@ -80,6 +97,19 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 
 	// Rank with multi-factor scoring
 	ranked := h.recaller.Rank(results, input.Project)
+
+	// Optionally re-rank with Claude when scores are clustered.
+	if h.reasoner != nil && h.recaller.ShouldRerank(ranked, h.rerankCfg.ScoreSpreadThreshold) {
+		budget := time.Duration(h.rerankCfg.LatencyBudgetMs) * time.Millisecond
+		rerankCtx, cancel := context.WithTimeout(ctx, budget)
+		defer cancel()
+		reranked, rerankErr := h.reasoner.ReRank(rerankCtx, input.Message, ranked, 0)
+		if rerankErr != nil {
+			h.logger.Warn("pre-turn hook: re-rank timed out or failed, using original order", "error", rerankErr)
+		} else {
+			ranked = reranked
+		}
+	}
 
 	// Format within token budget
 	var contents []string

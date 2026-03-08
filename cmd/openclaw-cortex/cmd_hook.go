@@ -16,6 +16,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
 const hookTimeout = 30 * time.Second
@@ -110,12 +111,42 @@ func hookPreCmd() *cobra.Command {
 			}
 
 			recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-			hook := hooks.NewPreTurnHook(emb, st, recaller, logger)
+			preTurnHook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
-			out, execErr := hook.Execute(ctx, hooks.PreTurnInput{
+			if cfg.Claude.APIKey != "" {
+				reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				preTurnHook = preTurnHook.WithReasoner(reasoner, hooks.RerankConfig{
+					ScoreSpreadThreshold: cfg.Recall.RerankScoreSpreadThreshold,
+					LatencyBudgetMs:      cfg.Recall.RerankLatencyBudgetHooksMs,
+				})
+			}
+
+			// Check pre-warm cache before doing a full recall.
+			homeDir, _ := os.UserHomeDir()
+			if cached := hooks.ReadRerankCache(homeDir, input.SessionID); len(cached) > 0 {
+				logger.Debug("pre-turn hook: using pre-warmed ranked results", "session", input.SessionID)
+				budget := input.TokenBudget
+				if budget <= 0 {
+					budget = 2000
+				}
+				var contents []string
+				for i := range cached {
+					contents = append(contents, cached[i].Memory.Content)
+				}
+				formatted, count := tokenizer.FormatMemoriesWithBudget(contents, budget)
+				writePreOutput(hookPreOutput{
+					Context:     formatted,
+					MemoryCount: count,
+					TokensUsed:  tokenizer.EstimateTokens(formatted),
+				})
+				return nil
+			}
+
+			out, execErr := preTurnHook.Execute(ctx, hooks.PreTurnInput{
 				Message:     input.Prompt,
 				Project:     project,
 				TokenBudget: input.TokenBudget,
+				SessionID:   input.SessionID,
 			})
 			if execErr != nil {
 				logger.Error("hook pre: executing hook", "error", execErr)
@@ -210,6 +241,32 @@ func hookPostCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory capture failed (%v), skipping\n", execErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
+			}
+
+			// Spawn background pre-warm: re-rank for next pre-turn hook call.
+			if cfg.Claude.APIKey != "" && input.SessionID != "" {
+				postHomeDir, _ := os.UserHomeDir()
+				go func() {
+					prewarmCtx, prewarmCancel := context.WithTimeout(context.Background(),
+						time.Duration(cfg.Recall.RerankLatencyBudgetHooksMs*10)*time.Millisecond)
+					defer prewarmCancel()
+					vec, embedErr := emb.Embed(prewarmCtx, userMsg)
+					if embedErr != nil {
+						return
+					}
+					results, searchErr := st.Search(prewarmCtx, vec, 50, nil)
+					if searchErr != nil {
+						return
+					}
+					prewarmRecaller := recall.NewRecaller(recall.DefaultWeights(), logger)
+					ranked := prewarmRecaller.Rank(results, input.Project)
+					reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					reranked, rerankErr := reasoner.ReRank(prewarmCtx, userMsg, ranked, 0)
+					if rerankErr != nil {
+						return
+					}
+					hooks.WriteRerankCache(postHomeDir, input.SessionID, reranked)
+				}()
 			}
 
 			writePostOutput(hookPostOutput{Stored: true})

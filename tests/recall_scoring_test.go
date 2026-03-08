@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"testing"
@@ -334,6 +335,29 @@ func TestRecallRankZeroLastAccessed(t *testing.T) {
 	// Zero last accessed should return a low but valid recency score (0.1 per the implementation)
 	assert.Equal(t, "zero-time", ranked[0].Memory.ID)
 	assert.InDelta(t, 0.1, ranked[0].RecencyScore, 0.001)
+}
+
+func TestRecaller_ShouldRerank(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := recall.NewRecaller(recall.DefaultWeights(), logger)
+	tight := []models.RecallResult{
+		{Memory: models.Memory{ID: "a"}, FinalScore: 0.80},
+		{Memory: models.Memory{ID: "b"}, FinalScore: 0.75},
+		{Memory: models.Memory{ID: "c"}, FinalScore: 0.72},
+		{Memory: models.Memory{ID: "d"}, FinalScore: 0.68},
+	}
+	assert.True(t, r.ShouldRerank(tight, 0.15))
+	clear := []models.RecallResult{
+		{Memory: models.Memory{ID: "a"}, FinalScore: 0.90},
+		{Memory: models.Memory{ID: "b"}, FinalScore: 0.60},
+		{Memory: models.Memory{ID: "c"}, FinalScore: 0.55},
+		{Memory: models.Memory{ID: "d"}, FinalScore: 0.50},
+	}
+	assert.False(t, r.ShouldRerank(clear, 0.15))
+	// Fewer than 4 results: never rerank
+	assert.False(t, r.ShouldRerank(tight[:2], 0.15))
+	// Zero threshold: never rerank
+	assert.False(t, r.ShouldRerank(tight, 0))
 }
 
 func TestRecallFinalScoreIsWeightedSum(t *testing.T) {

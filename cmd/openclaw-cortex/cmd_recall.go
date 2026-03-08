@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
@@ -59,19 +60,24 @@ func recallCmd() *cobra.Command {
 			ranked := recaller.Rank(results, project)
 
 			// Optionally re-rank with Claude for genuine relevance.
-			if reason {
-				if cfg.Claude.APIKey == "" {
-					logger.Warn("--reason requires ANTHROPIC_API_KEY; skipping re-rank")
+			// Threshold-gated: also triggers automatically when top-4 scores are clustered.
+			rerankThreshold := cfg.Recall.RerankScoreSpreadThreshold
+			budgetMs := cfg.Recall.RerankLatencyBudgetCLIMs
+			forceRerank := reason
+
+			if cfg.Claude.APIKey != "" && (forceRerank || recaller.ShouldRerank(ranked, rerankThreshold)) {
+				reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				rerankCtx, cancel := context.WithTimeout(ctx, time.Duration(budgetMs)*time.Millisecond)
+				defer cancel()
+				reranked, rerankErr := reasoner.ReRank(rerankCtx, query, ranked, reasonCandidates)
+				if rerankErr != nil {
+					logger.Warn("re-rank failed or timed out, using original order", "error", rerankErr)
 				} else {
-					reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
-					var reranked []models.RecallResult
-					reranked, err = reasoner.ReRank(ctx, query, ranked, reasonCandidates)
-					if err != nil {
-						logger.Warn("reasoning re-rank failed, using original order", "error", err)
-					} else {
-						ranked = reranked
-					}
+					ranked = reranked
+					logger.Debug("re-ranked results", "threshold_triggered", !forceRerank)
 				}
+			} else if reason && cfg.Claude.APIKey == "" {
+				logger.Warn("--reason requires ANTHROPIC_API_KEY; skipping re-rank")
 			}
 
 			// Apply token budget

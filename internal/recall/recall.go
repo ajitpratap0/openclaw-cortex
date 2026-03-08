@@ -135,6 +135,19 @@ func (r *Recaller) Rank(results []models.SearchResult, project string) []models.
 	return ranked
 }
 
+// ShouldRerank returns true when the top-4 results are close enough in score
+// that Claude re-ranking may improve ordering. Returns false when:
+//   - threshold is <= 0 (feature disabled)
+//   - fewer than 4 results are provided
+//   - the spread between results[0] and results[3] exceeds the threshold
+func (r *Recaller) ShouldRerank(results []models.RecallResult, threshold float64) bool {
+	if threshold <= 0 || len(results) < 4 {
+		return false
+	}
+	spread := results[0].FinalScore - results[3].FinalScore
+	return spread <= threshold
+}
+
 // recencyScore uses exponential decay. Half-life of 7 days. Returns [0,1].
 func recencyScore(lastAccessed time.Time, now time.Time) float64 {
 	if lastAccessed.IsZero() {
