@@ -3,10 +3,13 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -230,4 +233,91 @@ func TestOpenAIEmbedder_EmbedBatch_OrderPreserved(t *testing.T) {
 	assert.Equal(t, float32(0), vecs[0][0])
 	assert.Equal(t, float32(1), vecs[1][0])
 	assert.Equal(t, float32(2), vecs[2][0])
+}
+
+// TestOpenAIEmbedder_Embed_NetworkErrorRetried verifies that a TCP-level error
+// is retried and the embedder eventually succeeds on the third attempt.
+func TestOpenAIEmbedder_Embed_NetworkErrorRetried(t *testing.T) {
+	var callCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := callCount.Add(1)
+		if n < 3 {
+			// Close without writing a response to simulate a connection reset.
+			hj, ok := w.(http.Hijacker)
+			if !ok {
+				t.Error("server does not support hijacking")
+				return
+			}
+			conn, _, _ := hj.Hijack()
+			_ = conn.Close()
+			return
+		}
+		// Third call succeeds.
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]any{
+			"data": []map[string]any{
+				{"embedding": make([]float32, 768), "index": 0},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	emb := embedder.NewOpenAIEmbedderWithURL(srv.URL+"/v1/embeddings", "test-key", "", 768, logger)
+	vec, err := emb.Embed(context.Background(), "hello")
+	require.NoError(t, err)
+	require.Len(t, vec, 768)
+	assert.Equal(t, int32(3), callCount.Load(), "expected 3 calls: 2 network failures + 1 success")
+}
+
+// TestOpenAIEmbedder_Embed_429ThenSuccess verifies that a 429 with Retry-After
+// is honored and the embedder succeeds on the second attempt.
+func TestOpenAIEmbedder_Embed_429ThenSuccess(t *testing.T) {
+	var callCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := callCount.Add(1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]any{
+			"data": []map[string]any{
+				{"embedding": make([]float32, 768), "index": 0},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	emb := embedder.NewOpenAIEmbedderWithURL(srv.URL+"/v1/embeddings", "test-key", "", 768, logger)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	vec, err := emb.Embed(ctx, "hello")
+	require.NoError(t, err)
+	require.Len(t, vec, 768)
+	assert.Equal(t, int32(2), callCount.Load(), "expected 2 calls: 1 rate-limit + 1 success")
+}
+
+// TestParseRetryAfter verifies edge cases in the Retry-After header parser.
+func TestParseRetryAfter(t *testing.T) {
+	max := 60 * time.Second
+	cases := []struct {
+		header string
+		want   time.Duration
+	}{
+		{"5", 5 * time.Second},
+		{"120", max},         // capped at max
+		{"0", time.Second},   // zero defaults to 1s
+		{"-1", time.Second},  // negative defaults to 1s
+		{"abc", time.Second}, // non-numeric defaults to 1s
+		{"", time.Second},    // empty defaults to 1s
+	}
+	for _, tc := range cases {
+		got := embedder.ParseRetryAfterForTest(tc.header, max)
+		assert.Equal(t, tc.want, got, "ParseRetryAfterForTest(%q)", tc.header)
+	}
 }
