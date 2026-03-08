@@ -14,6 +14,15 @@ Recall involves two external service calls: Ollama for embedding and Qdrant for 
 | Token budget trimming | <1 ms | <1 ms | Pure Go, no I/O |
 | **Total recall** | **20–40 ms** | **100–200 ms** | |
 
+LLM re-ranking (when triggered) adds latency on top of the base recall path:
+
+| Component | P50 estimate | P99 estimate | Notes |
+|-----------|-------------|-------------|-------|
+| LLM re-rank (triggered) | 80 ms | 2000 ms | Fires ~10–30% of recalls; spread ≤ 0.15 |
+| Pre-warm cache hit | ~0 ms extra | ~0 ms extra | Reads local JSON; replaces Qdrant call |
+
+Re-ranking is skipped when the score spread > 0.15 (unambiguous top result) or when the latency budget is exceeded (hook: 100 ms, CLI: 3000 ms). On budget expiry, the original multi-factor ranking is used without penalty.
+
 At 10k memories, Qdrant search latency increases modestly. At 100k memories, expect P50 to reach 10–20 ms for the vector search component. Qdrant is designed for millions of vectors.
 
 ### Factors that increase recall latency
