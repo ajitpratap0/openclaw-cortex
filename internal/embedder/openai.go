@@ -148,6 +148,17 @@ func (o *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]fl
 
 		resp, err = o.client.Do(req)
 		if err != nil {
+			if attempt < openAIMaxRetries-1 {
+				wait := time.Duration(1<<uint(attempt)) * time.Second
+				o.logger.Warn("openai: network error, retrying",
+					"attempt", attempt+1, "error", err, "wait", wait)
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(wait):
+				}
+				continue
+			}
 			return nil, fmt.Errorf("openai embedder: calling API: %w", err)
 		}
 
@@ -238,3 +249,6 @@ func parseRetryAfter(header string, maxWait time.Duration) time.Duration {
 	}
 	return wait
 }
+
+// ParseRetryAfterForTest exposes parseRetryAfter for unit testing only.
+var ParseRetryAfterForTest = parseRetryAfter
