@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -180,4 +181,40 @@ func scopeBoostScore(mem models.Memory, project string) float64 {
 		raw = 0.8
 	}
 	return raw / maxBoostMultiplier
+}
+
+// FormatWithConflictAnnotations formats recall results with inline conflict annotations.
+// Memories in an active conflict group are annotated with the short IDs of conflicting peers.
+func FormatWithConflictAnnotations(results []models.RecallResult, budget int) string {
+	groupMembers := make(map[string][]string)
+	for i := range results {
+		g := results[i].Memory.ConflictGroupID
+		if g != "" && results[i].Memory.ConflictStatus == "active" {
+			groupMembers[g] = append(groupMembers[g], results[i].Memory.ID)
+		}
+	}
+	var sb strings.Builder
+	used := 0
+	for i := range results {
+		mem := results[i].Memory
+		line := mem.Content
+		if mem.ConflictGroupID != "" && mem.ConflictStatus == "active" {
+			peers := groupMembers[mem.ConflictGroupID]
+			var others []string
+			for _, id := range peers {
+				if id != mem.ID && len(id) >= 8 {
+					others = append(others, id[:8])
+				}
+			}
+			if len(others) > 0 {
+				line += fmt.Sprintf(" [conflicts with: %s]", strings.Join(others, ", "))
+			}
+		}
+		if used+len(line)/4 > budget {
+			break
+		}
+		fmt.Fprintf(&sb, "- %s\n", line)
+		used += len(line) / 4
+	}
+	return sb.String()
 }

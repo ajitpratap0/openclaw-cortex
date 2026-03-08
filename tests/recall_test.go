@@ -3,6 +3,7 @@ package tests
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,4 +157,22 @@ func TestRecaller_TypePriority(t *testing.T) {
 			assert.Equal(t, tt.expected, actual)
 		})
 	}
+}
+
+func TestFormatWithConflictAnnotations(t *testing.T) {
+	results := []models.RecallResult{
+		{Memory: models.Memory{ID: "aaa00000-0000-0000-0000-000000000001", Content: "Python is fast", ConflictGroupID: "g1", ConflictStatus: "active"}, FinalScore: 0.85},
+		{Memory: models.Memory{ID: "bbb00000-0000-0000-0000-000000000002", Content: "Python is slow", ConflictGroupID: "g1", ConflictStatus: "active"}, FinalScore: 0.70},
+		{Memory: models.Memory{ID: "ccc00000-0000-0000-0000-000000000003", Content: "Go is great"}, FinalScore: 0.60},
+	}
+	out := recall.FormatWithConflictAnnotations(results, 5000)
+	require.NotEmpty(t, out)
+	assert.Contains(t, out, "Python is fast")
+	assert.Contains(t, out, "[conflicts with:")
+	assert.Contains(t, out, "Python is slow")
+	assert.Contains(t, out, "Go is great")
+	// Go memory should NOT have conflict annotation
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	require.GreaterOrEqual(t, len(lines), 3)
+	assert.NotContains(t, lines[2], "[conflicts with:")
 }

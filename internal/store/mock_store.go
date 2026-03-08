@@ -387,6 +387,37 @@ func (m *MockStore) LinkMemoryToEntity(_ context.Context, entityID, memoryID str
 	return nil
 }
 
+// UpdateConflictFields sets ConflictGroupID and ConflictStatus on an existing memory.
+func (m *MockStore) UpdateConflictFields(_ context.Context, id, groupID, status string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sm, ok := m.memories[id]
+	if !ok {
+		return ErrNotFound
+	}
+	sm.memory.ConflictGroupID = groupID
+	sm.memory.ConflictStatus = status
+	return nil
+}
+
+// UpdateReinforcement boosts the confidence of an existing memory (capped at 1.0)
+// and increments ReinforcedCount.
+func (m *MockStore) UpdateReinforcement(_ context.Context, id string, boost float64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sm, ok := m.memories[id]
+	if !ok {
+		return ErrNotFound
+	}
+	sm.memory.Confidence += boost
+	if sm.memory.Confidence > 1.0 {
+		sm.memory.Confidence = 1.0
+	}
+	sm.memory.ReinforcedCount++
+	sm.memory.ReinforcedAt = time.Now()
+	return nil
+}
+
 // GetChain follows the SupersedesID chain and returns the full history.
 // The chain is returned newest first. Stops when SupersedesID is empty or the
 // referenced memory is not found. A visited set prevents infinite loops.
@@ -456,6 +487,9 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 		if !found {
 			return false
 		}
+	}
+	if f.ConflictStatus != nil && mem.ConflictStatus != *f.ConflictStatus {
+		return false
 	}
 	return true
 }

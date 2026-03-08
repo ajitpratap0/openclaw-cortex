@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
@@ -69,6 +70,10 @@ type cmdHookMockCapturer struct {
 }
 
 func (m *cmdHookMockCapturer) Extract(_ context.Context, _, _ string) ([]models.CapturedMemory, error) {
+	return m.memories, m.err
+}
+
+func (m *cmdHookMockCapturer) ExtractWithContext(_ context.Context, _, _ string, _ []capture.ConversationTurn) ([]models.CapturedMemory, error) {
 	return m.memories, m.err
 }
 
