@@ -5,9 +5,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -295,6 +295,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		mem.Project = *req.Project
 	}
 	if req.Confidence != nil {
+		if *req.Confidence < 0 || *req.Confidence > 1 {
+			s.writeError(w, http.StatusBadRequest, "confidence must be between 0.0 and 1.0")
+			return
+		}
 		mem.Confidence = *req.Confidence
 	}
 	if req.Tags != nil {
@@ -376,13 +380,16 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	limitStr := q.Get("limit")
 	var limit uint64 = 100
 	if limitStr != "" {
-		var parsed uint64
-		if _, scanErr := fmt.Sscanf(limitStr, "%d", &parsed); scanErr == nil && parsed > 0 {
+		parsed, parseErr := strconv.ParseUint(limitStr, 10, 64)
+		if parseErr != nil || parsed == 0 {
+			s.writeError(w, http.StatusBadRequest, "limit must be a positive integer")
+			return
+		}
+		if parsed > maxListLimit {
+			limit = maxListLimit
+		} else {
 			limit = parsed
 		}
-	}
-	if limit > maxListLimit {
-		limit = maxListLimit
 	}
 
 	cursor := q.Get("cursor")
@@ -469,8 +476,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "message is required")
 		return
 	}
+	const maxSearchLimit = 1000
 	if req.Limit <= 0 {
 		req.Limit = 10
+	}
+	if req.Limit > maxSearchLimit {
+		req.Limit = maxSearchLimit
 	}
 
 	vec, err := s.embedder.Embed(r.Context(), req.Message)

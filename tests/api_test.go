@@ -427,6 +427,46 @@ func TestAPI_Search_MissingMessage(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+// TestAPISearch_LimitCapped verifies that an absurdly large search limit is
+// silently capped to 1000 rather than blowing up.
+func TestAPISearch_LimitCapped(t *testing.T) {
+	ts, st := newTestServer(t, "")
+
+	now := time.Now().UTC()
+	mem := models.Memory{
+		ID:           "search-cap-001",
+		Type:         models.MemoryTypeFact,
+		Scope:        models.ScopePermanent,
+		Visibility:   models.VisibilityPrivate,
+		Content:      "capped limit test memory",
+		Confidence:   0.9,
+		Source:       "test",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		LastAccessed: now,
+	}
+	vec := make([]float32, 768)
+	for i := range vec {
+		vec[i] = 0.1
+	}
+	require.NoError(t, st.Upsert(context.Background(), mem, vec))
+
+	body := jsonBody(t, map[string]any{
+		"message": "test",
+		"limit":   9999999,
+	})
+	resp := doRequest(t, http.MethodPost, ts.URL+"/v1/search", body, "")
+	defer resp.Body.Close()
+
+	// The server should accept the request (not 400/500) and return results.
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var result map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+	_, ok := result["results"]
+	assert.True(t, ok, "response should contain a results field")
+}
+
 // TestAPI_Remember_InvalidJSON verifies 400 for malformed JSON.
 func TestAPI_Remember_InvalidJSON(t *testing.T) {
 	ts, _ := newTestServer(t, "")
