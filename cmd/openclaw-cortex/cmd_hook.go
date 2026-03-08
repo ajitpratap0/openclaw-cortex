@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -48,6 +50,7 @@ type hookPostInput struct {
 	UserMessage      string `json:"user_message,omitempty"`
 	AssistantMessage string `json:"assistant_message,omitempty"`
 	Project          string `json:"project,omitempty"`
+	TranscriptPath   string `json:"transcript_path,omitempty"`
 }
 
 // hookPostOutput is the JSON output shape for `cortex hook post`.
@@ -177,11 +180,16 @@ func hookPostCmd() *cobra.Command {
 			}
 
 			// UserMessage is not available in the Claude Code Stop event payload.
-			// Log a warning and skip capture gracefully if it is not set.
-			if input.UserMessage == "" {
-				logger.Warn("hook post: user message not available from Stop event, skipping capture")
-				writePostOutput(hookPostOutput{Stored: false})
-				return nil
+			// Fall back to reading the last human message from the transcript file.
+			userMsg := input.UserMessage
+			if userMsg == "" {
+				userMsg = lastHumanMessageFromTranscript(input.TranscriptPath)
+				if userMsg == "" {
+					logger.Warn("hook post: user message unavailable from Stop event and transcript, skipping capture",
+						"transcript_path", input.TranscriptPath)
+					writePostOutput(hookPostOutput{Stored: false})
+					return nil
+				}
 			}
 
 			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
@@ -192,7 +200,7 @@ func hookPostCmd() *cobra.Command {
 			// XML-escaping of user/assistant content is handled inside
 			// capture.ClaudeCapturer.Extract — do not bypass with a raw Capturer implementation.
 			execErr := hook.Execute(ctx, hooks.PostTurnInput{
-				UserMessage:      input.UserMessage,
+				UserMessage:      userMsg,
 				AssistantMessage: assistantMsg,
 				SessionID:        input.SessionID,
 				Project:          input.Project,
@@ -210,6 +218,50 @@ func hookPostCmd() *cobra.Command {
 	}
 }
 
+// lastHumanMessageFromTranscript reads the transcript JSONL at path and
+// returns the content of the last "human" role entry. Returns "" on any error.
+func lastHumanMessageFromTranscript(path string) string {
+	if path == "" {
+		return ""
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+
+	type transcriptEntry struct {
+		Role    string `json:"role"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+
+	var last string
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry transcriptEntry
+		if json.Unmarshal([]byte(line), &entry) != nil {
+			continue
+		}
+		role := entry.Role
+		content := entry.Message.Content
+		if role == "" {
+			role = entry.Message.Role
+		}
+		if strings.EqualFold(role, "human") || strings.EqualFold(role, "user") {
+			last = content
+		}
+	}
+	return last
+}
+
 // writePreOutput marshals the pre-turn output to stdout.
 // On marshal failure it falls back to a hard-coded zero-value response.
 func writePreOutput(out hookPreOutput) {
@@ -219,11 +271,13 @@ func writePreOutput(out hookPreOutput) {
 		_, _ = os.Stdout.WriteString(`{"context":"","memory_count":0,"tokens_used":0}` + "\n")
 		return
 	}
-	_, err = os.Stdout.Write(enc)
-	if err != nil {
+	if _, err = os.Stdout.Write(enc); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: failed to write pre-output: %v\n", err)
 		return
 	}
-	_, _ = os.Stdout.WriteString("\n")
+	if _, err = os.Stdout.WriteString("\n"); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: failed to write pre-output newline: %v\n", err)
+	}
 }
 
 // writePostOutput marshals the post-turn output to stdout.
@@ -234,9 +288,11 @@ func writePostOutput(out hookPostOutput) {
 		_, _ = os.Stdout.WriteString(`{"stored":false}` + "\n")
 		return
 	}
-	_, err = os.Stdout.Write(enc)
-	if err != nil {
+	if _, err = os.Stdout.Write(enc); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: failed to write post-output: %v\n", err)
 		return
 	}
-	_, _ = os.Stdout.WriteString("\n")
+	if _, err = os.Stdout.WriteString("\n"); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: failed to write post-output newline: %v\n", err)
+	}
 }
