@@ -226,7 +226,15 @@ func hookPostCmd() *cobra.Command {
 			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
 
-			hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThreshold)
+			postHook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThresholdHook).
+				WithReinforcement(cfg.CaptureQuality.ReinforcementThreshold, cfg.CaptureQuality.ReinforcementConfidenceBoost)
+			if cfg.Claude.APIKey != "" {
+				cd := capture.NewConflictDetector(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				postHook = postHook.WithConflictDetector(cd)
+			}
+			hook := postHook
+
+			priorTurns := lastNTurnsFromTranscript(input.TranscriptPath, cfg.CaptureQuality.ContextWindowTurns)
 
 			// XML-escaping of user/assistant content is handled inside
 			// capture.ClaudeCapturer.Extract — do not bypass with a raw Capturer implementation.
@@ -235,6 +243,7 @@ func hookPostCmd() *cobra.Command {
 				AssistantMessage: assistantMsg,
 				SessionID:        input.SessionID,
 				Project:          input.Project,
+				PriorTurns:       priorTurns,
 			})
 			if execErr != nil {
 				logger.Error("hook post: executing hook", "error", execErr)
@@ -317,6 +326,54 @@ func lastHumanMessageFromTranscript(path string) string {
 		}
 	}
 	return last
+}
+
+// lastNTurnsFromTranscript reads the last n conversation turns from the JSONL transcript.
+func lastNTurnsFromTranscript(path string, n int) []capture.ConversationTurn {
+	if path == "" || n <= 0 {
+		return nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+
+	type entry struct {
+		Role    string `json:"role"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+
+	var all []capture.ConversationTurn
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var e entry
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
+		}
+		role := e.Role
+		if role == "" {
+			role = e.Message.Role
+		}
+		content := e.Message.Content
+		if strings.EqualFold(role, "human") || strings.EqualFold(role, "user") {
+			all = append(all, capture.ConversationTurn{Role: "user", Content: content})
+		} else if strings.EqualFold(role, "assistant") {
+			all = append(all, capture.ConversationTurn{Role: "assistant", Content: content})
+		}
+	}
+	if n > 0 && len(all) > n {
+		all = all[len(all)-n:]
+	}
+	return all
 }
 
 // writePreOutput marshals the pre-turn output to stdout.

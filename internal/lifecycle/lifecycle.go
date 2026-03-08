@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
+	"sort"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
@@ -25,10 +27,11 @@ const consolidationThreshold = 0.92
 
 // Report summarizes the results of a lifecycle run.
 type Report struct {
-	Expired      int `json:"expired"`
-	Decayed      int `json:"decayed"`
-	Consolidated int `json:"consolidated"`
-	Retired      int `json:"retired"`
+	Expired           int `json:"expired"`
+	Decayed           int `json:"decayed"`
+	Consolidated      int `json:"consolidated"`
+	Retired           int `json:"retired"`
+	ConflictsResolved int `json:"conflicts_resolved"`
 }
 
 // Manager handles memory lifecycle operations.
@@ -85,6 +88,14 @@ func (m *Manager) Run(ctx context.Context, dryRun bool) (*Report, error) {
 		errs = append(errs, fmt.Errorf("fact retirement: %w", retireErr))
 	}
 	report.Retired = retired
+
+	// 5. Batch-resolve active conflict groups
+	resolved, resolveErr := m.resolveConflicts(ctx, dryRun)
+	if resolveErr != nil {
+		m.logger.Error("lifecycle: conflict resolution failed", "error", resolveErr)
+		errs = append(errs, fmt.Errorf("conflict resolution: %w", resolveErr))
+	}
+	report.ConflictsResolved = resolved
 
 	if len(errs) > 0 {
 		return report, fmt.Errorf("lifecycle: %w", errors.Join(errs...))
@@ -271,6 +282,51 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 	}
 
 	return consolidated, nil
+}
+
+// resolveConflicts batch-resolves active conflict groups by picking a winner
+// (highest confidence, then most recent) and marking all members "resolved".
+func (m *Manager) resolveConflicts(ctx context.Context, dryRun bool) (int, error) {
+	activeStatus := "active"
+	memories, err := m.listAll(ctx, &store.SearchFilters{ConflictStatus: &activeStatus})
+	if err != nil {
+		return 0, fmt.Errorf("resolveConflicts: list active: %w", err)
+	}
+
+	groups := make(map[string][]models.Memory)
+	for i := range memories {
+		if g := memories[i].ConflictGroupID; g != "" {
+			groups[g] = append(groups[g], memories[i])
+		}
+	}
+
+	resolved := 0
+	for groupID, mems := range groups {
+		if len(mems) < 2 {
+			continue
+		}
+		sort.Slice(mems, func(i, j int) bool {
+			if math.Abs(mems[i].Confidence-mems[j].Confidence) > 0.01 {
+				return mems[i].Confidence > mems[j].Confidence
+			}
+			return mems[i].CreatedAt.After(mems[j].CreatedAt)
+		})
+		if !dryRun {
+			_ = m.store.UpdateConflictFields(ctx, mems[0].ID, groupID, "resolved")
+			for i := range mems[1:] {
+				loser := &mems[i+1]
+				if updateErr := m.store.UpdateConflictFields(ctx, loser.ID, groupID, "resolved"); updateErr != nil {
+					m.logger.Warn("resolveConflicts: failed to mark resolved", "id", loser.ID, "error", updateErr)
+					continue
+				}
+				resolved++
+			}
+		} else {
+			m.logger.Info("resolveConflicts dry-run", "group", groupID, "winner", mems[0].ID)
+			resolved += len(mems) - 1
+		}
+	}
+	return resolved, nil
 }
 
 // retireExpiredFacts deletes memories whose ValidUntil has passed.

@@ -58,16 +58,25 @@ type Store interface {
 	// or the referenced memory is not found.
 	GetChain(ctx context.Context, id string) ([]models.Memory, error)
 
+	// UpdateConflictFields sets ConflictGroupID and ConflictStatus on an existing memory
+	// without requiring a re-embed.
+	UpdateConflictFields(ctx context.Context, id, conflictGroupID, conflictStatus string) error
+
+	// UpdateReinforcement boosts the confidence of an existing memory (capped at 1.0)
+	// and increments ReinforcedCount. Used when a near-duplicate is captured.
+	UpdateReinforcement(ctx context.Context, id string, confidenceBoost float64) error
+
 	// Close cleans up resources.
 	Close() error
 }
 
 // SearchFilters allows filtering search results.
 type SearchFilters struct {
-	Type       *models.MemoryType       `json:"type,omitempty"`
-	Scope      *models.MemoryScope      `json:"scope,omitempty"`
-	Visibility *models.MemoryVisibility `json:"visibility,omitempty"`
-	Project    *string                  `json:"project,omitempty"`
-	Tags       []string                 `json:"tags,omitempty"`
-	Source     *string                  `json:"source,omitempty"`
+	Type           *models.MemoryType       `json:"type,omitempty"`
+	Scope          *models.MemoryScope      `json:"scope,omitempty"`
+	Visibility     *models.MemoryVisibility `json:"visibility,omitempty"`
+	Project        *string                  `json:"project,omitempty"`
+	Tags           []string                 `json:"tags,omitempty"`
+	Source         *string                  `json:"source,omitempty"`
+	ConflictStatus *string                  `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
 }
