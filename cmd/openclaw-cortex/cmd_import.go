@@ -14,6 +14,14 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
+// newJSONLScanner returns a Scanner pre-configured with a 10 MB buffer
+// to handle large memory records that exceed the default 64KB limit.
+func newJSONLScanner(r io.Reader) *bufio.Scanner {
+	s := bufio.NewScanner(r)
+	s.Buffer(make([]byte, 1<<20), 10<<20) // initial 1MB, max 10MB
+	return s
+}
+
 func importCmd() *cobra.Command {
 	var (
 		filePath string
@@ -62,7 +70,7 @@ Use - as the file path to read from stdin.`,
 					memories = append(memories, m)
 				}
 			case "jsonl":
-				scanner := bufio.NewScanner(r)
+				scanner := newJSONLScanner(r)
 				for scanner.Scan() {
 					line := strings.TrimSpace(scanner.Text())
 					if line == "" {
@@ -117,10 +125,12 @@ Use - as the file path to read from stdin.`,
 
 				vec, embedErr := emb.Embed(ctx, m.Content)
 				if embedErr != nil {
+					fmt.Printf("Import stopped after %d memories (%d skipped): %v\n", imported, skipped, embedErr)
 					return fmt.Errorf("import: embedding memory %q: %w", m.ID, embedErr)
 				}
 
 				if upsertErr := st.Upsert(ctx, *m, vec); upsertErr != nil {
+					fmt.Printf("Import stopped after %d memories (%d skipped): %v\n", imported, skipped, upsertErr)
 					return fmt.Errorf("import: upserting memory %q: %w", m.ID, upsertErr)
 				}
 
