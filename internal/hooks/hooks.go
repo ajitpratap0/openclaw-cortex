@@ -91,7 +91,10 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 
 	// Update access metadata
 	for i := 0; i < count && i < len(ranked); i++ {
-		_ = h.store.UpdateAccessMetadata(ctx, ranked[i].Memory.ID)
+		if updateErr := h.store.UpdateAccessMetadata(ctx, ranked[i].Memory.ID); updateErr != nil {
+			h.logger.Warn("PreTurnHook: UpdateAccessMetadata failed",
+				"id", ranked[i].Memory.ID, "error", updateErr)
+		}
 	}
 
 	output := &PreTurnOutput{
