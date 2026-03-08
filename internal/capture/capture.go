@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -16,9 +17,19 @@ import (
 // minCaptureConfidence is the minimum confidence score for an extracted memory to be kept.
 const minCaptureConfidence = 0.5
 
+// ConversationTurn is a single message in a conversation history.
+type ConversationTurn struct {
+	Role    string `json:"role"` // "user" or "assistant"
+	Content string `json:"content"`
+}
+
 // Capturer extracts structured memories from conversation text.
 type Capturer interface {
 	Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error)
+
+	// ExtractWithContext is like Extract but includes prior conversation turns
+	// for better context-aware extraction.
+	ExtractWithContext(ctx context.Context, userMsg, assistantMsg string, priorTurns []ConversationTurn) ([]models.CapturedMemory, error)
 }
 
 // ClaudeCapturer uses Claude Haiku to extract memories.
@@ -61,6 +72,26 @@ Return JSON array. If no memories worth extracting, return empty array [].
 
 Extract memories as JSON array:`
 
+// extractionPromptWithContextTemplate is the multi-turn prompt; prior turns provide context.
+const extractionPromptWithContextTemplate = `You are a memory extraction system. Analyze the current conversation turn in context of the prior turns.
+
+Prior conversation context (for reference only — extract from the CURRENT turn):
+<prior_turns>
+%s</prior_turns>
+
+Current turn to extract memories from:
+<user_message>%s</user_message>
+<assistant_message>%s</assistant_message>
+
+For each memory, provide:
+- content: The memory text (concise, standalone, factual)
+- type: One of "rule", "fact", "episode", "procedure", "preference"
+- confidence: 0.0-1.0 how confident you are this is a real memory
+- tags: Relevant keywords for categorization
+
+Return JSON array. If no memories worth extracting, return empty array [].
+Extract memories as JSON array:`
+
 type extractionResponse struct {
 	Memories []models.CapturedMemory `json:"memories"`
 }
@@ -69,7 +100,25 @@ type extractionResponse struct {
 func (c *ClaudeCapturer) Extract(ctx context.Context, userMsg, assistantMsg string) ([]models.CapturedMemory, error) {
 	// Escape XML-special characters to prevent prompt injection from user/assistant content.
 	prompt := fmt.Sprintf(extractionPromptTemplate, xmlutil.Escape(userMsg), xmlutil.Escape(assistantMsg))
+	return c.extractFromPrompt(ctx, prompt)
+}
 
+// ExtractWithContext is like Extract but includes prior conversation turns for better extraction.
+func (c *ClaudeCapturer) ExtractWithContext(ctx context.Context, userMsg, assistantMsg string, priorTurns []ConversationTurn) ([]models.CapturedMemory, error) {
+	if len(priorTurns) == 0 {
+		return c.Extract(ctx, userMsg, assistantMsg)
+	}
+	var sb strings.Builder
+	for _, t := range priorTurns {
+		fmt.Fprintf(&sb, "[%s]: %s\n", xmlutil.Escape(t.Role), xmlutil.Escape(t.Content))
+	}
+	prompt := fmt.Sprintf(extractionPromptWithContextTemplate,
+		sb.String(), xmlutil.Escape(userMsg), xmlutil.Escape(assistantMsg))
+	return c.extractFromPrompt(ctx, prompt)
+}
+
+// extractFromPrompt calls Claude with the given prompt and parses the response into memories.
+func (c *ClaudeCapturer) extractFromPrompt(ctx context.Context, prompt string) ([]models.CapturedMemory, error) {
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 2048,

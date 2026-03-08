@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
@@ -30,6 +31,10 @@ type metricsMockCapturer struct {
 }
 
 func (m *metricsMockCapturer) Extract(_ context.Context, _, _ string) ([]models.CapturedMemory, error) {
+	return m.memories, nil
+}
+
+func (m *metricsMockCapturer) ExtractWithContext(_ context.Context, _, _ string, _ []capture.ConversationTurn) ([]models.CapturedMemory, error) {
 	return m.memories, nil
 }
 

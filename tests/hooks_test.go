@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
@@ -23,6 +24,10 @@ type hookMockCapturer struct {
 }
 
 func (m *hookMockCapturer) Extract(_ context.Context, _, _ string) ([]models.CapturedMemory, error) {
+	return m.memories, m.err
+}
+
+func (m *hookMockCapturer) ExtractWithContext(_ context.Context, _, _ string, _ []capture.ConversationTurn) ([]models.CapturedMemory, error) {
 	return m.memories, m.err
 }
 
@@ -296,4 +301,78 @@ func TestPreTurnHook_EmptyStore(t *testing.T) {
 	out, err := hook.Execute(ctx, hooks.PreTurnInput{Message: "anything", TokenBudget: 500})
 	require.NoError(t, err)
 	assert.Equal(t, 0, out.MemoryCount)
+}
+
+func TestPostTurnHook_Reinforcement(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+	logger := slog.Default()
+
+	// Use a fixed vector so the near-duplicate check triggers.
+	vec := newHookMockVec()
+
+	// Pre-populate store with an existing memory using the same vector.
+	existing := newTestMemory("existing-reinforce", models.MemoryTypeFact, "Deploy with kubectl")
+	existing.Confidence = 0.7
+	require.NoError(t, ms.Upsert(ctx, existing, vec))
+
+	cap := &hookMockCapturer{
+		memories: []models.CapturedMemory{
+			{Content: "Deploy with kubectl apply", Type: models.MemoryTypeProcedure, Confidence: 0.8},
+		},
+	}
+	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
+	// Same vector → cosine similarity = 1.0 (>= reinforcement threshold 0.80).
+	// Use a dedup threshold above 1.0 so the exact-dedup path never fires and
+	// reinforcement is chosen instead.
+	emb := &hookMockEmbedder{vec: vec}
+
+	// reinforcementThreshold=0.80 (1.0 >= 0.80 → fires), dedupThreshold=1.01 (1.0 < 1.01 → reinforce wins).
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 1.01).
+		WithReinforcement(0.80, 0.05)
+	err := hook.Execute(ctx, hookTestInput())
+	require.NoError(t, err)
+
+	// Existing memory should be reinforced, no new memory stored.
+	stats, err := ms.Stats(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), stats.TotalMemories)
+
+	got, err := ms.Get(ctx, "existing-reinforce")
+	require.NoError(t, err)
+	assert.InDelta(t, 0.75, got.Confidence, 0.001)
+	assert.Equal(t, 1, got.ReinforcedCount)
+}
+
+func TestPostTurnHook_WithPriorTurns(t *testing.T) {
+	ctx := context.Background()
+	ms := store.NewMockStore()
+	logger := slog.Default()
+
+	cap := &hookMockCapturer{
+		memories: []models.CapturedMemory{
+			{Content: "Context-aware memory", Type: models.MemoryTypeFact, Confidence: 0.9},
+		},
+	}
+	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
+	emb := &hookMockEmbedder{dim: 8}
+
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+
+	// Execute with prior turns — should not error and should store the memory.
+	err := hook.Execute(ctx, hooks.PostTurnInput{
+		UserMessage:      "What about context?",
+		AssistantMessage: "Context matters.",
+		SessionID:        "sess-ctx",
+		Project:          "proj-ctx",
+		PriorTurns: []capture.ConversationTurn{
+			{Role: "user", Content: "previous question"},
+			{Role: "assistant", Content: "previous answer"},
+		},
+	})
+	require.NoError(t, err)
+
+	stats, err := ms.Stats(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), stats.TotalMemories)
 }

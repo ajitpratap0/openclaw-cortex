@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
@@ -70,4 +71,10 @@ func TestCaptureExtractionParsing(t *testing.T) {
 		}
 	}
 	assert.Len(t, filtered2, 2, "low-confidence memory should be filtered")
+}
+
+// TestCapturer_ImplementsInterface verifies at compile time that ClaudeCapturer
+// satisfies the Capturer interface.
+func TestCapturer_ImplementsInterface(t *testing.T) {
+	var _ capture.Capturer = (*capture.ClaudeCapturer)(nil)
 }
