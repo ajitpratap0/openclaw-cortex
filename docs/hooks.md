@@ -201,6 +201,24 @@ When `project` is specified in the hook input, memories are filtered to return o
 }
 ```
 
+## Multi-Turn Context (v0.3.0)
+
+By default, `PostTurnHook` extracts memories from a single user+assistant turn. Enabling multi-turn context passes the last N turns to Claude Haiku, allowing it to extract memories that span multiple exchanges — for example, a decision reached over three back-and-forth messages.
+
+### Configuration
+
+```yaml
+capture_quality:
+  context_window_turns: 5   # number of prior turns to include (default: 1)
+```
+
+When `context_window_turns > 1`, the hook reads the JSONL transcript file (path from the hook's stdin event) and passes the last N turns to `capture.ExtractWithContext`. The transcript is read in reverse to bound the read to exactly N turns.
+
+### Limitations
+
+- Larger context windows increase Claude Haiku token usage per capture
+- The JSONL transcript is only available during Claude Code hook execution; CLI `capture` command always uses single-turn mode
+
 ## Adjusting the Token Budget
 
 The default token budget is 2000 tokens. For models with larger context windows or when you want more memory context, increase it:

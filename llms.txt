@@ -1,45 +1,102 @@
 # OpenClaw Cortex
 
-> Hybrid semantic memory system for AI agents — vector search, smart capture, multi-factor recall
+> Persistent, semantically searchable memory for AI agents — self-hosted, zero vendor lock-in.
 
-OpenClaw Cortex gives AI agents persistent, semantically searchable memory across sessions. It combines file-based structured memory (markdown, git-backed) with vector-based semantic memory (Qdrant) for compaction-proof recall.
+## What is OpenClaw Cortex?
 
-## Core Capabilities
+OpenClaw Cortex is an open-source memory layer for AI agents. It captures important
+information from conversations, classifies it by type and scope, deduplicates near-identical
+facts, and retrieves the most relevant context for each new turn — within a configurable
+token budget. It runs entirely on your own infrastructure (Qdrant + Ollama) with no
+external memory vendor required.
 
-- **Semantic Search**: Vector similarity search over all memories via Qdrant gRPC
-- **Smart Capture**: LLM-powered extraction of structured memories from conversations (Claude Haiku)
-- **Classification**: Auto-categorization into rules, facts, episodes, procedures, preferences
-- **Multi-Factor Recall**: Ranking by similarity, recency, frequency, type priority, and scope
-- **Token Budgeting**: Fit recalled memories within configurable token limits
-- **Deduplication**: Cosine similarity-based duplicate detection (threshold: 0.92)
-- **Lifecycle Management**: TTL expiry, session decay, consolidation
-- **OpenClaw Integration**: Pre/post-turn hooks for seamless agent memory
+## Why use it instead of passing full conversation history?
 
-## Tech Stack
+Full conversation history hits context window limits and wastes tokens on irrelevant prior
+exchanges. OpenClaw Cortex stores only what matters, ranked by relevance to the current
+query. A 10,000-turn session history becomes a 2,000-token context injection of the most
+relevant memories.
 
-- Go 1.25+, Qdrant (gRPC), Ollama (nomic-embed-text, 768-dim), Claude Haiku, Cobra CLI, Viper config
+## How does recall scoring work?
+
+Final score = weighted sum of five signals:
+
+```
+score = 0.5 × similarity        # cosine distance from Qdrant (primary signal)
+      + 0.2 × recency           # exponential decay, 7-day half-life
+      + 0.1 × frequency         # log₂-scale access count, capped at 1.0
+      + 0.1 × typeBoost         # multiplier by memory type (see below)
+      + 0.1 × scopeBoost        # project-match bonus
+```
+
+## What memory types exist?
+
+| Type | Recall multiplier | Use case |
+|------|-------------------|---------|
+| `rule` | 1.5× | Operating principles, hard constraints |
+| `procedure` | 1.3× | Step-by-step workflows |
+| `fact` | 1.0× | Declarative knowledge |
+| `episode` | 0.8× | Specific events |
+| `preference` | 0.7× | User preferences, style choices |
+
+## What is the conflict engine? (v0.3.0)
+
+When a new memory contradicts an existing one, the conflict engine:
+1. **Detects** the contradiction using Claude (ConflictDetector in `internal/capture/`)
+2. **Tags** both memories with a shared `ConflictGroupID` and `status="active"`
+3. **Surfaces** the conflict inline during recall (`[conflicts with: <id>]`)
+4. **Resolves** during `cortex consolidate`: highest-confidence memory wins, others → `status="resolved"`
+
+## How does confidence reinforcement work? (v0.3.0)
+
+When a new capture has 0.80 ≤ similarity < 0.92 to an existing memory (close but not
+duplicate), `UpdateReinforcement` increments the existing memory's confidence by 0.05 and
+its `reinforced_count` by 1. The new candidate is discarded. At ≥ 0.92, dedup-skip
+continues as before. Frequently-observed facts converge toward confidence = 1.0 over time.
+
+## What is threshold-gated re-ranking? (v0.3.0)
+
+When the top-4 recall scores have a spread ≤ 0.15 (ambiguous ranking), `ShouldRerank`
+dispatches candidates to Claude for intelligent re-ordering. A `context.WithTimeout` enforces
+latency budgets: 100 ms for hooks, 3 s for CLI. On timeout or API error, the original
+multi-factor ranking is used. Re-ranking fires on ~10–30% of recalls.
 
 ## Quick Start
 
 ```bash
-task docker:up                # Start Qdrant
-ollama pull nomic-embed-text  # Pull embedding model
-task build                    # Build binary
-openclaw-cortex index --path ~/.openclaw/workspace/memory/
-openclaw-cortex search "how to deploy"
-openclaw-cortex recall "database schema question" --budget 2000
+docker compose up -d                    # start Qdrant
+ollama pull nomic-embed-text            # pull embedding model
+openclaw-cortex store "Always run tests before merging" --type rule --scope permanent
+openclaw-cortex recall "testing requirements" --budget 2000
 ```
+
+## Configuration reference
+
+Config file: `~/.openclaw-cortex/config.yaml` (or env vars prefixed `OPENCLAW_CORTEX_`)
+
+Key settings:
+- `qdrant.host` / `qdrant.grpc_port` (default: localhost:6334)
+- `ollama.base_url` / `ollama.model` (default: nomic-embed-text)
+- `memory.dedup_threshold` (default: 0.92)
+- `recall.rerank_threshold` (default: 0.15)
+- `capture_quality.context_window_turns` (default: 1)
+
+## Integration options
+
+- **Claude Code hooks**: `UserPromptSubmit` → `cortex hook pre`; `Stop` → `cortex hook post`
+- **HTTP API**: `cortex serve` (default :8080) — REST endpoints for any LLM pipeline
+- **MCP server**: `cortex mcp` — Model Context Protocol over stdio for Claude Desktop
+
+## v0.3.0 feature summary
+
+New in v0.3.0 (2026-03-09): threshold-gated LLM re-ranking, session pre-warm cache,
+conflict engine (detect/surface/resolve), confidence reinforcement, multi-turn capture.
 
 ## Documentation
 
-- [README](https://github.com/ajitpratap0/openclaw-cortex/blob/main/README.md): Full usage, config, CLI reference
-- [Architecture](https://github.com/ajitpratap0/openclaw-cortex/blob/main/docs/ARCHITECTURE.md): System design, data flows, design decisions
-- [Deployment](https://github.com/ajitpratap0/openclaw-cortex/blob/main/docs/DEPLOYMENT.md): Docker, Kubernetes, configuration, backup
-- [Contributing](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CONTRIBUTING.md): Development setup, workflow, code style
-- [Changelog](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CHANGELOG.md): Version history
-- [OpenClaw Skill](https://github.com/ajitpratap0/openclaw-cortex/blob/main/skill/SKILL.md): Agent integration hooks
-
-## Optional
-
-- [Implementation Plan](https://github.com/ajitpratap0/openclaw-cortex/blob/main/IMPLEMENTATION.md): Original design document
-- [Go Package Docs](https://pkg.go.dev/github.com/ajitpratap0/openclaw-cortex): API reference
+- README: https://github.com/ajitpratap0/openclaw-cortex
+- Docs site: https://ajitpratap0.github.io/openclaw-cortex/
+- Architecture: https://ajitpratap0.github.io/openclaw-cortex/architecture/
+- Claude Code Hooks: https://ajitpratap0.github.io/openclaw-cortex/hooks/
+- HTTP API: https://ajitpratap0.github.io/openclaw-cortex/api/
+- Changelog: https://github.com/ajitpratap0/openclaw-cortex/blob/main/CHANGELOG.md

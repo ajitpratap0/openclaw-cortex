@@ -104,7 +104,58 @@ cmd/cmd_lifecycle.go
        -- TTL expiry: delete memories past their time-to-live
        -- session decay: expire session-scoped memories after 24h inactivity
        -- consolidation: merge near-duplicate memories
+       -- conflict resolution: group by ConflictGroupID, keep highest confidence, mark losers resolved
 ```
+
+## Recall Intelligence (v0.3.0)
+
+### Threshold-Gated Re-Ranking
+
+Standard multi-factor scoring is deterministic but cannot reason about semantic nuance. When the top-4 result scores are tightly clustered (spread ≤ 0.15), the ranking is ambiguous and a stronger signal is needed.
+
+`ShouldRerank` in `internal/recall/recall.go` computes `max_score − min_score` over the top-4 candidates. When the spread falls at or below the threshold, it dispatches the candidates to Claude (via `internal/recall/reasoner.go`) with a latency budget enforced by `context.WithTimeout`:
+
+| Context | Budget |
+|---------|--------|
+| Hook (PreTurnHook) | 100 ms |
+| CLI (`cortex recall`) | 3000 ms |
+
+On timeout or API error, the original multi-factor ranking is used — graceful degradation is guaranteed. In practice, re-ranking fires on ~10–30% of recall operations.
+
+### Session Pre-Warm Cache
+
+A goroutine in `PostTurnHook` writes the ranked recall results for the current session to `~/.cortex/rerank_cache/<session_id>.json` immediately after each turn (5-minute TTL). On the next turn, `PreTurnHook` reads the cache before calling Qdrant, providing zero-latency context injection for session-resumed conversations.
+
+Cache files are invalidated after 5 minutes or when the session ends.
+
+## Conflict Engine (v0.3.0)
+
+Contradicting facts accumulate in long-running agent sessions. The conflict engine detects, surfaces, and resolves them across three phases:
+
+### Detect (write path — capture)
+
+`ConflictDetector` in `internal/capture/conflict_detector.go` compares new memory content against top-K similar existing memories. When Claude identifies a semantic contradiction:
+- Both the new memory and the contradicted memory are tagged with a shared `ConflictGroupID` (UUID)
+- Both receive `status = "active"` and cross-reference each other via `contradicts_id`
+- The new memory is stored with `SupersedesID` pointing to the older one
+
+### Surface (read path — recall)
+
+`FormatWithConflictAnnotations` in `pkg/tokenizer` appends `[conflicts with: <short-id>]` to any memory whose `status = "active"` and `ConflictGroupID` is non-empty. This surfaces unresolved conflicts inline in the context injected into Claude's system prompt.
+
+### Resolve (lifecycle — consolidate)
+
+Phase 4 of `lifecycle.Manager.Run()` groups memories by `ConflictGroupID`, sorts each group by `Confidence` descending, and marks all but the highest-confidence member as `status = "resolved"`. Resolved memories are excluded from future recall results.
+
+## Confidence Reinforcement (v0.3.0)
+
+When a new capture closely resembles an existing memory but not closely enough to trigger dedup (0.80 ≤ similarity < 0.92), the existing memory is reinforced rather than duplicating it:
+
+- `store.UpdateReinforcement(id)` atomically increments `confidence` by 0.05 (capped at 1.0) and `reinforced_count` by 1
+- The new candidate is discarded (not stored)
+- At similarity ≥ 0.92, the existing dedup skip continues as before
+
+This ensures frequently-observed facts converge toward maximum confidence over time without growing the collection.
 
 ## Data Model
 

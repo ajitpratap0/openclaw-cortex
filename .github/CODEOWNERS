@@ -1,0 +1,8 @@
+# Default: all files require review from the maintainer
+* @ajitpratap0
+
+# Core packages — maintainer review required
+/internal/recall/    @ajitpratap0
+/internal/capture/   @ajitpratap0
+/internal/store/     @ajitpratap0
+/internal/hooks/     @ajitpratap0

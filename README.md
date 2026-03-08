@@ -10,13 +10,32 @@
 
 OpenClaw Cortex gives Claude and other AI agents long-term memory. It captures important information from conversations, classifies it by type and scope, and retrieves the most relevant context for each new turn — all within your token budget.
 
+## Why OpenClaw Cortex?
+
+**The problem**: AI agents lose context between sessions. Passing full conversation history
+burns tokens and hits context window limits.
+
+**The solution**: A self-hosted memory layer — captures decisions and rules from
+conversations, classifies them, deduplicates near-identical facts, and retrieves only the
+most relevant context within your token budget.
+
+| Outcome | How |
+|---------|-----|
+| Never lose rules, decisions, or preferences across sessions | Semantic recall + permanent scope |
+| Recall stays relevant as memory grows | Multi-factor ranking + conflict resolution |
+| Zero vendor lock-in | Self-hosted Qdrant + Ollama |
+| Drop-in for Claude Code | Pre/post-turn hooks — no code changes needed |
+| Intelligent ranking | Threshold-gated LLM re-ranking when scores are ambiguous |
+
+**Status**: v0.3.0 — production-ready for single-user / small-team use.
+
 ## Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajitpratap0/openclaw-cortex/main/scripts/install.sh | bash
 ```
 
-Or build from source (requires Go 1.23+):
+Or build from source (requires Go 1.25+):
 
 ```bash
 git clone https://github.com/ajitpratap0/openclaw-cortex
@@ -51,6 +70,9 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
 | Cross-session | Context window only | Persists in Qdrant across all sessions |
 | API access | None | REST API + MCP server |
 | Project isolation | None | Per-project scoping and boosting |
+| Conflict detection | None | Automatic: contradicting facts tagged and resolved |
+| LLM re-ranking | None | Threshold-gated: Claude re-ranks ambiguous results |
+| Confidence reinforcement | None | Repeated observations boost memory confidence |
 
 ## Architecture
 
@@ -95,6 +117,10 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
 - **Claude Code hooks**: Pre/post-turn hooks with graceful degradation
 - **HTTP API**: REST endpoints for any LLM pipeline
 - **MCP server**: Native Model Context Protocol support for Claude Desktop
+- **Conflict engine**: Detects contradicting facts, surfaces them inline, resolves on consolidate
+- **Confidence reinforcement**: Repeated captures strengthen existing memory confidence
+- **Session pre-warm cache**: Zero-latency context injection on session resume
+- **Multi-turn capture**: Extracts memories spanning multiple conversation turns
 
 ## Documentation
 
