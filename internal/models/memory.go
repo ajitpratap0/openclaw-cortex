@@ -87,9 +87,24 @@ type Memory struct {
 	UpdatedAt    time.Time        `json:"updated_at"`
 	LastAccessed time.Time        `json:"last_accessed"`
 	AccessCount  int64            `json:"access_count"`
-	Metadata     map[string]any   `json:"metadata,omitempty"`
-	SupersedesID string           `json:"supersedes_id,omitempty"` // ID of memory this replaces
-	ValidUntil   time.Time        `json:"valid_until,omitempty"`   // zero = never expires
+
+	// ReinforcedAt is the last time this memory's confidence was boosted
+	// because a similar memory was captured again.
+	ReinforcedAt time.Time `json:"reinforced_at,omitempty"`
+
+	// ReinforcedCount is how many times this memory has been reinforced.
+	ReinforcedCount int `json:"reinforced_count,omitempty"`
+
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	SupersedesID string         `json:"supersedes_id,omitempty"` // ID of memory this replaces
+	ValidUntil   time.Time      `json:"valid_until,omitempty"`   // zero = never expires
+
+	// ConflictGroupID links memories that contradict each other.
+	// All memories in a conflict group share the same non-empty UUID.
+	ConflictGroupID string `json:"conflict_group_id,omitempty"`
+
+	// ConflictStatus tracks resolution: "" (no conflict), "active" (unresolved), "resolved".
+	ConflictStatus string `json:"conflict_status,omitempty"`
 }
 
 // SearchResult wraps a Memory with its similarity score.

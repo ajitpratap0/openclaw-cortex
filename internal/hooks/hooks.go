@@ -27,6 +27,14 @@ type RerankConfig struct {
 // preTurnSearchLimit is the maximum number of candidate memories retrieved during pre-turn search.
 const preTurnSearchLimit = 50
 
+// minLen returns the smaller of a and b.
+func minLen(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // PreTurnHook retrieves relevant memories before an agent turn.
 type PreTurnHook struct {
 	embedder  embedder.Embedder
@@ -148,21 +156,24 @@ const conflictCandidateLimit = 5
 
 // PostTurnHook captures memories from a completed agent turn.
 type PostTurnHook struct {
-	capturer         capture.Capturer
-	classifier       classifier.Classifier
-	embedder         embedder.Embedder
-	store            store.Store
-	logger           *slog.Logger
-	dedupThreshold   float64
-	conflictDetector *capture.ConflictDetector // nil = disabled
+	capturer               capture.Capturer
+	classifier             classifier.Classifier
+	embedder               embedder.Embedder
+	store                  store.Store
+	logger                 *slog.Logger
+	dedupThreshold         float64
+	conflictDetector       *capture.ConflictDetector // nil = disabled
+	reinforcementThreshold float64                   // 0 = disabled
+	reinforcementBoost     float64
 }
 
 // PostTurnInput contains the conversation turn data.
 type PostTurnInput struct {
-	UserMessage      string `json:"user_message"`
-	AssistantMessage string `json:"assistant_message"`
-	SessionID        string `json:"session_id"`
-	Project          string `json:"project"`
+	UserMessage      string                     `json:"user_message"`
+	AssistantMessage string                     `json:"assistant_message"`
+	SessionID        string                     `json:"session_id"`
+	Project          string                     `json:"project"`
+	PriorTurns       []capture.ConversationTurn `json:"prior_turns,omitempty"`
 }
 
 // NewPostTurnHook creates a post-turn hook handler.
@@ -189,7 +200,17 @@ func (h *PostTurnHook) WithConflictDetector(cd *capture.ConflictDetector) *PostT
 	return h
 }
 
-// Execute runs the post-turn hook: extract → classify → embed → dedup → store.
+// WithReinforcement configures confidence reinforcement for near-duplicate memories.
+// threshold is the cosine similarity above which a near-duplicate triggers reinforcement.
+// boost is added to the existing memory's confidence (capped at 1.0).
+// Set threshold to 0 to disable reinforcement.
+func (h *PostTurnHook) WithReinforcement(threshold, boost float64) *PostTurnHook {
+	h.reinforcementThreshold = threshold
+	h.reinforcementBoost = boost
+	return h
+}
+
+// Execute runs the post-turn hook: extract → classify → embed → reinforce/dedup → store.
 func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	h.logger.Info("post-turn hook starting",
 		"session_id", input.SessionID,
@@ -198,8 +219,8 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 		"assistant_msg_len", len(input.AssistantMessage),
 	)
 
-	// 1. Extract candidate memories from the conversation turn.
-	captured, err := h.capturer.Extract(ctx, input.UserMessage, input.AssistantMessage)
+	// 1. Extract candidate memories from the conversation turn (with prior turns if available).
+	captured, err := h.capturer.ExtractWithContext(ctx, input.UserMessage, input.AssistantMessage, input.PriorTurns)
 	if err != nil {
 		return fmt.Errorf("post-turn extract: %w", err)
 	}
@@ -226,7 +247,26 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			continue
 		}
 
-		// 4. Dedup – skip if a near-duplicate already exists.
+		// 4. Reinforcement: boost confidence of near-duplicate existing memories instead of storing new.
+		if h.reinforcementThreshold > 0 {
+			nearDups, nearErr := h.store.FindDuplicates(ctx, vec, h.reinforcementThreshold)
+			if nearErr == nil && len(nearDups) > 0 {
+				top := nearDups[0]
+				if top.Score < h.dedupThreshold {
+					// Near-duplicate (not exact): reinforce instead of store.
+					if boostErr := h.store.UpdateReinforcement(ctx, top.Memory.ID, h.reinforcementBoost); boostErr != nil {
+						h.logger.Warn("post-turn: reinforcement update failed", "id", top.Memory.ID, "error", boostErr)
+					} else {
+						h.logger.Info("post-turn: reinforced existing memory",
+							"id", top.Memory.ID, "similarity", top.Score,
+							"boost", h.reinforcementBoost)
+						continue // Don't store new memory
+					}
+				}
+			}
+		}
+
+		// 5. Dedup – skip if an exact duplicate already exists.
 		dupes, dedupErr := h.store.FindDuplicates(ctx, vec, h.dedupThreshold)
 		if dedupErr != nil {
 			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", dedupErr)
@@ -236,12 +276,12 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			continue
 		}
 
-		// 5. Contradiction detection — only when a ConflictDetector is configured.
-		var supersedesID string
+		// 6. Contradiction detection — only when a ConflictDetector is configured.
+		var conflictGroupID string
 		if h.conflictDetector != nil {
 			candidates, searchErr := h.store.Search(ctx, vec, conflictCandidateLimit, nil)
 			if searchErr != nil {
-				h.logger.Warn("post-turn conflict search failed, skipping contradiction check", "error", searchErr)
+				h.logger.Warn("post-turn conflict search failed", "error", searchErr)
 			} else {
 				mems := make([]models.Memory, len(candidates))
 				for j := range candidates {
@@ -249,31 +289,42 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 				}
 				contradicts, contradictedID, reason, _ := h.conflictDetector.Detect(ctx, cm.Content, mems)
 				if contradicts && contradictedID != "" {
-					h.logger.Info("post-turn contradiction detected",
-						"new_content", cm.Content,
+					groupID := uuid.New().String()
+					conflictGroupID = groupID
+					h.logger.Info("conflict detected: tagging both memories",
+						"new_content", cm.Content[:minLen(50, len(cm.Content))],
 						"contradicted_id", contradictedID,
+						"group_id", groupID,
 						"reason", reason,
 					)
-					supersedesID = contradictedID
+					if tagErr := h.store.UpdateConflictFields(ctx, contradictedID, groupID, "active"); tagErr != nil {
+						h.logger.Warn("failed to tag contradicted memory", "id", contradictedID, "error", tagErr)
+					}
 				}
 			}
 		}
 
-		// 6. Store the new memory.
+		// 7. Store the new memory.
 		mem := models.Memory{
-			ID:           uuid.New().String(),
-			Type:         memType,
-			Scope:        models.ScopeSession,
-			Visibility:   models.VisibilityPrivate,
-			Content:      cm.Content,
-			Confidence:   cm.Confidence,
-			Tags:         cm.Tags,
-			Source:       "post-turn-hook",
-			Project:      input.Project,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-			LastAccessed: now,
-			SupersedesID: supersedesID,
+			ID:              uuid.New().String(),
+			Type:            memType,
+			Scope:           models.ScopeSession,
+			Visibility:      models.VisibilityPrivate,
+			Content:         cm.Content,
+			Confidence:      cm.Confidence,
+			Tags:            cm.Tags,
+			Source:          "post-turn-hook",
+			Project:         input.Project,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+			LastAccessed:    now,
+			ConflictGroupID: conflictGroupID,
+			ConflictStatus: func() string {
+				if conflictGroupID != "" {
+					return "active"
+				}
+				return ""
+			}(),
 		}
 
 		if upsertErr := h.store.Upsert(ctx, mem, vec); upsertErr != nil {

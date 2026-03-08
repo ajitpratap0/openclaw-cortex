@@ -904,3 +904,50 @@ func TestCLI_Update_NotFound(t *testing.T) {
 	_, err := st.Get(context.Background(), "nonexistent-id")
 	assert.Error(t, err)
 }
+
+// TestMemory_ConflictFields_RoundTrip verifies that ConflictGroupID and ConflictStatus
+// are stored and retrieved correctly, and that UpdateConflictFields updates them.
+func TestMemory_ConflictFields_RoundTrip(t *testing.T) {
+	st := store.NewMockStore()
+	ctx := context.Background()
+	mem := models.Memory{
+		ID:              "c1",
+		Content:         "Python is fast",
+		Type:            models.MemoryTypeFact,
+		Scope:           models.ScopePermanent,
+		Confidence:      0.9,
+		ConflictGroupID: "group-xyz",
+		ConflictStatus:  "active",
+	}
+	require.NoError(t, st.Upsert(ctx, mem, make([]float32, 768)))
+	got, err := st.Get(ctx, "c1")
+	require.NoError(t, err)
+	assert.Equal(t, "group-xyz", got.ConflictGroupID)
+	assert.Equal(t, "active", got.ConflictStatus)
+
+	require.NoError(t, st.UpdateConflictFields(ctx, "c1", "group-xyz", "resolved"))
+	got, err = st.Get(ctx, "c1")
+	require.NoError(t, err)
+	assert.Equal(t, "resolved", got.ConflictStatus)
+}
+
+func TestStore_UpdateReinforcement(t *testing.T) {
+	ctx := context.Background()
+	st := store.NewMockStore()
+	mem := models.Memory{
+		ID: "r1", Content: "Go is great",
+		Type: models.MemoryTypeFact, Scope: models.ScopePermanent, Confidence: 0.7,
+	}
+	require.NoError(t, st.Upsert(ctx, mem, make([]float32, 768)))
+	require.NoError(t, st.UpdateReinforcement(ctx, "r1", 0.05))
+	got, err := st.Get(ctx, "r1")
+	require.NoError(t, err)
+	assert.InDelta(t, 0.75, got.Confidence, 0.001)
+	assert.Equal(t, 1, got.ReinforcedCount)
+	assert.False(t, got.ReinforcedAt.IsZero())
+
+	// Cap at 1.0
+	require.NoError(t, st.UpdateReinforcement(ctx, "r1", 100.0))
+	got, _ = st.Get(ctx, "r1")
+	assert.Equal(t, 1.0, got.Confidence)
+}

@@ -75,6 +75,14 @@ func (f *failingUpsertStore) GetChain(ctx context.Context, id string) ([]models.
 	return f.inner.GetChain(ctx, id)
 }
 
+func (f *failingUpsertStore) UpdateConflictFields(ctx context.Context, id, groupID, status string) error {
+	return f.inner.UpdateConflictFields(ctx, id, groupID, status)
+}
+
+func (f *failingUpsertStore) UpdateReinforcement(ctx context.Context, id string, boost float64) error {
+	return f.inner.UpdateReinforcement(ctx, id, boost)
+}
+
 func (f *failingUpsertStore) Close() error {
 	return f.inner.Close()
 }

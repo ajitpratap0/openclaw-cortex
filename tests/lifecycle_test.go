@@ -454,3 +454,37 @@ func TestMockStore_SensitiveVisibility_ReturnedWhenExplicitlyRequested(t *testin
 	require.Len(t, results, 1)
 	assert.Equal(t, "sens-explicit", results[0].ID)
 }
+
+// TestLifecycle_ResolveConflicts verifies that the conflict resolution pass
+// marks losers as "resolved" and increments ConflictsResolved in the report.
+func TestLifecycle_ResolveConflicts(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	st := store.NewMockStore()
+
+	m1 := models.Memory{
+		ID: "c1", Content: "Python is fast", Confidence: 0.9,
+		Type: models.MemoryTypeFact, Scope: models.ScopePermanent,
+		ConflictGroupID: "grp-1", ConflictStatus: "active",
+		CreatedAt: time.Now().Add(-48 * time.Hour),
+	}
+	m2 := models.Memory{
+		ID: "c2", Content: "Python is slow", Confidence: 0.7,
+		Type: models.MemoryTypeFact, Scope: models.ScopePermanent,
+		ConflictGroupID: "grp-1", ConflictStatus: "active",
+		CreatedAt: time.Now(),
+	}
+	require.NoError(t, st.Upsert(ctx, m1, make([]float32, 768)))
+	require.NoError(t, st.Upsert(ctx, m2, make([]float32, 768)))
+
+	// Pass nil embedder — consolidation will be skipped but conflict resolution runs.
+	mgr := lifecycle.NewManager(st, nil, logger)
+	report, err := mgr.Run(ctx, false)
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.ConflictsResolved)
+
+	// m2 (lower confidence) should now be "resolved".
+	loser, getErr := st.Get(ctx, "c2")
+	require.NoError(t, getErr)
+	assert.Equal(t, "resolved", loser.ConflictStatus)
+}

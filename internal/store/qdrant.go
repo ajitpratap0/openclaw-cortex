@@ -760,6 +760,68 @@ func (q *QdrantStore) GetChain(ctx context.Context, id string) ([]models.Memory,
 	return chain, nil
 }
 
+// UpdateConflictFields sets ConflictGroupID and ConflictStatus on an existing memory
+// without requiring a re-embed.
+func (q *QdrantStore) UpdateConflictFields(ctx context.Context, id, conflictGroupID, conflictStatus string) error {
+	payload := map[string]*pb.Value{
+		"conflict_group_id": {Kind: &pb.Value_StringValue{StringValue: conflictGroupID}},
+		"conflict_status":   {Kind: &pb.Value_StringValue{StringValue: conflictStatus}},
+	}
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err := q.points.SetPayload(wctx, &pb.SetPayloadPoints{
+		CollectionName: q.collName,
+		Payload:        payload,
+		PointsSelector: &pb.PointsSelector{
+			PointsSelectorOneOf: &pb.PointsSelector_Points{
+				Points: &pb.PointsIdsList{
+					Ids: []*pb.PointId{{PointIdOptions: &pb.PointId_Uuid{Uuid: id}}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("UpdateConflictFields %s: %w", id, err)
+	}
+	return nil
+}
+
+// UpdateReinforcement boosts the confidence of an existing memory (capped at 1.0)
+// and increments ReinforcedCount. Used when a near-duplicate is captured.
+func (q *QdrantStore) UpdateReinforcement(ctx context.Context, id string, confidenceBoost float64) error {
+	existing, err := q.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("UpdateReinforcement get %s: %w", id, err)
+	}
+	newConf := existing.Confidence + confidenceBoost
+	if newConf > 1.0 {
+		newConf = 1.0
+	}
+	now := time.Now()
+	payload := map[string]*pb.Value{
+		"confidence":         {Kind: &pb.Value_DoubleValue{DoubleValue: newConf}},
+		"reinforced_at_unix": {Kind: &pb.Value_IntegerValue{IntegerValue: now.Unix()}},
+		"reinforced_count":   {Kind: &pb.Value_IntegerValue{IntegerValue: int64(existing.ReinforcedCount + 1)}},
+	}
+	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
+	defer wcancel()
+	_, err = q.points.SetPayload(wctx, &pb.SetPayloadPoints{
+		CollectionName: q.collName,
+		Payload:        payload,
+		PointsSelector: &pb.PointsSelector{
+			PointsSelectorOneOf: &pb.PointsSelector_Points{
+				Points: &pb.PointsIdsList{
+					Ids: []*pb.PointId{{PointIdOptions: &pb.PointId_Uuid{Uuid: id}}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("UpdateReinforcement SetPayload %s: %w", id, err)
+	}
+	return nil
+}
+
 // Close releases the gRPC connection.
 func (q *QdrantStore) Close() error {
 	if q.conn != nil {
@@ -776,21 +838,30 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 		validUntilUnix = m.ValidUntil.Unix()
 	}
 
+	var reinforcedAtUnix int64
+	if !m.ReinforcedAt.IsZero() {
+		reinforcedAtUnix = m.ReinforcedAt.Unix()
+	}
+
 	payload := map[string]*pb.Value{
-		"type":             {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
-		"scope":            {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
-		"visibility":       {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
-		"content":          {Kind: &pb.Value_StringValue{StringValue: m.Content}},
-		"confidence":       {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
-		"source":           {Kind: &pb.Value_StringValue{StringValue: m.Source}},
-		"project":          {Kind: &pb.Value_StringValue{StringValue: m.Project}},
-		"ttl_seconds":      {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
-		"created_at":       {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339Nano)}},
-		"updated_at":       {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339Nano)}},
-		"last_accessed":    {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339Nano)}},
-		"access_count":     {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
-		"supersedes_id":    {Kind: &pb.Value_StringValue{StringValue: m.SupersedesID}},
-		"valid_until_unix": {Kind: &pb.Value_IntegerValue{IntegerValue: validUntilUnix}},
+		"type":               {Kind: &pb.Value_StringValue{StringValue: string(m.Type)}},
+		"scope":              {Kind: &pb.Value_StringValue{StringValue: string(m.Scope)}},
+		"visibility":         {Kind: &pb.Value_StringValue{StringValue: string(m.Visibility)}},
+		"content":            {Kind: &pb.Value_StringValue{StringValue: m.Content}},
+		"confidence":         {Kind: &pb.Value_DoubleValue{DoubleValue: m.Confidence}},
+		"source":             {Kind: &pb.Value_StringValue{StringValue: m.Source}},
+		"project":            {Kind: &pb.Value_StringValue{StringValue: m.Project}},
+		"ttl_seconds":        {Kind: &pb.Value_IntegerValue{IntegerValue: m.TTLSeconds}},
+		"created_at":         {Kind: &pb.Value_StringValue{StringValue: m.CreatedAt.Format(time.RFC3339Nano)}},
+		"updated_at":         {Kind: &pb.Value_StringValue{StringValue: m.UpdatedAt.Format(time.RFC3339Nano)}},
+		"last_accessed":      {Kind: &pb.Value_StringValue{StringValue: m.LastAccessed.Format(time.RFC3339Nano)}},
+		"access_count":       {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
+		"supersedes_id":      {Kind: &pb.Value_StringValue{StringValue: m.SupersedesID}},
+		"conflict_group_id":  {Kind: &pb.Value_StringValue{StringValue: m.ConflictGroupID}},
+		"conflict_status":    {Kind: &pb.Value_StringValue{StringValue: m.ConflictStatus}},
+		"valid_until_unix":   {Kind: &pb.Value_IntegerValue{IntegerValue: validUntilUnix}},
+		"reinforced_at_unix": {Kind: &pb.Value_IntegerValue{IntegerValue: reinforcedAtUnix}},
+		"reinforced_count":   {Kind: &pb.Value_IntegerValue{IntegerValue: int64(m.ReinforcedCount)}},
 	}
 
 	// Tags as list
@@ -815,17 +886,20 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 
 func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	m := &models.Memory{
-		ID:           id,
-		Type:         models.MemoryType(getStringValue(payload, "type")),
-		Scope:        models.MemoryScope(getStringValue(payload, "scope")),
-		Visibility:   models.MemoryVisibility(getStringValue(payload, "visibility")),
-		Content:      getStringValue(payload, "content"),
-		Confidence:   getDoubleValue(payload, "confidence"),
-		Source:       getStringValue(payload, "source"),
-		Project:      getStringValue(payload, "project"),
-		TTLSeconds:   getIntValue(payload, "ttl_seconds"),
-		AccessCount:  getIntValue(payload, "access_count"),
-		SupersedesID: getStringValue(payload, "supersedes_id"),
+		ID:              id,
+		Type:            models.MemoryType(getStringValue(payload, "type")),
+		Scope:           models.MemoryScope(getStringValue(payload, "scope")),
+		Visibility:      models.MemoryVisibility(getStringValue(payload, "visibility")),
+		Content:         getStringValue(payload, "content"),
+		Confidence:      getDoubleValue(payload, "confidence"),
+		Source:          getStringValue(payload, "source"),
+		Project:         getStringValue(payload, "project"),
+		TTLSeconds:      getIntValue(payload, "ttl_seconds"),
+		AccessCount:     getIntValue(payload, "access_count"),
+		SupersedesID:    getStringValue(payload, "supersedes_id"),
+		ConflictGroupID: getStringValue(payload, "conflict_group_id"),
+		ConflictStatus:  getStringValue(payload, "conflict_status"),
+		ReinforcedCount: int(getIntValue(payload, "reinforced_count")),
 	}
 
 	// Parse timestamps
@@ -842,6 +916,11 @@ func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 	// Parse ValidUntil from unix timestamp (0 means not set).
 	if unix := getIntValue(payload, "valid_until_unix"); unix != 0 {
 		m.ValidUntil = time.Unix(unix, 0).UTC()
+	}
+
+	// Parse ReinforcedAt from unix timestamp (0 means not set).
+	if unix := getIntValue(payload, "reinforced_at_unix"); unix != 0 {
+		m.ReinforcedAt = time.Unix(unix, 0).UTC()
 	}
 
 	// Parse tags
@@ -928,6 +1007,17 @@ func buildFilter(f *SearchFilters) *pb.Filter {
 				Field: &pb.FieldCondition{
 					Key:   "tags",
 					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: tag}},
+				},
+			},
+		})
+	}
+
+	if f.ConflictStatus != nil {
+		conditions = append(conditions, &pb.Condition{
+			ConditionOneOf: &pb.Condition_Field{
+				Field: &pb.FieldCondition{
+					Key:   "conflict_status",
+					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: *f.ConflictStatus}},
 				},
 			},
 		})
