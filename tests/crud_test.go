@@ -761,6 +761,75 @@ func TestAPI_Search_ProjectFilter(t *testing.T) {
 
 // --- CLI update command ---
 
+// TestAPIPutMemory_ConfidenceOutOfRange verifies that PUT /v1/memories/{id}
+// returns 400 when confidence is outside the [0.0, 1.0] range.
+func TestAPIPutMemory_ConfidenceOutOfRange(t *testing.T) {
+	now := time.Now().UTC()
+
+	for _, tc := range []struct {
+		name       string
+		confidence float64
+	}{
+		{"negative", -0.5},
+		{"above-one", 1.5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, st := newTestServer(t, "")
+
+			id := seedMemory(t, st, models.Memory{
+				ID:           "conf-range-" + tc.name,
+				Type:         models.MemoryTypeFact,
+				Scope:        models.ScopePermanent,
+				Visibility:   models.VisibilityPrivate,
+				Content:      "confidence range test",
+				Confidence:   0.8,
+				Source:       "test",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+				LastAccessed: now,
+			})
+
+			body := jsonBody(t, map[string]any{
+				"confidence": tc.confidence,
+			})
+			resp := doRequest(t, http.MethodPut, ts.URL+"/v1/memories/"+id, body, "")
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			var errResp map[string]string
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+			assert.NotEmpty(t, errResp["error"])
+		})
+	}
+}
+
+// TestAPIList_InvalidLimitReturns400 verifies that GET /v1/memories returns 400
+// for non-numeric or non-positive limit values.
+func TestAPIList_InvalidLimitReturns400(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		limit string
+	}{
+		{"alpha", "abc"},
+		{"negative", "-5"},
+		{"zero", "0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, _ := newTestServer(t, "")
+
+			resp := doRequest(t, http.MethodGet, ts.URL+"/v1/memories?limit="+tc.limit, nil, "")
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			var errResp map[string]string
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+			assert.NotEmpty(t, errResp["error"])
+		})
+	}
+}
+
 // TestCLI_Update_ContentFlag verifies that the update command stores new
 // content when --content is provided (using MockStore directly).
 func TestCLI_Update_ContentFlag(t *testing.T) {
