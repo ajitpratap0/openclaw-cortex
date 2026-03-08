@@ -28,6 +28,14 @@ type Config struct {
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	API      APIConfig      `mapstructure:"api"`
 	Embedder EmbedderConfig `mapstructure:"embedder"`
+	Recall   RecallConfig   `mapstructure:"recall"`
+}
+
+// RecallConfig holds re-ranking and latency budget settings for recall.
+type RecallConfig struct {
+	RerankScoreSpreadThreshold float64 `mapstructure:"rerank_score_spread_threshold"`
+	RerankLatencyBudgetHooksMs int     `mapstructure:"rerank_latency_budget_hooks_ms"`
+	RerankLatencyBudgetCLIMs   int     `mapstructure:"rerank_latency_budget_cli_ms"`
 }
 
 // APIConfig holds HTTP API server settings.
@@ -144,6 +152,10 @@ func Load() (*Config, error) {
 
 	v.SetDefault("api.listen_addr", ":8080")
 	v.SetDefault("api.auth_token", "")
+
+	v.SetDefault("recall.rerank_score_spread_threshold", 0.15)
+	v.SetDefault("recall.rerank_latency_budget_hooks_ms", 100)
+	v.SetDefault("recall.rerank_latency_budget_cli_ms", 3000)
 
 	// Config file
 	v.SetConfigName("config")
