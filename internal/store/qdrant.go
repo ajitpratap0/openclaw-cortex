@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -39,7 +40,8 @@ type QdrantStore struct {
 	dimension  uint64
 	logger     *slog.Logger
 
-	entityCollOnce sync.Once
+	entityCollMu   sync.Mutex
+	entityCollDone bool
 	entityCollErr  error
 }
 
@@ -487,18 +489,26 @@ func (q *QdrantStore) doEnsureEntityCollection(ctx context.Context) error {
 	return nil
 }
 
-// ensureEntityCollection guarantees the entity collection exists, running the
-// actual check-and-create logic at most once per QdrantStore instance via
-// sync.Once to prevent concurrent goroutines from racing to create it.
+// ensureEntityCollection guarantees the entity collection exists. On success the
+// result is cached so subsequent calls are no-ops. On failure the next call will
+// retry, allowing transient infrastructure errors to recover.
 func (q *QdrantStore) ensureEntityCollection(ctx context.Context) error {
-	q.entityCollOnce.Do(func() {
-		q.entityCollErr = q.doEnsureEntityCollection(ctx)
-	})
+	q.entityCollMu.Lock()
+	defer q.entityCollMu.Unlock()
+	if q.entityCollDone {
+		return q.entityCollErr
+	}
+	q.entityCollErr = q.doEnsureEntityCollection(ctx)
+	if q.entityCollErr == nil {
+		q.entityCollDone = true
+	}
 	return q.entityCollErr
 }
 
-// entityToPayload converts an Entity into a Qdrant payload map.
-func entityToPayload(e models.Entity) map[string]*pb.Value {
+// entityToPayload converts an Entity into a Qdrant payload map. The second
+// return value is true if metadata was present but could not be marshaled and
+// was therefore dropped from the payload.
+func entityToPayload(e models.Entity) (map[string]*pb.Value, bool) {
 	aliasValues := make([]*pb.Value, len(e.Aliases))
 	for i, a := range e.Aliases {
 		aliasValues[i] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: a}}
@@ -518,16 +528,17 @@ func entityToPayload(e models.Entity) map[string]*pb.Value {
 		"memory_ids": {Kind: &pb.Value_ListValue{ListValue: &pb.ListValue{Values: memIDValues}}},
 	}
 
+	metadataDropped := false
 	if len(e.Metadata) > 0 {
-		// On marshal failure, metadata is silently dropped — consistent with
-		// the memoryToPayload pattern used for Memory payloads.
 		metaBytes, err := json.Marshal(e.Metadata)
-		if err == nil {
+		if err != nil {
+			metadataDropped = true
+		} else {
 			payload["metadata"] = &pb.Value{Kind: &pb.Value_StringValue{StringValue: string(metaBytes)}}
 		}
 	}
 
-	return payload
+	return payload, metadataDropped
 }
 
 // payloadToEntity converts a Qdrant payload map back to an Entity.
@@ -580,7 +591,11 @@ func (q *QdrantStore) UpsertEntity(ctx context.Context, entity models.Entity) er
 	wctx, wcancel := withTimeout(ctx, qdrantWriteTimeout)
 	defer wcancel()
 
-	payload := entityToPayload(entity)
+	payload, metaDrop := entityToPayload(entity)
+	if metaDrop {
+		q.logger.Warn("UpsertEntity: metadata could not be marshaled and was dropped",
+			"entity_id", entity.ID)
+	}
 	_, err := q.points.Upsert(wctx, &pb.UpsertPoints{
 		CollectionName: q.entityCollName(),
 		Points: []*pb.PointStruct{
@@ -733,8 +748,10 @@ func (q *QdrantStore) GetChain(ctx context.Context, id string) ([]models.Memory,
 
 		mem, err := q.Get(ctx, currentID)
 		if err != nil {
-			// Stop at a missing link — not an error for the caller.
-			break
+			if errors.Is(err, ErrNotFound) {
+				break // legitimate chain termination
+			}
+			return nil, fmt.Errorf("GetChain: reading %s: %w", currentID, err)
 		}
 		chain = append(chain, *mem)
 		currentID = mem.SupersedesID
