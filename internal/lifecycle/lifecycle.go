@@ -224,6 +224,10 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 	if batchErr != nil {
 		return 0, fmt.Errorf("consolidate: batch embed failed: %w", batchErr)
 	}
+	if len(vecs) != len(memories) {
+		return 0, fmt.Errorf("consolidate: embedder returned %d vectors for %d memories (contract violation)",
+			len(vecs), len(memories))
+	}
 
 	consolidated := 0
 	deleted := make(map[string]bool)

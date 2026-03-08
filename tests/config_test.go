@@ -217,3 +217,58 @@ func TestConfigClaudeStringShortKey(t *testing.T) {
 	s := cfg.String()
 	assert.Contains(t, s, "***")
 }
+
+func validBaseConfig() config.Config {
+	return config.Config{
+		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
+		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memory: config.MemoryConfig{
+			ChunkSize:       512,
+			ChunkOverlap:    64,
+			DedupThreshold:  0.92,
+			VectorDimension: 768,
+			DefaultTTLHours: 720,
+		},
+	}
+}
+
+func TestConfig_Validate_UnknownProvider(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.Embedder.Provider = "gemini"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected error for unknown provider 'gemini'")
+	}
+}
+
+func TestConfig_Validate_OpenAIDimZero(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.Embedder.Provider = "openai"
+	cfg.Embedder.OpenAIKey = "sk-test"
+	cfg.Embedder.OpenAIDim = 0
+	cfg.Memory.VectorDimension = 768
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected error for OpenAIDim=0")
+	}
+}
+
+func TestConfig_Validate_OpenAIDimMismatch(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.Embedder.Provider = "openai"
+	cfg.Embedder.OpenAIKey = "sk-test"
+	cfg.Embedder.OpenAIDim = 512
+	cfg.Memory.VectorDimension = 768
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected error when OpenAIDim doesn't match VectorDimension")
+	}
+}
+
+func TestConfig_Validate_OpenAI_Valid(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.Embedder.Provider = "openai"
+	cfg.Embedder.OpenAIKey = "sk-test"
+	cfg.Embedder.OpenAIDim = 768
+	cfg.Memory.VectorDimension = 768
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected valid config, got: %v", err)
+	}
+}
