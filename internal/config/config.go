@@ -221,6 +221,26 @@ func (c *Config) Validate() error {
 	if c.Embedder.Provider == "openai" && c.Embedder.OpenAIKey == "" {
 		return fmt.Errorf("embedder.openai_api_key must not be empty when provider is \"openai\"")
 	}
+
+	// Validate provider name.
+	switch c.Embedder.Provider {
+	case "ollama", "openai", "":
+		// valid
+	default:
+		return fmt.Errorf("embedder.provider must be \"ollama\" or \"openai\", got %q", c.Embedder.Provider)
+	}
+
+	// Validate OpenAI-specific fields when openai provider is selected.
+	if c.Embedder.Provider == "openai" {
+		if c.Embedder.OpenAIDim <= 0 {
+			return fmt.Errorf("embedder.openai_dimensions must be > 0 when provider is \"openai\"")
+		}
+		if int(c.Memory.VectorDimension) != c.Embedder.OpenAIDim {
+			return fmt.Errorf("embedder.openai_dimensions (%d) must match memory.vector_dimension (%d)",
+				c.Embedder.OpenAIDim, c.Memory.VectorDimension)
+		}
+	}
+
 	return nil
 }
 
