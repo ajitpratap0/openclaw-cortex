@@ -50,6 +50,14 @@ func captureCmd() *cobra.Command {
 				return fmt.Errorf("capture: ensuring collection: %w", err)
 			}
 
+			// Pre-capture quality filter: skip trivial exchanges.
+			if !capture.ShouldCapture(userMsg, assistantMsg, cfg.CaptureQuality) {
+				logger.Info("skipping low-quality conversation turn",
+					"user_len", len(userMsg), "assistant_len", len(assistantMsg))
+				fmt.Println("Skipped: conversation turn did not pass quality filter")
+				return nil
+			}
+
 			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
 

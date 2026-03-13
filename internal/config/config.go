@@ -21,9 +21,12 @@ const (
 
 // CaptureQualityConfig controls capture extraction quality.
 type CaptureQualityConfig struct {
-	ContextWindowTurns           int     `mapstructure:"context_window_turns"`
-	ReinforcementThreshold       float64 `mapstructure:"reinforcement_threshold"`
-	ReinforcementConfidenceBoost float64 `mapstructure:"reinforcement_confidence_boost"`
+	ContextWindowTurns           int      `mapstructure:"context_window_turns"`
+	ReinforcementThreshold       float64  `mapstructure:"reinforcement_threshold"`
+	ReinforcementConfidenceBoost float64  `mapstructure:"reinforcement_confidence_boost"`
+	MinUserMessageLength         int      `mapstructure:"min_user_message_length"`
+	MinAssistantMessageLength    int      `mapstructure:"min_assistant_message_length"`
+	BlocklistPatterns            []string `mapstructure:"blocklist_patterns"`
 }
 
 // Config holds all configuration for cortex.
@@ -168,6 +171,9 @@ func Load() (*Config, error) {
 	v.SetDefault("capture_quality.context_window_turns", 3)
 	v.SetDefault("capture_quality.reinforcement_threshold", 0.80)
 	v.SetDefault("capture_quality.reinforcement_confidence_boost", 0.05)
+	v.SetDefault("capture_quality.min_user_message_length", 20)
+	v.SetDefault("capture_quality.min_assistant_message_length", 20)
+	v.SetDefault("capture_quality.blocklist_patterns", []string{"HEARTBEAT_OK", "NO_REPLY"})
 
 	// Config file
 	v.SetConfigName("config")
