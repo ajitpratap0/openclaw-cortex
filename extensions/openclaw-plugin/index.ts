@@ -72,7 +72,7 @@ class CortexClient {
   }
 
   async recall(query: string, opts?: { budget?: number; project?: string }): Promise<RecallResult[]> {
-    const args = ["recall", query, "--json"];
+    const args = ["recall", query, "--context", "json"];
     if (opts?.budget) args.push("--budget", String(opts.budget));
     const project = opts?.project || this.defaultProject;
     if (project) args.push("--project", project);
@@ -95,7 +95,8 @@ class CortexClient {
     try {
       const out = await this.run(args);
       if (!out) return [];
-      return JSON.parse(out) as CortexMemory[];
+      const parsed = JSON.parse(out) as Array<{ memory: CortexMemory; score: number }>;
+      return parsed.map((r) => r.memory);
     } catch {
       return [];
     }

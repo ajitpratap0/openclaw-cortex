@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,9 +12,10 @@ import (
 
 func searchCmd() *cobra.Command {
 	var (
-		memType string
-		limit   uint64
-		project string
+		memType  string
+		limit    uint64
+		project  string
+		jsonFlag bool
 	)
 
 	cmd := &cobra.Command{
@@ -54,6 +56,15 @@ func searchCmd() *cobra.Command {
 				return fmt.Errorf("search: querying store: %w", err)
 			}
 
+			if jsonFlag {
+				out, marshalErr := json.MarshalIndent(results, "", "  ")
+				if marshalErr != nil {
+					return fmt.Errorf("search: marshaling results: %w", marshalErr)
+				}
+				fmt.Println(string(out))
+				return nil
+			}
+
 			for i := range results {
 				r := &results[i]
 				fmt.Printf("[%d] (%.4f) [%s] %s\n", i+1, r.Score, r.Memory.Type, truncate(r.Memory.Content, 120))
@@ -71,5 +82,6 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
 	cmd.Flags().Uint64Var(&limit, "limit", 10, "max results")
 	cmd.Flags().StringVar(&project, "project", "", "filter by project")
+	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output results as JSON")
 	return cmd
 }
