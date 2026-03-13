@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,7 +10,9 @@ import (
 )
 
 func statsCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "Show memory collection statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -27,6 +30,15 @@ func statsCmd() *cobra.Command {
 				return fmt.Errorf("stats: fetching statistics: %w", err)
 			}
 
+			if jsonOutput {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				if encErr := enc.Encode(stats); encErr != nil {
+					return fmt.Errorf("stats: encoding JSON: %w", encErr)
+				}
+				return nil
+			}
+
 			fmt.Printf("Total memories: %d\n\n", stats.TotalMemories)
 
 			fmt.Println("By type:")
@@ -37,6 +49,33 @@ func statsCmd() *cobra.Command {
 			fmt.Println("\nBy scope:")
 			for s, c := range stats.ByScope {
 				fmt.Printf("  %-12s %d\n", s, c)
+			}
+
+			// Health metrics
+			fmt.Println("\nHealth:")
+			if stats.OldestMemory != nil {
+				fmt.Printf("  %-24s %s\n", "oldest_memory", stats.OldestMemory.Format("2006-01-02T15:04:05Z"))
+			}
+			if stats.NewestMemory != nil {
+				fmt.Printf("  %-24s %s\n", "newest_memory", stats.NewestMemory.Format("2006-01-02T15:04:05Z"))
+			}
+			fmt.Printf("  %-24s %d\n", "active_conflicts", stats.ActiveConflicts)
+			fmt.Printf("  %-24s %d\n", "pending_ttl_expiry", stats.PendingTTLExpiry)
+			fmt.Printf("  %-24s %d bytes\n", "storage_estimate", stats.StorageEstimate)
+
+			if len(stats.ReinforcementTiers) > 0 {
+				fmt.Println("\nReinforcement tiers:")
+				for tier, count := range stats.ReinforcementTiers {
+					fmt.Printf("  %-12s %d\n", tier, count)
+				}
+			}
+
+			if len(stats.TopAccessed) > 0 {
+				fmt.Println("\nTop accessed:")
+				for i := range stats.TopAccessed {
+					p := stats.TopAccessed[i]
+					fmt.Printf("  %d. [%s] %s (access_count: %d)\n", i+1, p.ID[:8], p.Content, p.AccessCount)
+				}
 			}
 
 			// Print expvar counters
@@ -51,4 +90,7 @@ func statsCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output stats as JSON")
+	return cmd
 }
