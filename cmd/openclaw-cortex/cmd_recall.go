@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
@@ -18,6 +20,9 @@ func recallCmd() *cobra.Command {
 		budget           int
 		ctxJSON          string
 		project          string
+		memType          string
+		memScope         string
+		tagsFlag         string
 		reason           bool
 		reasonCandidates int
 	)
@@ -44,8 +49,28 @@ func recallCmd() *cobra.Command {
 			}
 
 			var filters *store.SearchFilters
-			if project != "" {
-				filters = &store.SearchFilters{Project: &project}
+			if memType != "" || memScope != "" || project != "" || tagsFlag != "" {
+				filters = &store.SearchFilters{}
+				if memType != "" {
+					mt := models.MemoryType(memType)
+					if !mt.IsValid() {
+						return fmt.Errorf("recall: invalid type %q (want: rule|fact|episode|procedure|preference)", memType)
+					}
+					filters.Type = &mt
+				}
+				if memScope != "" {
+					ms := models.MemoryScope(memScope)
+					if !ms.IsValid() {
+						return fmt.Errorf("recall: invalid scope %q (want: permanent|project|session|ttl)", memScope)
+					}
+					filters.Scope = &ms
+				}
+				if project != "" {
+					filters.Project = &project
+				}
+				if tagsFlag != "" {
+					filters.Tags = strings.Split(tagsFlag, ",")
+				}
 			}
 
 			// Fetch more results than needed for re-ranking
@@ -118,6 +143,9 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
 	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")
+	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
+	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
+	cmd.Flags().StringVar(&tagsFlag, "tags", "", "filter by tags (comma-separated)")
 	cmd.Flags().BoolVar(&reason, "reason", false, "use Claude to re-rank results by genuine relevance (requires ANTHROPIC_API_KEY)")
 	cmd.Flags().IntVar(&reasonCandidates, "reason-candidates", 10, "number of top candidates to pass to Claude for re-ranking")
 	return cmd

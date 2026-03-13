@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +15,7 @@ func searchCmd() *cobra.Command {
 	var (
 		memType  string
 		memScope string
+		tagsFlag string
 		limit    uint64
 		project  string
 		jsonFlag bool
@@ -41,7 +43,7 @@ func searchCmd() *cobra.Command {
 			}
 
 			var filters *store.SearchFilters
-			if memType != "" || memScope != "" || project != "" {
+			if memType != "" || memScope != "" || project != "" || tagsFlag != "" {
 				filters = &store.SearchFilters{}
 				if memType != "" {
 					mt := models.MemoryType(memType)
@@ -59,6 +61,9 @@ func searchCmd() *cobra.Command {
 				}
 				if project != "" {
 					filters.Project = &project
+				}
+				if tagsFlag != "" {
+					filters.Tags = strings.Split(tagsFlag, ",")
 				}
 			}
 
@@ -95,6 +100,7 @@ func searchCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
 	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
+	cmd.Flags().StringVar(&tagsFlag, "tags", "", "filter by tags (comma-separated)")
 	cmd.Flags().Uint64Var(&limit, "limit", 10, "max results")
 	cmd.Flags().StringVar(&project, "project", "", "filter by project")
 	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output results as JSON")
