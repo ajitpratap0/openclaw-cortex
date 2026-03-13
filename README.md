@@ -27,7 +27,7 @@ most relevant context within your token budget.
 | Drop-in for Claude Code | Pre/post-turn hooks — no code changes needed |
 | Intelligent ranking | Threshold-gated LLM re-ranking when scores are ambiguous |
 
-**Status**: v0.3.0 — production-ready for single-user / small-team use.
+**Status**: v0.4.0 — production-ready for single-user / small-team use.
 
 ## Install
 
@@ -64,7 +64,7 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
 |---------|--------------------------|-----------------|
 | Token limit | Hits context window, truncates | Token-budgeted recall: always fits |
 | Search | Sequential scan / none | Semantic vector search |
-| Ranking | Chronological only | Similarity + recency + frequency + type + scope |
+| Ranking | Chronological only | 8-factor scoring + supersession/conflict penalties |
 | Memory expiry | Manual | TTL, session decay, lifecycle consolidation |
 | Entity tracking | None | Automatic from conversation capture |
 | Cross-session | Context window only | Persists in Qdrant across all sessions |
@@ -109,7 +109,7 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
 
 - **Semantic recall**: Vector similarity search (Qdrant gRPC, 768-dim `nomic-embed-text`)
 - **Smart capture**: Claude Haiku extracts structured memories from conversation turns
-- **Multi-factor ranking**: Similarity 50% + recency 20% + frequency 10% + type 10% + scope 10%
+- **Multi-factor ranking**: 8-factor scoring (similarity + recency + frequency + type + scope + confidence + reinforcement + tag affinity) with supersession and conflict penalties
 - **Token-aware output**: Recalled memories trimmed to fit your token budget
 - **Deduplication**: Cosine similarity dedup (threshold: 0.92) prevents redundant storage
 - **Memory types**: `rule` (1.5x) / `procedure` (1.3x) / `fact` (1.0x) / `episode` (0.8x) / `preference` (0.7x)
@@ -154,6 +154,17 @@ ollama:
 memory:
   dedup_threshold: 0.92
   default_ttl_hours: 720
+
+recall:
+  weights:
+    similarity: 0.35
+    recency: 0.15
+    frequency: 0.10
+    type_boost: 0.10
+    scope_boost: 0.08
+    confidence: 0.10
+    reinforcement: 0.07
+    tag_affinity: 0.05
 ```
 
 | Variable | Default | Description |
@@ -194,8 +205,15 @@ Both hooks exit with code 0 even if services are unavailable — Claude is never
 # Store a memory
 openclaw-cortex store "Always run tests before merging" --type rule --scope permanent
 
-# Recall with token budget
+# Batch store (JSON array via stdin)
+echo '[{"content":"rule one","type":"rule"},{"content":"fact two"}]' | openclaw-cortex store-batch
+
+# Recall with token budget and filters
 openclaw-cortex recall "deployment process" --budget 2000 --project myapp
+openclaw-cortex recall "testing rules" --type rule --scope permanent --tags go,testing
+
+# Update a memory (creates new version with lineage)
+openclaw-cortex update <memory-id> --content "Updated rule text" --type rule
 
 # Capture memories from a conversation turn
 openclaw-cortex capture \
@@ -208,10 +226,12 @@ openclaw-cortex index --path ~/.openclaw/workspace/memory/
 # Search (raw similarity, no re-ranking)
 openclaw-cortex search "error handling" --type rule --limit 5
 
-# View stats
+# View stats (with health metrics)
 openclaw-cortex stats
+openclaw-cortex stats --json
 
-# Run lifecycle management (TTL expiry, decay, consolidation)
+# Run lifecycle management (TTL expiry, decay, consolidation, conflict resolution)
+openclaw-cortex lifecycle --dry-run --json
 openclaw-cortex consolidate
 
 # Start HTTP API server (default :8080, configure via OPENCLAW_CORTEX_API_LISTEN_ADDR)
