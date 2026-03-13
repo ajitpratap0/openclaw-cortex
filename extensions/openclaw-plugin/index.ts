@@ -92,11 +92,14 @@ class CortexClient {
     return stdout.trim();
   }
 
-  async recall(query: string, opts?: { budget?: number; project?: string }): Promise<RecallResult[]> {
+  async recall(query: string, opts?: { budget?: number; project?: string; type?: string; scope?: string; tags?: string[] }): Promise<RecallResult[]> {
     const args = ["recall", query, "--context", "json"];
     if (opts?.budget) args.push("--budget", String(opts.budget));
     const project = opts?.project || this.defaultProject;
     if (project) args.push("--project", project);
+    if (opts?.type) args.push("--type", opts.type);
+    if (opts?.scope) args.push("--scope", opts.scope);
+    if (opts?.tags?.length) args.push("--tags", opts.tags.join(","));
 
     try {
       const out = await this.run(args);
@@ -107,11 +110,12 @@ class CortexClient {
     }
   }
 
-  async search(query: string, opts?: { limit?: number; type?: string; scope?: string }): Promise<CortexMemory[]> {
+  async search(query: string, opts?: { limit?: number; type?: string; scope?: string; tags?: string[] }): Promise<CortexMemory[]> {
     const args = ["search", query, "--json"];
     if (opts?.limit) args.push("--limit", String(opts.limit));
     if (opts?.type) args.push("--type", opts.type);
     if (opts?.scope) args.push("--scope", opts.scope);
+    if (opts?.tags?.length) args.push("--tags", opts.tags.join(","));
 
     try {
       const out = await this.run(args);
@@ -253,14 +257,32 @@ const memoryCortexPlugin = {
           query: Type.String({ description: "What to search for" }),
           limit: Type.Optional(Type.Number({ description: "Max results (default: 10)" })),
           project: Type.Optional(Type.String({ description: "Filter by project" })),
+          type: Type.Optional(
+            Type.Unsafe<MemoryType>({
+              type: "string",
+              enum: ["rule", "fact", "episode", "procedure", "preference"],
+              description: "Filter by memory type",
+            }),
+          ),
+          scope: Type.Optional(
+            Type.Unsafe<MemoryScope>({
+              type: "string",
+              enum: ["permanent", "project", "session", "ttl"],
+              description: "Filter by memory scope",
+            }),
+          ),
+          tags: Type.Optional(Type.Array(Type.String(), { description: "Filter by tags" })),
         }),
         async execute(_toolCallId: string, params: Record<string, unknown>) {
           const query = params.query as string;
           const project = (params.project as string) || cfg.project;
           const limit = (params.limit as number | undefined) ?? 10;
           const budget = Math.min(limit, 50) * 200;
+          const type = params.type as string | undefined;
+          const scope = params.scope as string | undefined;
+          const tags = params.tags as string[] | undefined;
 
-          const results = await cortex.recall(query, { budget, project });
+          const results = await cortex.recall(query, { budget, project, type, scope, tags });
 
           if (results.length === 0) {
             return {
