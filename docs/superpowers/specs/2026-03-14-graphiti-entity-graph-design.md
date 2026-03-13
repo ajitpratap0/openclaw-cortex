@@ -39,7 +39,7 @@ Graphiti (by Zep) is a Python graph engine with excellent algorithms. However:
 | **Facts as first-class search units** with embedded fact text | `models.Fact` with `FactEmbedding` for semantic search over relationships, not just entities |
 | **Three-stage entity resolution** (hybrid candidate retrieval → deterministic fast-path → LLM fallback) | `EntityResolver` in `internal/graph/` using Neo4j fulltext + embedding similarity + Claude Haiku fallback |
 | **Edge contradiction detection** (invalidate, don't delete) | `FactResolver` extends existing `ConflictDetector` pattern to graph edges |
-| **Episode provenance** (MENTIONS edges trace facts to source episodes) | `DERIVED_FROM` relationship links facts to source memory IDs |
+| **Episode provenance** (MENTIONS edges trace facts to source episodes) | `source_memory_ids` property on `RELATES_TO` edges links facts to source memory IDs |
 | **Hybrid search with RRF fusion** (BM25 + cosine + BFS in parallel) | `GraphSearcher` runs Neo4j fulltext + vector similarity + 1-hop BFS, merges with RRF |
 | **Community detection** via label propagation + LLM summaries | Phase 3 (future) — label propagation + Claude Haiku community summaries |
 
@@ -132,6 +132,7 @@ type Entity struct {
     // ... existing fields (ID, Name, Type, Aliases, MemoryIDs, CreatedAt, UpdatedAt, Metadata)
 
     // NEW: adopted from Graphiti
+    Project       string    `json:"project,omitempty"`        // project scope (maps to Memory.Project)
     Summary       string    `json:"summary,omitempty"`        // LLM-generated evolving summary
     NameEmbedding []float32 `json:"name_embedding,omitempty"` // 768-dim for similarity search
     CommunityID   string    `json:"community_id,omitempty"`   // Phase 3: cluster membership
@@ -145,8 +146,8 @@ type Entity struct {
 - `Community` — entity clusters (Phase 3)
 
 **Relationship types:**
-- `RELATES_TO` — `(Entity)-[:RELATES_TO]->(Entity)` — entity-to-entity facts (carries all `Fact` fields as properties)
-- `DERIVED_FROM` — `(Entity)-[:RELATES_TO {uuid}]->(Entity)` edge has `source_memory_ids` property linking to Qdrant memory UUIDs. Additionally, a `DERIVED_FROM` relationship `(Entity)-[:DERIVED_FROM]->(Memory)` is created as a lightweight provenance pointer (Memory node is a stub with just `uuid` — actual memory data lives in Qdrant).
+- `RELATES_TO` — `(Entity)-[:RELATES_TO]->(Entity)` — entity-to-entity facts. Carries all `Fact` fields as relationship properties, including `source_memory_ids` (list of Qdrant memory UUIDs that contributed to this fact). This is the primary provenance mechanism.
+- `DERIVED_FROM` — Not used. Provenance is tracked via the `source_memory_ids` property on `RELATES_TO` edges, avoiding an extra relationship type. To find all facts derived from a memory, query: `MATCH ()-[r:RELATES_TO]->() WHERE $memoryID IN r.source_memory_ids RETURN r`.
 - `HAS_MEMBER` — `(Community)-[:HAS_MEMBER]->(Entity)` membership (Phase 3)
 
 **Indexes:**
@@ -219,7 +220,7 @@ type Client interface {
 
     // Entities
     UpsertEntity(ctx context.Context, entity models.Entity) error
-    SearchEntities(ctx context.Context, query string, embedding []float32, limit int) ([]EntityResult, error)
+    SearchEntities(ctx context.Context, query string, embedding []float32, project string, limit int) ([]EntityResult, error)
     GetEntity(ctx context.Context, id string) (*models.Entity, error)
 
     // Facts
@@ -230,8 +231,8 @@ type Client interface {
     GetFactsForEntity(ctx context.Context, entityID string) ([]models.Fact, error)
     AppendEpisode(ctx context.Context, factID, episodeID string) error
 
-    // Provenance
-    LinkFactToMemory(ctx context.Context, factID, memoryID string) error
+    // Provenance (via source_memory_ids on RELATES_TO edges)
+    AppendMemoryToFact(ctx context.Context, factID, memoryID string) error
     GetMemoryFacts(ctx context.Context, memoryID string) ([]models.Fact, error)
 
     // Recall integration
@@ -252,6 +253,22 @@ const (
     FactActionSkip                          // exact duplicate, append episode
     FactActionInvalidate                    // contradicts existing, invalidate old
 )
+
+type EntityResult struct {
+    ID    string  `json:"id"`
+    Name  string  `json:"name"`
+    Type  string  `json:"type"`
+    Score float64 `json:"score"` // relevance score from search
+}
+
+type FactResult struct {
+    ID              string   `json:"id"`
+    Fact            string   `json:"fact"`             // natural language fact text
+    SourceEntityID  string   `json:"source_entity_id"`
+    TargetEntityID  string   `json:"target_entity_id"`
+    SourceMemoryIDs []string `json:"source_memory_ids"`
+    Score           float64  `json:"score"` // RRF-merged relevance score
+}
 ```
 
 **`neo4j.go`** — `Neo4jClient` implementation using the official `neo4j-go-driver/v5` Bolt driver. Each write operation uses an auto-commit write transaction via `session.ExecuteWrite`; parallel graph search queries run in a single read session via `session.ExecuteRead`. Schema creation (`EnsureSchema`) uses schema transactions as required by Neo4j 5 for index creation.
