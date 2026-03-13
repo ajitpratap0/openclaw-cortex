@@ -42,6 +42,15 @@ individual tool calls will return MCP error responses on failure.`,
 			}
 
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
+
+			gc, gcErr := newGraphClient(cmd.Context(), logger)
+			if gcErr != nil {
+				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
+			} else if gc != nil {
+				defer func() { _ = gc.Close() }()
+				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetMs)
+			}
+
 			srv := cortexmcp.NewServer(st, emb, recaller, logger)
 
 			// Use a standard log.Logger pointing at stderr for the mcp-go error logger.
