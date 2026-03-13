@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ajitpratap0/openclaw-cortex/internal/api"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
@@ -98,9 +100,9 @@ func TestEntityGetEndpoint(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&entity); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if entity.Name != "Alice" {
-		t.Errorf("expected 'Alice', got %q", entity.Name)
-	}
+	assert.Equal(t, "Alice", entity.Name)
+	assert.Equal(t, models.EntityTypePerson, entity.Type)
+	assert.NotEmpty(t, entity.ID)
 }
 
 func TestEntityGetNotFound(t *testing.T) {

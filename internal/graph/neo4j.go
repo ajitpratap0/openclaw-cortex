@@ -400,8 +400,11 @@ func (c *Neo4jClient) GetFactsBetween(ctx context.Context, sourceID, targetID st
 	defer c.closeSession(ctx, session)
 
 	cypher := `
-		MATCH (s:Entity {uuid: $source_id})-[r:RELATES_TO]->(t:Entity {uuid: $target_id})
+		MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
 		WHERE r.expired_at IS NULL
+		  AND ((n.uuid = $source_id AND m.uuid = $target_id)
+		    OR (n.uuid = $target_id AND m.uuid = $source_id))
+		WITH r, startNode(r) AS s, endNode(r) AS t
 		RETURN r.uuid AS uuid, r.relation_type AS relation_type, r.fact AS fact,
 		       r.fact_embedding AS fact_embedding,
 		       r.created_at AS created_at, r.expired_at AS expired_at,
@@ -592,11 +595,12 @@ func (c *Neo4jClient) Close() error {
 
 // entityTypeLabel returns the Neo4j label for the entity type.
 // The label is title-cased to match Neo4j naming conventions.
+// Unknown types fall back to "Entity" to prevent Cypher injection.
 func entityTypeLabel(t models.EntityType) string {
-	s := string(t)
-	if s == "" {
+	if !t.IsValid() {
 		return "Entity"
 	}
+	s := string(t)
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 

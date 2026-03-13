@@ -92,10 +92,10 @@ func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, convers
 		return FactActionInsert, nil, nil
 	}
 
-	// Build the numbered list of existing facts for the prompt.
+	// Build the numbered list of existing facts for the prompt (1-based).
 	var sb strings.Builder
 	for i := range candidates {
-		fmt.Fprintf(&sb, "%d. %s\n", i, xmlutil.Escape(candidates[i].Fact))
+		fmt.Fprintf(&sb, "%d. %s\n", i+1, xmlutil.Escape(candidates[i].Fact))
 	}
 
 	prompt := fmt.Sprintf(factResolutionPromptTemplate, sb.String(), xmlutil.Escape(newFact.Fact))
@@ -141,13 +141,15 @@ func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, convers
 	}
 
 	// Contradictions take priority over duplicates.
+	// Indices are 1-based (matching the prompt numbering), so subtract 1.
 	if len(result.ContradictedIndices) > 0 {
 		ids := make([]string, 0, len(result.ContradictedIndices))
 		for i := range result.ContradictedIndices {
 			idx := result.ContradictedIndices[i]
-			if idx >= 0 && idx < len(candidates) {
-				ids = append(ids, candidates[idx].ID)
+			if idx < 1 || idx > len(candidates) {
+				continue
 			}
+			ids = append(ids, candidates[idx-1].ID)
 		}
 		if len(ids) > 0 {
 			return FactActionInvalidate, ids, nil
@@ -158,9 +160,10 @@ func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, convers
 		ids := make([]string, 0, len(result.DuplicateIndices))
 		for i := range result.DuplicateIndices {
 			idx := result.DuplicateIndices[i]
-			if idx >= 0 && idx < len(candidates) {
-				ids = append(ids, candidates[idx].ID)
+			if idx < 1 || idx > len(candidates) {
+				continue
 			}
+			ids = append(ids, candidates[idx-1].ID)
 		}
 		if len(ids) > 0 {
 			return FactActionSkip, ids, nil
