@@ -465,13 +465,13 @@ func TestLifecycle_ResolveConflicts(t *testing.T) {
 	m1 := models.Memory{
 		ID: "c1", Content: "Python is fast", Confidence: 0.9,
 		Type: models.MemoryTypeFact, Scope: models.ScopePermanent,
-		ConflictGroupID: "grp-1", ConflictStatus: "active",
+		ConflictGroupID: "grp-1", ConflictStatus: models.ConflictStatusActive,
 		CreatedAt: time.Now().Add(-48 * time.Hour),
 	}
 	m2 := models.Memory{
 		ID: "c2", Content: "Python is slow", Confidence: 0.7,
 		Type: models.MemoryTypeFact, Scope: models.ScopePermanent,
-		ConflictGroupID: "grp-1", ConflictStatus: "active",
+		ConflictGroupID: "grp-1", ConflictStatus: models.ConflictStatusActive,
 		CreatedAt: time.Now(),
 	}
 	require.NoError(t, st.Upsert(ctx, m1, make([]float32, 768)))
@@ -486,5 +486,5 @@ func TestLifecycle_ResolveConflicts(t *testing.T) {
 	// m2 (lower confidence) should now be "resolved".
 	loser, getErr := st.Get(ctx, "c2")
 	require.NoError(t, getErr)
-	assert.Equal(t, "resolved", loser.ConflictStatus)
+	assert.Equal(t, models.ConflictStatusResolved, loser.ConflictStatus)
 }

@@ -917,18 +917,18 @@ func TestMemory_ConflictFields_RoundTrip(t *testing.T) {
 		Scope:           models.ScopePermanent,
 		Confidence:      0.9,
 		ConflictGroupID: "group-xyz",
-		ConflictStatus:  "active",
+		ConflictStatus:  models.ConflictStatusActive,
 	}
 	require.NoError(t, st.Upsert(ctx, mem, make([]float32, 768)))
 	got, err := st.Get(ctx, "c1")
 	require.NoError(t, err)
 	assert.Equal(t, "group-xyz", got.ConflictGroupID)
-	assert.Equal(t, "active", got.ConflictStatus)
+	assert.Equal(t, models.ConflictStatusActive, got.ConflictStatus)
 
 	require.NoError(t, st.UpdateConflictFields(ctx, "c1", "group-xyz", "resolved"))
 	got, err = st.Get(ctx, "c1")
 	require.NoError(t, err)
-	assert.Equal(t, "resolved", got.ConflictStatus)
+	assert.Equal(t, models.ConflictStatusResolved, got.ConflictStatus)
 }
 
 func TestStore_UpdateReinforcement(t *testing.T) {

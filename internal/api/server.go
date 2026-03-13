@@ -214,7 +214,7 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ranked := s.recall.Rank(results, req.Project)
+	ranked := s.recall.Rank(results, req.Project, req.Message)
 
 	var contents []string
 	for i := range ranked {

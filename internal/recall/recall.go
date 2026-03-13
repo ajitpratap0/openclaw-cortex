@@ -15,18 +15,19 @@ const (
 	// maxBoostMultiplier is the maximum raw boost value — used to normalize to [0,1].
 	maxBoostMultiplier = 1.5
 
-	// Default ranking weights for multi-factor recall scoring.
-	defaultSimilarityWeight = 0.5
-	defaultRecencyWeight    = 0.2
-	defaultFrequencyWeight  = 0.1
-	defaultTypeBoostWeight  = 0.1
-	defaultScopeBoostWeight = 0.1
-
 	// recencyHalfLifeHours is the exponential decay half-life (7 days) for recency scoring.
 	recencyHalfLifeHours = 168.0
 
 	// ln2 is the natural log of 2, used in exponential decay calculations.
 	ln2 = 0.693
+
+	// SupersessionPenaltyFactor is the multiplicative penalty for memories that have
+	// been superseded by another memory present in the same result set.
+	SupersessionPenaltyFactor = 0.3
+
+	// ConflictPenaltyFactor is the multiplicative penalty for memories with an
+	// active (unresolved) conflict status.
+	ConflictPenaltyFactor = 0.8
 )
 
 // Weights controls the relative importance of each ranking factor.
@@ -35,17 +36,23 @@ type Weights struct {
 	Recency    float64 `json:"recency" mapstructure:"recency"`
 	Frequency  float64 `json:"frequency" mapstructure:"frequency"`
 	TypeBoost  float64 `json:"type_boost" mapstructure:"type_boost"`
-	ScopeBoost float64 `json:"scope_boost" mapstructure:"scope_boost"`
+	ScopeBoost    float64 `json:"scope_boost" mapstructure:"scope_boost"`
+	Confidence    float64 `json:"confidence" mapstructure:"confidence"`
+	Reinforcement float64 `json:"reinforcement" mapstructure:"reinforcement"`
+	TagAffinity   float64 `json:"tag_affinity" mapstructure:"tag_affinity"`
 }
 
 // DefaultWeights returns sensible default ranking weights.
 func DefaultWeights() Weights {
 	return Weights{
-		Similarity: defaultSimilarityWeight,
-		Recency:    defaultRecencyWeight,
-		Frequency:  defaultFrequencyWeight,
-		TypeBoost:  defaultTypeBoostWeight,
-		ScopeBoost: defaultScopeBoostWeight,
+		Similarity:    0.35,
+		Recency:       0.15,
+		Frequency:     0.10,
+		TypeBoost:     0.10,
+		ScopeBoost:    0.08,
+		Confidence:    0.10,
+		Reinforcement: 0.07,
+		TagAffinity:   0.05,
 	}
 }
 
@@ -60,13 +67,17 @@ func (w Weights) Validate() error {
 		{"frequency", w.Frequency},
 		{"type_boost", w.TypeBoost},
 		{"scope_boost", w.ScopeBoost},
+		{"confidence", w.Confidence},
+		{"reinforcement", w.Reinforcement},
+		{"tag_affinity", w.TagAffinity},
 	}
-	for _, f := range fields {
-		if f.value < 0 {
-			return fmt.Errorf("recall weight %q must be >= 0, got %f", f.name, f.value)
+	for i := range fields {
+		if fields[i].value < 0 {
+			return fmt.Errorf("recall weight %q must be >= 0, got %f", fields[i].name, fields[i].value)
 		}
 	}
-	sum := w.Similarity + w.Recency + w.Frequency + w.TypeBoost + w.ScopeBoost
+	sum := w.Similarity + w.Recency + w.Frequency + w.TypeBoost + w.ScopeBoost +
+		w.Confidence + w.Reinforcement + w.TagAffinity
 	const epsilon = 0.01
 	if sum < 1.0-epsilon || sum > 1.0+epsilon {
 		return fmt.Errorf("recall weights must sum to 1.0 (±%.2f), got %.4f", epsilon, sum)
@@ -104,26 +115,67 @@ func NewRecaller(weights Weights, logger *slog.Logger) *Recaller {
 
 // Rank re-ranks search results using multi-factor scoring.
 // All component scores are normalized to [0,1] before weighting.
-func (r *Recaller) Rank(results []models.SearchResult, project string) []models.RecallResult {
+func (r *Recaller) Rank(results []models.SearchResult, project string, query string) []models.RecallResult {
 	now := time.Now().UTC()
 	ranked := make([]models.RecallResult, 0, len(results))
 
+	// Build set of superseded IDs by scanning all results.
+	supersededIDs := make(map[string]struct{}, len(results))
+	for i := range results {
+		if results[i].Memory.SupersedesID != "" {
+			supersededIDs[results[i].Memory.SupersedesID] = struct{}{}
+		}
+	}
+
 	for i := range results {
 		sr := &results[i]
-		rr := models.RecallResult{
-			Memory:          sr.Memory,
-			SimilarityScore: sr.Score,
-			RecencyScore:    recencyScore(sr.Memory.LastAccessed, now),
-			FrequencyScore:  frequencyScore(sr.Memory.AccessCount),
-			TypeBoost:       typeBoostScore(sr.Memory.Type),
-			ScopeBoost:      scopeBoostScore(sr.Memory, project),
+
+		confScore := confidenceScore(&sr.Memory)
+		reinfScore := reinforcementScore(&sr.Memory)
+		tagScore := tagAffinityScore(&sr.Memory, query)
+
+		// Multiplicative penalties
+		supersessionPen := 1.0
+		if _, superseded := supersededIDs[sr.Memory.ID]; superseded {
+			supersessionPen = SupersessionPenaltyFactor
 		}
 
-		rr.FinalScore = r.weights.Similarity*rr.SimilarityScore +
-			r.weights.Recency*rr.RecencyScore +
-			r.weights.Frequency*rr.FrequencyScore +
-			r.weights.TypeBoost*rr.TypeBoost +
-			r.weights.ScopeBoost*rr.ScopeBoost
+		conflictPen := 1.0
+		if sr.Memory.ConflictStatus == models.ConflictStatusActive {
+			conflictPen = ConflictPenaltyFactor
+		}
+
+		simScore := sr.Score
+		recScore := recencyScore(sr.Memory.LastAccessed, now)
+		freqScore := frequencyScore(sr.Memory.AccessCount)
+		tBoost := typeBoostScore(sr.Memory.Type)
+		sBoost := scopeBoostScore(sr.Memory, project)
+
+		weightedSum := r.weights.Similarity*simScore +
+			r.weights.Recency*recScore +
+			r.weights.Frequency*freqScore +
+			r.weights.TypeBoost*tBoost +
+			r.weights.ScopeBoost*sBoost +
+			r.weights.Confidence*confScore +
+			r.weights.Reinforcement*reinfScore +
+			r.weights.TagAffinity*tagScore
+
+		finalScore := weightedSum * supersessionPen * conflictPen
+
+		rr := models.RecallResult{
+			Memory:              sr.Memory,
+			SimilarityScore:     simScore,
+			RecencyScore:        recScore,
+			FrequencyScore:      freqScore,
+			TypeBoost:           tBoost,
+			ScopeBoost:          sBoost,
+			ConfidenceScore:     confScore,
+			ReinforcementScore:  reinfScore,
+			TagAffinityScore:    tagScore,
+			SupersessionPenalty: supersessionPen,
+			ConflictPenalty:     conflictPen,
+			FinalScore:          finalScore,
+		}
 
 		ranked = append(ranked, rr)
 	}
@@ -196,13 +248,74 @@ func scopeBoostScore(mem models.Memory, project string) float64 {
 	return raw / maxBoostMultiplier
 }
 
+// confidenceScore returns the memory's confidence as a score.
+// Treats Confidence == 0 as "unknown" (legacy memories) and substitutes 0.7.
+func confidenceScore(mem *models.Memory) float64 {
+	if mem.Confidence < 0.01 {
+		return 0.7
+	}
+	return mem.Confidence
+}
+
+// reinforcementScore computes a log-scaled score from reinforcement count.
+// Saturates at ~32 reinforcements.
+func reinforcementScore(mem *models.Memory) float64 {
+	if mem.ReinforcedCount <= 0 {
+		return 0.0
+	}
+	score := math.Log2(float64(mem.ReinforcedCount)+1) / 5.0
+	if score > 1.0 {
+		return 1.0
+	}
+	return score
+}
+
+// tagAffinityScore computes the fraction of the memory's tags that match query words.
+// Returns 0 if the memory has no tags.
+func tagAffinityScore(mem *models.Memory, query string) float64 {
+	if len(mem.Tags) == 0 {
+		return 0.0
+	}
+
+	queryWords := make(map[string]struct{})
+	for _, w := range strings.Fields(strings.ToLower(query)) {
+		queryWords[w] = struct{}{}
+	}
+
+	matched := 0
+	for _, tag := range mem.Tags {
+		tagLower := strings.ToLower(tag)
+		tagWords := strings.Fields(tagLower)
+		if len(tagWords) <= 1 {
+			// Single-word tag: exact match
+			if _, ok := queryWords[tagLower]; ok {
+				matched++
+			}
+		} else {
+			// Multi-word tag: all words must appear in query
+			allFound := true
+			for _, tw := range tagWords {
+				if _, ok := queryWords[tw]; !ok {
+					allFound = false
+					break
+				}
+			}
+			if allFound {
+				matched++
+			}
+		}
+	}
+
+	return float64(matched) / float64(len(mem.Tags))
+}
+
 // FormatWithConflictAnnotations formats recall results with inline conflict annotations.
 // Memories in an active conflict group are annotated with the short IDs of conflicting peers.
 func FormatWithConflictAnnotations(results []models.RecallResult, budget int) string {
 	groupMembers := make(map[string][]string)
 	for i := range results {
 		g := results[i].Memory.ConflictGroupID
-		if g != "" && results[i].Memory.ConflictStatus == "active" {
+		if g != "" && results[i].Memory.ConflictStatus == models.ConflictStatusActive {
 			groupMembers[g] = append(groupMembers[g], results[i].Memory.ID)
 		}
 	}
@@ -211,7 +324,7 @@ func FormatWithConflictAnnotations(results []models.RecallResult, budget int) st
 	for i := range results {
 		mem := results[i].Memory
 		line := mem.Content
-		if mem.ConflictGroupID != "" && mem.ConflictStatus == "active" {
+		if mem.ConflictGroupID != "" && mem.ConflictStatus == models.ConflictStatusActive {
 			peers := groupMembers[mem.ConflictGroupID]
 			var others []string
 			for _, id := range peers {

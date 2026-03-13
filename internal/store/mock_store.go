@@ -396,7 +396,7 @@ func (m *MockStore) UpdateConflictFields(_ context.Context, id, groupID, status 
 		return ErrNotFound
 	}
 	sm.memory.ConflictGroupID = groupID
-	sm.memory.ConflictStatus = status
+	sm.memory.ConflictStatus = models.ConflictStatus(status)
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -110,7 +111,7 @@ func hookPreCmd() *cobra.Command {
 				project = filepath.Base(input.Cwd)
 			}
 
-			recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
+			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 			preTurnHook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
 			if cfg.Claude.APIKey != "" {
@@ -203,6 +204,11 @@ func hookPostCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
+			// WaitGroup ensures background goroutines finish before st.Close() runs.
+			// Defers are LIFO, so wg.Wait() (registered later) runs before st.Close().
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
 			// Use LastAssistantMessage (Claude Code Stop event field) falling back to
 			// the legacy AssistantMessage field for backward compatibility.
 			assistantMsg := input.LastAssistantMessage
@@ -255,7 +261,9 @@ func hookPostCmd() *cobra.Command {
 			// Spawn background pre-warm: re-rank for next pre-turn hook call.
 			if cfg.Claude.APIKey != "" && input.SessionID != "" {
 				postHomeDir, _ := os.UserHomeDir()
+				wg.Add(1)
 				go func() {
+					defer wg.Done()
 					prewarmCtx, prewarmCancel := context.WithTimeout(context.Background(),
 						time.Duration(cfg.Recall.RerankLatencyBudgetHooksMs*10)*time.Millisecond)
 					defer prewarmCancel()
@@ -267,8 +275,8 @@ func hookPostCmd() *cobra.Command {
 					if searchErr != nil {
 						return
 					}
-					prewarmRecaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-					ranked := prewarmRecaller.Rank(results, input.Project)
+					prewarmRecaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
+					ranked := prewarmRecaller.Rank(results, input.Project, userMsg)
 					reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
 					reranked, rerankErr := reasoner.ReRank(prewarmCtx, userMsg, ranked, 0)
 					if rerankErr != nil {

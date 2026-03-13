@@ -53,7 +53,7 @@ func TestRecaller_Rank(t *testing.T) {
 		},
 	}
 
-	ranked := r.Rank(results, "")
+	ranked := r.Rank(results, "", "")
 	require.Len(t, ranked, 3)
 
 	// Rule should be boosted due to type priority (1.5) and recency (1h ago)
@@ -93,7 +93,7 @@ func TestRecaller_RankWithProjectBoost(t *testing.T) {
 		},
 	}
 
-	ranked := r.Rank(results, "cortex")
+	ranked := r.Rank(results, "cortex", "")
 	require.Len(t, ranked, 2)
 
 	// Project-scoped memory should be boosted when project matches
@@ -131,7 +131,7 @@ func TestRecaller_RecencyDecay(t *testing.T) {
 				},
 			}
 
-			ranked := r.Rank(results, "")
+			ranked := r.Rank(results, "", "")
 			require.Len(t, ranked, 1)
 			assert.Greater(t, ranked[0].RecencyScore, tt.expectAbove)
 			assert.Less(t, ranked[0].RecencyScore, tt.expectBelow)
@@ -161,8 +161,8 @@ func TestRecaller_TypePriority(t *testing.T) {
 
 func TestFormatWithConflictAnnotations(t *testing.T) {
 	results := []models.RecallResult{
-		{Memory: models.Memory{ID: "aaa00000-0000-0000-0000-000000000001", Content: "Python is fast", ConflictGroupID: "g1", ConflictStatus: "active"}, FinalScore: 0.85},
-		{Memory: models.Memory{ID: "bbb00000-0000-0000-0000-000000000002", Content: "Python is slow", ConflictGroupID: "g1", ConflictStatus: "active"}, FinalScore: 0.70},
+		{Memory: models.Memory{ID: "aaa00000-0000-0000-0000-000000000001", Content: "Python is fast", ConflictGroupID: "g1", ConflictStatus: models.ConflictStatusActive}, FinalScore: 0.85},
+		{Memory: models.Memory{ID: "bbb00000-0000-0000-0000-000000000002", Content: "Python is slow", ConflictGroupID: "g1", ConflictStatus: models.ConflictStatusActive}, FinalScore: 0.70},
 		{Memory: models.Memory{ID: "ccc00000-0000-0000-0000-000000000003", Content: "Go is great"}, FinalScore: 0.60},
 	}
 	out := recall.FormatWithConflictAnnotations(results, 5000)

@@ -41,9 +41,22 @@ type Config struct {
 
 // RecallConfig holds re-ranking and latency budget settings for recall.
 type RecallConfig struct {
-	RerankScoreSpreadThreshold float64 `mapstructure:"rerank_score_spread_threshold"`
-	RerankLatencyBudgetHooksMs int     `mapstructure:"rerank_latency_budget_hooks_ms"`
-	RerankLatencyBudgetCLIMs   int     `mapstructure:"rerank_latency_budget_cli_ms"`
+	RerankScoreSpreadThreshold float64             `mapstructure:"rerank_score_spread_threshold"`
+	RerankLatencyBudgetHooksMs int                 `mapstructure:"rerank_latency_budget_hooks_ms"`
+	RerankLatencyBudgetCLIMs   int                 `mapstructure:"rerank_latency_budget_cli_ms"`
+	Weights                    RecallWeightsConfig `mapstructure:"weights"`
+}
+
+// RecallWeightsConfig holds the scoring weights for the recall ranking formula.
+type RecallWeightsConfig struct {
+	Similarity    float64 `mapstructure:"similarity"`
+	Recency       float64 `mapstructure:"recency"`
+	Frequency     float64 `mapstructure:"frequency"`
+	TypeBoost     float64 `mapstructure:"type_boost"`
+	ScopeBoost    float64 `mapstructure:"scope_boost"`
+	Confidence    float64 `mapstructure:"confidence"`
+	Reinforcement float64 `mapstructure:"reinforcement"`
+	TagAffinity   float64 `mapstructure:"tag_affinity"`
 }
 
 // APIConfig holds HTTP API server settings.
@@ -164,6 +177,15 @@ func Load() (*Config, error) {
 	v.SetDefault("recall.rerank_score_spread_threshold", 0.15)
 	v.SetDefault("recall.rerank_latency_budget_hooks_ms", 100)
 	v.SetDefault("recall.rerank_latency_budget_cli_ms", 3000)
+
+	v.SetDefault("recall.weights.similarity", 0.35)
+	v.SetDefault("recall.weights.recency", 0.15)
+	v.SetDefault("recall.weights.frequency", 0.10)
+	v.SetDefault("recall.weights.type_boost", 0.10)
+	v.SetDefault("recall.weights.scope_boost", 0.08)
+	v.SetDefault("recall.weights.confidence", 0.10)
+	v.SetDefault("recall.weights.reinforcement", 0.07)
+	v.SetDefault("recall.weights.tag_affinity", 0.05)
 
 	v.SetDefault("capture_quality.context_window_turns", 3)
 	v.SetDefault("capture_quality.reinforcement_threshold", 0.80)

@@ -76,11 +76,14 @@ cmd/cmd_lifecycle.go
 
 ### Recall Scoring (`internal/recall/recall.go`)
 
-Final score is a weighted sum:
+Final score is a weighted sum of 8 factors:
 ```
-0.5 × similarity + 0.2 × recency + 0.1 × frequency + 0.1 × typeBoost + 0.1 × scopeBoost
+0.35 × similarity + 0.15 × recency + 0.10 × frequency + 0.10 × typeBoost + 0.08 × scopeBoost + 0.10 × confidence + 0.07 × reinforcement + 0.05 × tagAffinity
 ```
+Multiplicative penalties are applied after the weighted sum: superseded memories ×0.3, active conflicts ×0.8.
+
 Type multipliers: rule=1.5, procedure=1.3, fact=1.0, episode=0.8, preference=0.7.
+Confidence treats values < 0.01 as "unknown" (legacy memories) and substitutes 0.7. Reinforcement uses log-scaled reinforcement count. Tag affinity measures query-word overlap with memory tags.
 Recency uses exponential decay with a 7-day half-life.
 
 ## Branch Workflow

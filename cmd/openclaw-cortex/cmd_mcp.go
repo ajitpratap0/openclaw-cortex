@@ -9,6 +9,7 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
 	cortexmcp "github.com/ajitpratap0/openclaw-cortex/internal/mcp"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
 
 func mcpCmd() *cobra.Command {
@@ -40,7 +41,8 @@ individual tool calls will return MCP error responses on failure.`,
 					"error", storeErr)
 			}
 
-			srv := cortexmcp.NewServer(st, emb, logger)
+			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
+			srv := cortexmcp.NewServer(st, emb, recaller, logger)
 
 			// Use a standard log.Logger pointing at stderr for the mcp-go error logger.
 			errLogger := log.New(os.Stderr, "mcp: ", log.LstdFlags)

@@ -24,7 +24,7 @@ func TestRecallRecencyScore_ZeroTime(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "")
+	ranked := r.Rank(results, "", "")
 	require.Len(t, ranked, 1)
 	// Zero last accessed should use a low default recency score (0.1)
 	assert.InDelta(t, 0.1, ranked[0].RecencyScore, 0.001)
@@ -44,7 +44,7 @@ func TestRecallRecencyScore_FutureTime(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "")
+	ranked := r.Rank(results, "", "")
 	require.Len(t, ranked, 1)
 	// Future time = 0 hours ago = recency score near 1.0
 	assert.InDelta(t, 1.0, ranked[0].RecencyScore, 0.01)
@@ -65,7 +65,7 @@ func TestRecallTypeBoostScore_UnknownType(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "")
+	ranked := r.Rank(results, "", "")
 	require.Len(t, ranked, 1)
 	// Unknown type should get default 1.0/1.5 boost
 	assert.InDelta(t, 1.0/1.5, ranked[0].TypeBoost, 0.001)
@@ -87,7 +87,7 @@ func TestRecallScopeBoostScore_NoProject(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "") // empty project
+	ranked := r.Rank(results, "", "") // empty project
 	require.Len(t, ranked, 1)
 	// When project is empty, raw = 1.0, normalized = 1.0/1.5
 	assert.InDelta(t, 1.0/1.5, ranked[0].ScopeBoost, 0.001)
@@ -109,7 +109,7 @@ func TestRecallScopeBoostScore_WrongProject(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "project-b") // different project
+	ranked := r.Rank(results, "project-b", "") // different project
 	require.Len(t, ranked, 1)
 	// Wrong project: raw = 0.8, normalized = 0.8/1.5
 	assert.InDelta(t, 0.8/1.5, ranked[0].ScopeBoost, 0.001)
@@ -130,7 +130,7 @@ func TestRecallScopeBoostScore_PermanentWithProject(t *testing.T) {
 		}, Score: 0.8},
 	}
 
-	ranked := r.Rank(results, "any-project")
+	ranked := r.Rank(results, "any-project", "")
 	require.Len(t, ranked, 1)
 	// Permanent scope: raw = 1.0, normalized = 1.0/1.5
 	assert.InDelta(t, 1.0/1.5, ranked[0].ScopeBoost, 0.001)
@@ -138,11 +138,14 @@ func TestRecallScopeBoostScore_PermanentWithProject(t *testing.T) {
 
 func TestRecallWeightsValidate_AllZero(t *testing.T) {
 	w := recall.Weights{
-		Similarity: 0,
-		Recency:    0,
-		Frequency:  0,
-		TypeBoost:  0,
-		ScopeBoost: 0,
+		Similarity:    0,
+		Recency:       0,
+		Frequency:     0,
+		TypeBoost:     0,
+		ScopeBoost:    0,
+		Confidence:    0,
+		Reinforcement: 0,
+		TagAffinity:   0,
 	}
 	err := w.Validate()
 	assert.Error(t, err)
@@ -151,11 +154,14 @@ func TestRecallWeightsValidate_AllZero(t *testing.T) {
 
 func TestRecallWeightsValidate_NegativeWeight(t *testing.T) {
 	w := recall.Weights{
-		Similarity: -0.5,
-		Recency:    0.5,
-		Frequency:  0.3,
-		TypeBoost:  0.4,
-		ScopeBoost: 0.3,
+		Similarity:    -0.5,
+		Recency:       0.5,
+		Frequency:     0.3,
+		TypeBoost:     0.2,
+		ScopeBoost:    0.1,
+		Confidence:    0.1,
+		Reinforcement: 0.1,
+		TagAffinity:   0.2,
 	}
 	err := w.Validate()
 	assert.Error(t, err)
@@ -179,7 +185,7 @@ func TestRecallRankSortOrder(t *testing.T) {
 		}, Score: 0.6},
 	}
 
-	ranked := r.Rank(results, "")
+	ranked := r.Rank(results, "", "")
 	require.Len(t, ranked, 3)
 
 	// Verify strict descending order
