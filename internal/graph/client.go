@@ -1,0 +1,58 @@
+package graph
+
+import (
+	"context"
+	"time"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+)
+
+// Client defines the interface for graph storage operations.
+// Resolution logic lives in EntityResolver and FactResolver (separate types),
+// matching the pattern where ConflictDetector is separate from Store.
+type Client interface {
+	// EnsureSchema creates indexes and constraints if they don't exist.
+	EnsureSchema(ctx context.Context) error
+
+	// UpsertEntity creates or updates an entity node.
+	UpsertEntity(ctx context.Context, entity models.Entity) error
+
+	// SearchEntities finds entities by fulltext + embedding similarity.
+	SearchEntities(ctx context.Context, query string, embedding []float32, project string, limit int) ([]EntityResult, error)
+
+	// GetEntity retrieves a single entity by ID.
+	GetEntity(ctx context.Context, id string) (*models.Entity, error)
+
+	// UpsertFact creates a RELATES_TO edge between two entities.
+	UpsertFact(ctx context.Context, fact models.Fact) error
+
+	// SearchFacts finds facts by hybrid search (BM25 + cosine + BFS).
+	SearchFacts(ctx context.Context, query string, embedding []float32, limit int) ([]FactResult, error)
+
+	// InvalidateFact sets ExpiredAt and InvalidAt on a fact (never deletes).
+	InvalidateFact(ctx context.Context, id string, expiredAt, invalidAt time.Time) error
+
+	// GetFactsBetween returns all active facts between two entities.
+	GetFactsBetween(ctx context.Context, sourceID, targetID string) ([]models.Fact, error)
+
+	// GetFactsForEntity returns all active facts involving an entity.
+	GetFactsForEntity(ctx context.Context, entityID string) ([]models.Fact, error)
+
+	// AppendEpisode adds an episode/session ID to a fact's episodes list.
+	AppendEpisode(ctx context.Context, factID, episodeID string) error
+
+	// AppendMemoryToFact adds a memory ID to a fact's source_memory_ids.
+	AppendMemoryToFact(ctx context.Context, factID, memoryID string) error
+
+	// GetMemoryFacts returns all facts derived from a given memory.
+	GetMemoryFacts(ctx context.Context, memoryID string) ([]models.Fact, error)
+
+	// RecallByGraph returns memory IDs relevant to a query via graph traversal.
+	RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error)
+
+	// Healthy returns true if the graph database is reachable.
+	Healthy(ctx context.Context) bool
+
+	// Close releases resources.
+	Close() error
+}
