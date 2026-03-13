@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,9 +12,11 @@ import (
 
 func searchCmd() *cobra.Command {
 	var (
-		memType string
-		limit   uint64
-		project string
+		memType  string
+		memScope string
+		limit    uint64
+		project  string
+		jsonFlag bool
 	)
 
 	cmd := &cobra.Command{
@@ -38,11 +41,21 @@ func searchCmd() *cobra.Command {
 			}
 
 			var filters *store.SearchFilters
-			if memType != "" || project != "" {
+			if memType != "" || memScope != "" || project != "" {
 				filters = &store.SearchFilters{}
 				if memType != "" {
 					mt := models.MemoryType(memType)
+					if !mt.IsValid() {
+						return fmt.Errorf("search: invalid type %q (want: rule|fact|episode|procedure|preference)", memType)
+					}
 					filters.Type = &mt
+				}
+				if memScope != "" {
+					ms := models.MemoryScope(memScope)
+					if !ms.IsValid() {
+						return fmt.Errorf("search: invalid scope %q (want: permanent|project|session|ttl)", memScope)
+					}
+					filters.Scope = &ms
 				}
 				if project != "" {
 					filters.Project = &project
@@ -52,6 +65,18 @@ func searchCmd() *cobra.Command {
 			results, err := st.Search(ctx, vec, limit, filters)
 			if err != nil {
 				return fmt.Errorf("search: querying store: %w", err)
+			}
+
+			if jsonFlag {
+				if results == nil {
+					results = []models.SearchResult{}
+				}
+				out, marshalErr := json.MarshalIndent(results, "", "  ")
+				if marshalErr != nil {
+					return fmt.Errorf("search: marshaling results: %w", marshalErr)
+				}
+				fmt.Println(string(out))
+				return nil
 			}
 
 			for i := range results {
@@ -69,7 +94,9 @@ func searchCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
+	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
 	cmd.Flags().Uint64Var(&limit, "limit", 10, "max results")
 	cmd.Flags().StringVar(&project, "project", "", "filter by project")
+	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output results as JSON")
 	return cmd
 }

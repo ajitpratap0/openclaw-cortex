@@ -1,0 +1,18 @@
+{
+  "name": "memory-cortex",
+  "version": "0.1.0",
+  "description": "OpenClaw memory plugin backed by Cortex (Qdrant vector DB + multi-factor ranking)",
+  "type": "module",
+  "main": "index.ts",
+  "keywords": ["openclaw", "plugin", "memory", "cortex", "qdrant"],
+  "license": "MIT",
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "devDependencies": {
+    "openclaw": "*"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}
