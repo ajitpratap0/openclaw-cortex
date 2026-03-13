@@ -152,7 +152,7 @@ class CortexClient {
 
   async stats(): Promise<string> {
     try {
-      return await this.run(["stats"]);
+      return await this.run(["stats", "--json"]);
     } catch (err) {
       return `Error: ${String(err)}`;
     }
@@ -385,7 +385,9 @@ const memoryCortexPlugin = {
       {
         name: "memory_stats",
         label: "Cortex Stats",
-        description: "Show memory collection statistics (counts by type and scope).",
+        description:
+          "Show memory collection statistics including health metrics: counts by type/scope, " +
+          "temporal range, top accessed, reinforcement tiers, active conflicts, pending TTL, storage estimate.",
         parameters: Type.Object({}),
         async execute() {
           const stats = await cortex.stats();

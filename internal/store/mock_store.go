@@ -250,15 +250,92 @@ func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 	defer m.mu.RUnlock()
 
 	stats := &models.CollectionStats{
-		TotalMemories: int64(len(m.memories)),
-		ByType:        make(map[string]int64),
-		ByScope:       make(map[string]int64),
+		TotalMemories:      int64(len(m.memories)),
+		ByType:             make(map[string]int64),
+		ByScope:            make(map[string]int64),
+		ReinforcementTiers: make(map[string]int64),
 	}
 
-	for _, sm := range m.memories {
-		stats.ByType[string(sm.memory.Type)]++
-		stats.ByScope[string(sm.memory.Scope)]++
+	now := time.Now().UTC()
+	ttlDeadline := now.Add(24 * time.Hour)
+
+	// Collect all memories sorted by access_count for top-accessed.
+	type idxMem struct {
+		id  string
+		mem models.Memory
 	}
+	all := make([]idxMem, 0, len(m.memories))
+
+	for id, sm := range m.memories {
+		mem := sm.memory
+		stats.ByType[string(mem.Type)]++
+		stats.ByScope[string(mem.Scope)]++
+
+		// Temporal range
+		if !mem.CreatedAt.IsZero() {
+			if stats.OldestMemory == nil || mem.CreatedAt.Before(*stats.OldestMemory) {
+				t := mem.CreatedAt
+				stats.OldestMemory = &t
+			}
+			if stats.NewestMemory == nil || mem.CreatedAt.After(*stats.NewestMemory) {
+				t := mem.CreatedAt
+				stats.NewestMemory = &t
+			}
+		}
+
+		// Reinforcement tiers
+		rc := mem.ReinforcedCount
+		switch {
+		case rc == 0:
+			stats.ReinforcementTiers["0"]++
+		case rc >= 1 && rc <= 3:
+			stats.ReinforcementTiers["1-3"]++
+		case rc >= 4 && rc <= 10:
+			stats.ReinforcementTiers["4-10"]++
+		default:
+			stats.ReinforcementTiers["10+"]++
+		}
+
+		// Active conflicts
+		if mem.ConflictStatus == "active" {
+			stats.ActiveConflicts++
+		}
+
+		// Pending TTL expiry
+		if mem.Scope == models.ScopeTTL && !mem.ValidUntil.IsZero() && mem.ValidUntil.Before(ttlDeadline) {
+			stats.PendingTTLExpiry++
+		}
+
+		all = append(all, idxMem{id: id, mem: mem})
+	}
+
+	// Sort by access_count descending (bubble sort, fine for mock)
+	for i := 0; i < len(all); i++ {
+		for j := i + 1; j < len(all); j++ {
+			if all[j].mem.AccessCount > all[i].mem.AccessCount {
+				all[i], all[j] = all[j], all[i]
+			}
+		}
+	}
+
+	limit := 5
+	if len(all) < limit {
+		limit = len(all)
+	}
+	for i := 0; i < limit; i++ {
+		content := all[i].mem.Content
+		if len(content) > 80 {
+			content = content[:80]
+		}
+		stats.TopAccessed = append(stats.TopAccessed, models.MemoryPreview{
+			ID:          all[i].id,
+			Content:     content,
+			AccessCount: all[i].mem.AccessCount,
+		})
+	}
+
+	// Storage estimate: points * 768 dimensions * 4 bytes per float32
+	stats.StorageEstimate = stats.TotalMemories * 768 * 4
 
 	return stats, nil
 }
