@@ -103,10 +103,10 @@ const graphDefaultSimilarity = 0.5
 
 // Recaller performs multi-factor ranking of search results.
 type Recaller struct {
-	weights      Weights
-	logger       *slog.Logger
-	graphClient  graph.Client
-	store        store.Store
+	weights       Weights
+	logger        *slog.Logger
+	graphClient   graph.Client
+	store         store.Store
 	graphBudgetMs int
 }
 

@@ -269,16 +269,16 @@ func (c *Neo4jClient) UpsertFact(ctx context.Context, fact models.Fact) error {
 	`
 
 	params := map[string]any{
-		"uuid":             fact.ID,
-		"source_id":        fact.SourceEntityID,
-		"target_id":        fact.TargetEntityID,
-		"relation_type":    fact.RelationType,
-		"fact":             fact.Fact,
-		"fact_embedding":   fact.FactEmbedding,
-		"created_at":       fact.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"uuid":              fact.ID,
+		"source_id":         fact.SourceEntityID,
+		"target_id":         fact.TargetEntityID,
+		"relation_type":     fact.RelationType,
+		"fact":              fact.Fact,
+		"fact_embedding":    fact.FactEmbedding,
+		"created_at":        fact.CreatedAt.UTC().Format(time.RFC3339Nano),
 		"source_memory_ids": fact.SourceMemoryIDs,
-		"episodes":         fact.Episodes,
-		"confidence":       fact.Confidence,
+		"episodes":          fact.Episodes,
+		"confidence":        fact.Confidence,
 	}
 
 	// Bi-temporal nullable fields
