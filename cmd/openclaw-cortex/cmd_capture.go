@@ -69,6 +69,7 @@ func captureCmd() *cobra.Command {
 			logger.Info("extracted memories", "count", len(memories))
 
 			stored := 0
+			storedIDs := make([]string, 0, len(memories))
 			for _, cm := range memories {
 				// Classify if not already typed
 				if cm.Type == "" {
@@ -111,7 +112,33 @@ func captureCmd() *cobra.Command {
 					continue
 				}
 				stored++
+				storedIDs = append(storedIDs, mem.ID)
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
+			}
+
+			// Entity extraction (graceful — skipped if no API key or on error)
+			if cfg.Claude.APIKey != "" {
+				extractor := capture.NewEntityExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				for i := range storedIDs {
+					// Use index to get corresponding memory content
+					if i >= len(memories) {
+						break
+					}
+					entities, extractErr := extractor.Extract(ctx, memories[i].Content)
+					if extractErr != nil {
+						logger.Warn("entity extraction failed, skipping", "error", extractErr)
+						continue
+					}
+					for j := range entities {
+						if upsertErr := st.UpsertEntity(ctx, entities[j]); upsertErr != nil {
+							logger.Warn("upsert entity failed", "entity", entities[j].Name, "error", upsertErr)
+							continue
+						}
+						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedIDs[i]); linkErr != nil {
+							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
+						}
+					}
+				}
 			}
 
 			fmt.Printf("Captured %d memories from conversation\n", stored)
