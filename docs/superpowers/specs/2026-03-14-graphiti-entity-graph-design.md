@@ -1,62 +1,182 @@
-# Graphiti Entity-Relationship Graph Integration
+# Native Entity-Relationship Graph Integration
 
 > **Issue:** #43
 > **Status:** Design approved, pending implementation
 > **Date:** 2026-03-14
+> **Supersedes:** Earlier Graphiti-based design (rejected: OpenAI dependency conflicts with Claude/Anthropic ecosystem)
 
 ## Goal
 
-Add graph-based entity traversal to openclaw-cortex as an optional sidecar, enabling relationship-aware recall alongside existing vector search. Delivered in two phases: first wire the existing orphaned entity system into the capture pipeline, then layer Graphiti (by Zep) on top for full graph intelligence.
+Add a native entity-relationship graph layer to openclaw-cortex using Neo4j and Claude Haiku, enabling relationship-aware recall alongside existing vector search. The design adopts key innovations from Graphiti (by Zep) — bi-temporal facts, three-stage entity resolution, hybrid search with RRF fusion — but replaces Graphiti's OpenAI dependency with Claude Haiku to stay within the OpenClaw ecosystem.
 
 ## Background
 
-openclaw-cortex already has entity infrastructure that was built in v0.2.0 but never wired into the capture pipeline:
+### Existing Entity Infrastructure (orphaned)
 
-- `internal/capture/entity_extractor.go` — `EntityExtractor` that uses Claude Haiku to extract entities from conversation text
+openclaw-cortex has entity infrastructure built in v0.2.0 but never wired into the capture pipeline:
+
+- `internal/capture/entity_extractor.go` — `EntityExtractor` using Claude Haiku to extract entities from conversation text
 - `internal/models/entity.go` — `Entity` model with 5 types (person, project, system, decision, concept), aliases, metadata, memory ID links
-- `internal/store/store.go` — Store interface with `UpsertEntity`, `GetEntity`, `SearchEntities`, `LinkMemoryToEntity` methods
+- `internal/store/store.go` — Store interface with `UpsertEntity`, `GetEntity`, `SearchEntities`, `LinkMemoryToEntity`
 - `internal/store/qdrant.go` / `mock_store.go` — Both implement entity store methods
 
-This code compiles and is tested in isolation, but `capture.go` never calls `EntityExtractor`. Phase 1 completes this pipeline. Phase 2 adds Graphiti for relationship-aware graph queries.
+This code compiles and is tested in isolation, but `capture.go` never calls `EntityExtractor`.
 
-## Architecture
+### Why Not Graphiti
+
+Graphiti (by Zep) is a Python graph engine with excellent algorithms. However:
+
+1. **Hard OpenAI dependency** — Graphiti uses OpenAI for entity extraction, relationship extraction, entity resolution, and community summarization. openclaw-cortex is built on Claude/Anthropic end-to-end.
+2. **Redundant extraction** — We already have `EntityExtractor` and `ConflictDetector` using Claude Haiku. Graphiti would duplicate this with a different LLM.
+3. **Double LLM cost** — Paying both Anthropic (capture) and OpenAI (Graphiti) for overlapping work.
+4. **Opaque sidecar** — An extra container between us and Neo4j that we don't control.
+
+### What We Adopt From Graphiti
+
+| Graphiti Innovation | Our Adaptation |
+|---|---|
+| **Bi-temporal model** on edges (`created_at`/`expired_at` system time + `valid_at`/`invalid_at` world time) | `models.Fact` with four timestamp fields. Maps to our existing conflict engine pattern. |
+| **Facts as first-class search units** with embedded fact text | `models.Fact` with `FactEmbedding` for semantic search over relationships, not just entities |
+| **Three-stage entity resolution** (hybrid candidate retrieval → deterministic fast-path → LLM fallback) | `EntityResolver` in `internal/graph/` using Neo4j fulltext + embedding similarity + Claude Haiku fallback |
+| **Edge contradiction detection** (invalidate, don't delete) | `FactResolver` extends existing `ConflictDetector` pattern to graph edges |
+| **Episode provenance** (MENTIONS edges trace facts to source episodes) | `DERIVED_FROM` relationship links facts to source memory IDs |
+| **Hybrid search with RRF fusion** (BM25 + cosine + BFS in parallel) | `GraphSearcher` runs Neo4j fulltext + vector similarity + 1-hop BFS, merges with RRF |
+| **Community detection** via label propagation + LLM summaries | Phase 3 (future) — label propagation + Claude Haiku community summaries |
+
+## Architecture Overview
 
 ```
-Capture Flow (Phase 1):
-  capture.Capturer.Extract()
-    → store.Upsert(memory)
-    → EntityExtractor.Extract(content)        # NEW: wired in
-    → store.UpsertEntity(entity)              # NEW: wired in
-    → store.LinkMemoryToEntity(memID, entID)  # NEW: wired in
+┌────────────────────────────────────────────────────────────┐
+│                    Capture Pipeline                          │
+│                                                              │
+│  Capturer.Extract() → memories                               │
+│       │                                                      │
+│       ├──→ store.Upsert(memory)              [Qdrant]        │
+│       │                                                      │
+│       ├──→ EntityExtractor.Extract(content)   [Claude Haiku]  │
+│       │       │                                              │
+│       │       ├──→ EntityResolver.Resolve()    [Neo4j + Haiku]│
+│       │       │       (3-stage: fulltext → similarity → LLM) │
+│       │       │                                              │
+│       │       └──→ graph.UpsertEntity()        [Neo4j]        │
+│       │                                                      │
+│       ├──→ FactExtractor.Extract(content, entities) [Haiku]  │
+│       │       │                                              │
+│       │       ├──→ FactResolver.Resolve()      [Neo4j + Haiku]│
+│       │       │       (dedup + contradiction detection)      │
+│       │       │                                              │
+│       │       └──→ graph.UpsertFact()          [Neo4j]        │
+│       │                                                      │
+│       └──→ graph.LinkMemoryToEntities()        [Neo4j]        │
+│                                                              │
+└────────────────────────────────────────────────────────────┘
 
-Capture Flow (Phase 2, graphiti.enabled=true):
-  capture.Capturer.Extract()
-    → store.Upsert(memory)
-    → graph.Client.AddEpisode(content, entities)  # Graphiti handles extraction
-    → (EntityExtractor skipped — Graphiti owns entity extraction)
-
-Capture Flow (Phase 2, graphiti.enabled=false):
-  → Same as Phase 1 (EntityExtractor fallback)
-
-Recall Flow (Phase 2):
-  recall.Recaller.Recall(query)
-    1. embedder.Embed(query)
-    2. store.Search(vector, top-50)           # Qdrant vector search
-    3. graph.Client.SearchEntities(query)     # Graphiti entity lookup (with latency budget)
-    4. Merge results, dedup by memory ID
-    5. recaller.Rank(merged candidates)       # Full 8-factor scoring
-    6. tokenizer.FormatMemoriesWithBudget()
+┌────────────────────────────────────────────────────────────┐
+│                     Recall Pipeline                          │
+│                                                              │
+│  1. embedder.Embed(query)                                    │
+│  2. store.Search(vector, top-50)          [Qdrant]           │
+│  3. graph.SearchFacts(query, budget)      [Neo4j hybrid]     │
+│       ├── BM25 fulltext on fact text                         │
+│       ├── Cosine similarity on fact embedding                │
+│       └── 1-hop BFS from matched entities                    │
+│  4. RRF merge graph results → memory IDs                     │
+│  5. Fetch graph-sourced memories via store.Get()              │
+│  6. Dedup by memory ID (Qdrant results take priority)        │
+│  7. recaller.Rank(merged candidates)      [8-factor scoring] │
+│  8. tokenizer.FormatMemoriesWithBudget()                     │
+│                                                              │
+└────────────────────────────────────────────────────────────┘
 ```
+
+## Data Model
+
+### `models.Fact` (NEW — inspired by Graphiti's EntityEdge)
+
+A fact is a relationship between two entities with bi-temporal validity:
+
+```go
+type Fact struct {
+    ID              string     `json:"id"`               // UUID
+    SourceEntityID  string     `json:"source_entity_id"` // source entity UUID
+    TargetEntityID  string     `json:"target_entity_id"` // target entity UUID
+    RelationType    string     `json:"relation_type"`    // SCREAMING_SNAKE_CASE, e.g. "WORKS_AT"
+    Fact            string     `json:"fact"`             // natural language, e.g. "Alice works at Acme Corp"
+    FactEmbedding   []float32  `json:"fact_embedding"`   // 768-dim nomic-embed-text
+
+    // Bi-temporal fields (adopted from Graphiti)
+    CreatedAt       time.Time  `json:"created_at"`        // system time: when we first recorded this
+    ExpiredAt       *time.Time `json:"expired_at"`        // system time: when we marked this superseded
+    ValidAt         *time.Time `json:"valid_at"`          // world time: when this became true
+    InvalidAt       *time.Time `json:"invalid_at"`        // world time: when this stopped being true
+
+    // Provenance
+    SourceMemoryIDs []string   `json:"source_memory_ids"` // memories this fact was derived from
+    Episodes        []string   `json:"episodes"`          // episode/session IDs where observed
+    Confidence      float64    `json:"confidence"`        // 0.0-1.0, boosted on re-observation
+}
+```
+
+**Bi-temporal semantics** (from Graphiti): Every fact tracks two independent time axes:
+- **System time** (`CreatedAt` / `ExpiredAt`): When did our system learn/invalidate this fact?
+- **World time** (`ValidAt` / `InvalidAt`): When was this actually true in the real world?
+
+When a new fact contradicts an old one, the old fact gets `ExpiredAt` and `InvalidAt` set but is **never deleted** — preserving full history for point-in-time queries.
+
+### `models.Entity` (EXTENDED)
+
+Add to the existing `Entity` struct:
+
+```go
+type Entity struct {
+    // ... existing fields (ID, Name, Type, Aliases, MemoryIDs, CreatedAt, UpdatedAt, Metadata)
+
+    // NEW: adopted from Graphiti
+    Summary       string    `json:"summary,omitempty"`        // LLM-generated evolving summary
+    NameEmbedding []float32 `json:"name_embedding,omitempty"` // 768-dim for similarity search
+    CommunityID   string    `json:"community_id,omitempty"`   // Phase 3: cluster membership
+}
+```
+
+### Neo4j Schema
+
+**Node labels:**
+- `Entity` — all entity nodes (plus dynamic type labels: `Person`, `Project`, `System`, `Decision`, `Concept`)
+- `Community` — entity clusters (Phase 3)
+
+**Relationship types:**
+- `RELATES_TO` — entity-to-entity facts (carries all `Fact` fields as properties)
+- `DERIVED_FROM` — fact-to-memory provenance (links fact UUID to memory UUID)
+- `HAS_MEMBER` — community-to-entity membership (Phase 3)
+
+**Indexes:**
+
+| Index Type | Target | Fields | Purpose |
+|---|---|---|---|
+| Range | Entity | `uuid` | Lookup by ID |
+| Range | Entity | `group_id` | Project/tenant isolation |
+| Range | RELATES_TO | `uuid` | Lookup by ID |
+| Range | RELATES_TO | `created_at`, `expired_at`, `valid_at`, `invalid_at` | Temporal queries |
+| Fulltext | Entity | `name`, `summary` | BM25 entity search |
+| Fulltext | RELATES_TO | `relation_type`, `fact` | BM25 fact search |
+
+Vector similarity is computed at query time using stored embeddings (same approach as Graphiti — no declarative vector index needed for Neo4j).
 
 ## Phase 1: Complete Entity Pipeline
 
-### Changes to `internal/capture/capture.go`
+Wire the existing `EntityExtractor` into the capture flow and expose entities via API/MCP.
 
-After `store.Upsert(memory)` succeeds, call `EntityExtractor.Extract(content)` to get entities, then `store.UpsertEntity()` and `store.LinkMemoryToEntity()` for each. Entity extraction failures are logged and skipped — the memory is stored regardless.
+### Capture Orchestration
 
-The orchestration happens in the callers (`cmd/cmd_capture.go`, API handler), not inside `ClaudeCapturer`. `Capturer` is an interface — its `Extract()` method returns memories. The caller then optionally runs `EntityExtractor.Extract()` and calls `store.UpsertEntity()` / `store.LinkMemoryToEntity()` for each entity. This keeps `Capturer` focused on memory extraction and avoids coupling it to the entity store.
+The orchestration happens in callers (`cmd/cmd_capture.go`, API handler), not inside `ClaudeCapturer`. `Capturer` is an interface — its `Extract()` method returns memories. The caller then optionally runs:
 
-The CLI `capture` command and API endpoint wire in entity extraction. Hook callers skip it (latency-sensitive).
+1. `EntityExtractor.Extract(content)` → list of entities
+2. `store.UpsertEntity(entity)` for each
+3. `store.LinkMemoryToEntity(memoryID, entityID)` for each
+
+Entity extraction failures are logged and skipped. The memory is stored regardless.
+
+Hook callers skip entity extraction (latency-sensitive). CLI `capture` and API endpoint wire it in.
 
 ### API Endpoints
 
@@ -67,9 +187,7 @@ Add to `internal/api/server.go`:
 | `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100; enforced by handler — `store.SearchEntities` returns all matches, handler truncates) |
 | `GET` | `/v1/entities/{id}` | Get entity by ID |
 
-Entity creation happens implicitly through capture — no standalone create endpoint needed.
-
-**Phase 1 limitation:** `store.SearchEntities()` uses name-substring matching, not semantic/vector search. Entity search quality is limited to exact or partial name matches. Phase 2 (Graphiti) provides full semantic entity search via its graph-native query engine.
+**Phase 1 limitation:** `store.SearchEntities()` uses name-substring matching, not semantic search. Phase 2 adds full hybrid search via Neo4j.
 
 ### MCP Tools
 
@@ -80,120 +198,271 @@ Add to `internal/mcp/server.go`:
 | `entity_search` | `query`, `type` (optional), `limit` (optional) | Search entities by name/alias |
 | `entity_get` | `id` | Get entity details + linked memories |
 
-## Phase 2: Graphiti Integration
+## Phase 2: Native Graph Layer
 
 ### New Package: `internal/graph/`
 
-**`client.go`** — Interface and types only:
+**`client.go`** — Interface and types:
 
 ```go
+// Client defines the interface for graph operations.
+// All methods accept ctx for timeout/cancellation.
 type Client interface {
-    AddEpisode(ctx context.Context, content string, sessionID string) error
-    SearchEntities(ctx context.Context, query string, limit int) ([]EntityResult, error)
-    GetEntityMemories(ctx context.Context, entityID string) ([]string, error) // returns memory IDs
-    DeleteEpisode(ctx context.Context, sessionID string) error
+    // Schema
+    EnsureSchema(ctx context.Context) error
+
+    // Entities
+    UpsertEntity(ctx context.Context, entity models.Entity) error
+    ResolveEntity(ctx context.Context, extracted models.Entity, candidates []models.Entity) (resolvedID string, isNew bool, err error)
+    SearchEntities(ctx context.Context, query string, embedding []float32, limit int) ([]EntityResult, error)
+    GetEntity(ctx context.Context, id string) (*models.Entity, error)
+
+    // Facts
+    UpsertFact(ctx context.Context, fact models.Fact) error
+    ResolveFact(ctx context.Context, newFact models.Fact, existingFacts []models.Fact) (action FactAction, err error)
+    SearchFacts(ctx context.Context, query string, embedding []float32, limit int) ([]FactResult, error)
+    InvalidateFact(ctx context.Context, id string, expiredAt, invalidAt time.Time) error
+
+    // Provenance
+    LinkFactToMemory(ctx context.Context, factID, memoryID string) error
+    GetMemoryFacts(ctx context.Context, memoryID string) ([]models.Fact, error)
+
+    // Recall integration
+    RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error) // returns memory IDs
+
+    // Health
     Healthy(ctx context.Context) bool
+    Close() error
 }
 
-type EntityResult struct {
-    Name     string
-    Type     string
-    MemoryIDs []string
-    Score    float64
-}
+type FactAction int
+const (
+    FactActionInsert      FactAction = iota // new fact, no duplicates
+    FactActionSkip                          // exact duplicate, append episode
+    FactActionInvalidate                    // contradicts existing, invalidate old
+)
 ```
 
-**`graphiti.go`** — `GraphitiClient` implements `Client` via Graphiti's REST API:
-
-- `POST /v1/episodes` for write path
-- `POST /v1/search` for entity search
-- `DELETE /v1/episodes/{id}` for cleanup
-- `GET /v1/health` for health checks
-- All calls wrapped with `context.WithTimeout` using configured budgets
+**`neo4j.go`** — `Neo4jClient` implementation using the official `neo4j-go-driver/v5` Bolt driver.
 
 **`mock_client.go`** — `MockGraphClient` for tests.
 
-### Write Path (Capture)
+### Entity Resolution (3-stage, adapted from Graphiti)
 
-When `graphiti.enabled=true`:
+When a new entity is extracted, it must be resolved against existing entities to prevent duplicates:
 
-1. After `store.Upsert(memory)`, call `graph.Client.AddEpisode()` with the conversation content and session ID
-2. Graphiti extracts entities and relationships internally using its own LLM calls (requires `OPENAI_API_KEY` — Graphiti uses OpenAI for entity/relationship extraction; see Configuration note below)
-3. Skip `EntityExtractor` — Graphiti owns entity extraction
-4. On Graphiti failure: log warning, memory is already stored in Qdrant
+**Stage 1: Candidate retrieval**
+Run Neo4j fulltext search on `name` + `summary` and cosine similarity on `name_embedding` in parallel. Deduplicate candidates by UUID. This narrows the search space.
 
-When `graphiti.enabled=false`:
+**Stage 2: Deterministic fast-path**
+- Exact name match (case-insensitive) → resolve immediately
+- Alias match → resolve immediately
+- Name embedding cosine similarity > 0.95 → resolve immediately
+This avoids Claude API calls for obvious matches.
 
-1. Fall back to Phase 1 behavior (EntityExtractor + store entity methods)
+**Stage 3: Claude Haiku fallback**
+For unresolved candidates, ask Claude:
 
-### Read Path (Recall)
+```
+You are an entity resolution system. Determine if the NEW ENTITY is a duplicate
+of any EXISTING ENTITY. Entities are duplicates only if they refer to the same
+real-world object or concept. Semantic equivalence is allowed (e.g., "the CEO"
+= "John Smith" if context makes it clear).
 
-Sequential merge with dedup:
+<new_entity>Name: {name}, Type: {type}</new_entity>
+<existing_entities>{numbered list}</existing_entities>
+<context>{recent conversation text}</context>
 
-1. Qdrant vector search returns top-50 candidates (existing behavior)
-2. Extract entity names from query (simple NER or keyword match)
-3. `graph.Client.SearchEntities(query)` returns entity-linked memory IDs with latency budget
-4. Fetch any graph-sourced memories not already in Qdrant results via `store.Get(ctx, id)`
-5. Merge into candidate list, dedup by memory ID (Qdrant results take priority)
-6. Run full `Recaller.Rank()` on merged set
-7. `tokenizer.FormatMemoriesWithBudget()` as usual
+Return JSON: {"is_duplicate": bool, "existing_id": "id or empty"}
+```
 
-### Delete Path
+On Claude API error or malformed response: treat as new entity (safe default). This is the same graceful degradation pattern used throughout openclaw-cortex.
 
-When a memory is deleted via CLI/API/MCP:
+### Fact Extraction (NEW — adapted from Graphiti)
 
-1. `store.Delete(id)` removes from Qdrant (existing)
-2. If `graphiti.enabled`, `graph.Client.DeleteEpisode()` removes associated graph data
-3. Graphiti failure on delete: log error and return it to caller (delete failures should surface)
+New `FactExtractor` in `internal/graph/fact_extractor.go`, backed by Claude Haiku:
+
+```
+You are a fact extractor. Extract relationship facts from the conversation text.
+
+For each fact provide:
+- source_entity_name: must match one of the KNOWN ENTITIES exactly
+- target_entity_name: must match one of the KNOWN ENTITIES exactly
+- relation_type: SCREAMING_SNAKE_CASE (e.g., WORKS_AT, DEPENDS_ON, DECIDED_TO)
+- fact: natural language description, paraphrased (not verbatim quotes)
+- valid_at: ISO 8601 if known, null if ongoing/unknown
+- invalid_at: ISO 8601 if fact is known to have ended, null otherwise
+
+Rules:
+- Only extract facts between two DISTINCT known entities
+- Do not invent entities not in the provided list
+- Set valid_at to reference time for ongoing facts
+- Only set invalid_at when the text explicitly states something has ended
+
+<known_entities>{entity names from extraction step}</known_entities>
+<content>{XML-escaped conversation text}</content>
+<reference_time>{current timestamp}</reference_time>
+
+Return JSON array of facts. Return [] if no relationship facts found.
+```
+
+### Fact Resolution (adapted from Graphiti's edge resolution)
+
+When a new fact is extracted, resolve it against existing facts between the same entity pair:
+
+1. **Fast path**: If fact text + endpoints match an existing fact exactly, append the new episode/memory ID to the existing fact's `SourceMemoryIDs` and `Episodes`. Return `FactActionSkip`.
+
+2. **Candidate retrieval**: Query all `RELATES_TO` edges between the same source-target pair (duplicate candidates) + broader semantic search across all edges from either entity (contradiction candidates).
+
+3. **Claude Haiku resolution** (adapted from Graphiti's two-list prompt):
+
+```
+You are a fact resolution system. Determine if the NEW FACT duplicates or
+contradicts any existing facts.
+
+EXISTING FACTS (same entity pair):
+{numbered list with indices 0..n-1}
+
+BROADER FACTS (related entities):
+{numbered list with indices n..m}
+
+NEW FACT: {fact text}
+
+A duplicate means semantically the same fact, possibly with updated details.
+A contradiction means the new fact directly invalidates an old one.
+A fact can be BOTH a duplicate AND contradicted (e.g., same relationship but updated).
+
+Return JSON: {"duplicate_indices": [int], "contradicted_indices": [int]}
+```
+
+4. **Apply actions**:
+   - Contradicted facts: set `ExpiredAt = now()`, `InvalidAt = now()` (never deleted)
+   - Duplicate facts: append episode to existing fact's `Episodes` list
+   - If neither: insert as new fact (`FactActionInsert`)
+
+### Hybrid Graph Search with RRF (adapted from Graphiti)
+
+`GraphSearcher` in `internal/graph/search.go` runs three retrieval methods in parallel, each returning `2 × limit` candidates:
+
+**Method 1: BM25 fulltext**
+```cypher
+CALL db.index.fulltext.queryRelationships("fact_fulltext", $query, {limit: $limit})
+YIELD relationship AS r, score
+MATCH (s:Entity)-[r]->(t:Entity)
+WHERE r.expired_at IS NULL
+RETURN r.uuid, r.fact, r.source_memory_ids, score
+```
+
+**Method 2: Cosine similarity**
+```cypher
+MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+WHERE r.expired_at IS NULL
+WITH r, vector.similarity.cosine(r.fact_embedding, $query_embedding) AS score
+WHERE score > 0.6
+RETURN r.uuid, r.fact, r.source_memory_ids, score
+ORDER BY score DESC LIMIT $limit
+```
+
+**Method 3: 1-hop BFS from entity matches**
+```cypher
+MATCH (n:Entity)
+WHERE vector.similarity.cosine(n.name_embedding, $query_embedding) > 0.7
+MATCH (n)-[r:RELATES_TO]-(m:Entity)
+WHERE r.expired_at IS NULL
+RETURN DISTINCT r.uuid, r.fact, r.source_memory_ids
+LIMIT $limit
+```
+
+**RRF Merge** (from Graphiti):
+```go
+// For each fact UUID appearing in any result list:
+// score[uuid] += 1.0 / (rank + k)  // k=1, summed across all methods
+// Sort by score descending, take top limit
+```
+
+The merged results yield `source_memory_ids` — these are the memory IDs to fetch from Qdrant and merge into the recall candidate set.
+
+### Recall Integration
+
+Modify `internal/recall/recall.go`:
+
+```
+Recall(ctx context.Context, query string, ...) ([]RecallResult, error):
+  1. embedder.Embed(query)
+  2. store.Search(vector, top-50, filters)              // existing Qdrant path
+  3. IF graph != nil:
+       graphMemIDs := graph.RecallByGraph(ctx, query, vector, 20)  // with latency budget
+       for each ID not already in Qdrant results:
+           mem := store.Get(ctx, id)
+           append to candidates with similarity=0 (graph-sourced)
+  4. recaller.Rank(allCandidates, query)                // full 8-factor scoring
+  5. tokenizer.FormatMemoriesWithBudget()
+```
+
+Graph-sourced memories enter ranking with `similarity=0` since they weren't retrieved by vector search. They compete on other factors (recency, type, confidence, tag affinity, etc.) and on whatever graph relevance they carry. This is conservative — graph results must earn their place.
+
+### Entity Summary Generation
+
+When an entity is updated (new facts added), regenerate its summary via Claude Haiku:
+
+```
+Summarize this entity based on its known facts. Keep it under 200 characters.
+
+Entity: {name} ({type})
+Known facts:
+{list of active facts involving this entity}
+
+Return a single concise summary sentence.
+```
+
+Summaries are regenerated lazily — on entity access, if facts have changed since last summary. This avoids unnecessary API calls.
 
 ### Configuration
 
 ```yaml
-graphiti:
+graph:
   enabled: false
-  base_url: http://localhost:8000
-  timeout_ms: 500
-  recall_budget_ms: 50      # hook context latency budget
-  recall_budget_cli_ms: 500  # CLI context latency budget
+  neo4j:
+    uri: bolt://localhost:7687
+    username: neo4j
+    password: openclaw-cortex
+    database: neo4j
+  entity_resolution:
+    similarity_threshold: 0.95    # deterministic fast-path threshold
+    max_candidates: 10            # max candidates for LLM resolution
+  fact_extraction:
+    enabled: true                 # can disable fact extraction independently
+  recall_budget_ms: 50            # hook context latency budget (entire graph call)
+  recall_budget_cli_ms: 500       # CLI context latency budget (entire graph call)
 ```
 
 Environment variable overrides:
-- `OPENCLAW_CORTEX_GRAPHITI_ENABLED`
-- `OPENCLAW_CORTEX_GRAPHITI_BASE_URL`
-- `OPENCLAW_CORTEX_GRAPHITI_TIMEOUT_MS`
-- `OPENCLAW_CORTEX_GRAPHITI_RECALL_BUDGET_MS`
-- `OPENCLAW_CORTEX_GRAPHITI_RECALL_BUDGET_CLI_MS`
-
-**External dependency note:** Graphiti requires `OPENAI_API_KEY` for its internal LLM-powered entity and relationship extraction. This is a Graphiti requirement, not an openclaw-cortex one. The key is passed through to the Graphiti container via Docker Compose environment variable. Graphiti currently supports OpenAI only for its internal LLM calls; alternative LLM backends are on Graphiti's own roadmap. This means enabling Phase 2 adds an OpenAI API cost alongside the existing Anthropic API cost for capture.
+- `OPENCLAW_CORTEX_GRAPH_ENABLED`
+- `OPENCLAW_CORTEX_GRAPH_NEO4J_URI`
+- `OPENCLAW_CORTEX_GRAPH_NEO4J_USERNAME`
+- `OPENCLAW_CORTEX_GRAPH_NEO4J_PASSWORD`
+- `OPENCLAW_CORTEX_GRAPH_RECALL_BUDGET_MS`
+- `OPENCLAW_CORTEX_GRAPH_RECALL_BUDGET_CLI_MS`
 
 ### Docker Compose
 
 Add to existing `docker-compose.yml` (commented out by default):
 
 ```yaml
-# Uncomment to enable Graphiti entity-relationship graph
+# Uncomment to enable entity-relationship graph (Phase 2)
 # neo4j:
 #   image: neo4j:5
 #   ports:
-#     - "7474:7474"
-#     - "7687:7687"
+#     - "7474:7474"   # HTTP browser
+#     - "7687:7687"   # Bolt protocol
 #   environment:
 #     NEO4J_AUTH: neo4j/openclaw-cortex
+#     NEO4J_PLUGINS: '[]'
 #   volumes:
 #     - neo4j_data:/data
-#
-# graphiti:
-#   image: zepai/graphiti:latest
-#   ports:
-#     - "8000:8000"
-#   environment:
-#     NEO4J_URI: bolt://neo4j:7687
-#     NEO4J_USER: neo4j
-#     NEO4J_PASSWORD: openclaw-cortex
-#     OPENAI_API_KEY: ${OPENAI_API_KEY}
-#   depends_on:
-#     - neo4j
 ```
+
+No OpenAI key. No Graphiti container. Just Neo4j — everything else runs in-process with Claude Haiku.
 
 ## Error Handling & Graceful Degradation
 
@@ -203,31 +472,45 @@ Both phases follow the established pattern — optional services never block cor
 - `EntityExtractor` failures during capture: logged and skipped, memory still stored
 - API/MCP entity endpoints: standard error responses (404 missing, 500 store errors)
 
-**Phase 2 (Graphiti):**
+**Phase 2 (Graph Layer):**
 - All `graph.Client` calls use `context.WithTimeout`
-- **Write path** (capture): Log warning, skip graph write. Memory stored in Qdrant regardless.
-- **Read path** (recall): Log warning, return empty graph results. Qdrant results proceed through ranking normally.
-- **Delete path**: Log error, return error to caller (orphaned graph data should surface).
-- **Health**: `cortex stats` / `cortex health` reports Graphiti status as "optional: degraded" when unavailable. Does not affect overall health. Phase 1 adds entity count to `cortex stats` output.
+- **Entity resolution**: Claude API error → treat as new entity (safe default)
+- **Fact extraction**: Claude API error → skip fact extraction, memory still stored
+- **Fact resolution**: Claude API error → treat as new fact (insert, don't invalidate)
+- **Write path** (capture): Neo4j failure → log warning, skip graph write. Memory stored in Qdrant regardless.
+- **Read path** (recall): Neo4j failure → log warning, return empty graph results. Qdrant results proceed through ranking normally.
+- **Delete path**: Neo4j failure → log error, return error to caller (orphaned graph data should surface because it can't be auto-cleaned).
+- **Health**: `cortex stats` / `cortex health` reports Neo4j + graph status. Phase 1 adds entity count to `cortex stats`. Phase 2 adds fact count, graph health. Unhealthy graph doesn't affect overall health — marked as "optional: degraded".
 
-**Latency budgets (recall merge):**
+**Delete path asymmetry rationale:** Write-path failures are silenced because the memory is safely in Qdrant — no data loss. Delete-path failures surface because orphaned Neo4j data can't be automatically cleaned.
 
-| Context | Graphiti Budget | Total Budget |
-|---------|----------------|--------------|
-| Hook (PreTurnHook) | 50ms (entire Graphiti call) | 100ms |
-| CLI (`cortex recall`) | 500ms (entire Graphiti call) | 3000ms |
+**Latency budgets (recall):**
+
+| Context | Graph Budget (entire call) | Total Recall Budget |
+|---------|---------------------------|---------------------|
+| Hook (PreTurnHook) | 50ms | 100ms |
+| CLI (`cortex recall`) | 500ms | 3000ms |
 
 On timeout: use Qdrant-only results.
 
-**Delete path asymmetry:** Write-path failures are silenced because the memory is safely stored in Qdrant — no data is lost. Delete-path failures surface because they leave orphaned graph data that cannot be automatically cleaned up.
-
 ## Migration & Backfill
 
-Existing memories in Qdrant will have no entity links after upgrading. Backfill is out of scope for this spec — both phases only extract entities from new captures. A future `cortex reindex-entities` command could backfill by re-running entity extraction over existing memories, but this is not required for the integration to be useful. New captures will progressively build the entity graph.
+Existing memories in Qdrant have no entity links or graph data. Both phases only process new captures. A future `cortex reindex-entities` command could backfill by re-running entity and fact extraction over existing memories, but this is not required for the integration to be useful. New captures progressively build the entity graph.
+
+## Phase 3: Community Intelligence (Future)
+
+Adopted from Graphiti's community detection, deferred to a future spec:
+
+- **Label propagation** clusters densely connected entities into communities
+- **Claude Haiku** summarizes each community (hierarchical pair-wise reduction)
+- **Community-aware recall**: high-level context injection ("This conversation involves the Authentication team, which handles OAuth, SSO, and API keys")
+- **Community search**: BM25 + cosine on community `name` + `summary`
+
+This is noted here for architectural awareness but is NOT part of the current implementation scope.
 
 ## Testing Strategy
 
-All tests in top-level `tests/` package per project convention. All use `MockStore` for Qdrant and `httptest.Server` for Graphiti — no live services needed for `go test -short`.
+All tests in top-level `tests/` package per project convention. All use `MockStore` for Qdrant and `MockGraphClient` for Neo4j — no live services needed for `go test -short`.
 
 **Phase 1 tests:**
 
@@ -241,16 +524,19 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 
 | File | Coverage |
 |------|----------|
-| `tests/graph_client_test.go` | `httptest.Server` mocking Graphiti REST API — write/read/delete/timeout/error paths |
-| `tests/graph_recall_merge_test.go` | Sequential merge logic — Qdrant + graph results deduped by memory ID, then ranked |
-| `tests/graph_degradation_test.go` | Graceful degradation — Graphiti unavailable returns Qdrant-only results without error |
-| `tests/graph_capture_test.go` | Dual-write capture: both Qdrant and Graphiti when enabled; Qdrant-only when Graphiti down |
+| `tests/graph_client_test.go` | Neo4j client with mock driver — entity/fact CRUD, schema creation |
+| `tests/entity_resolution_test.go` | Three-stage resolution: exact match, alias match, similarity fast-path, Claude fallback, graceful degradation on API error |
+| `tests/fact_extraction_test.go` | Fact extractor with mock Claude responses — valid facts, empty results, malformed JSON, API errors |
+| `tests/fact_resolution_test.go` | Fact resolution: exact dedup, contradiction detection, two-list prompt, edge invalidation |
+| `tests/graph_search_test.go` | Hybrid search: BM25 + cosine + BFS results, RRF merge, dedup by UUID |
+| `tests/graph_recall_merge_test.go` | Recall integration: Qdrant + graph results merged, deduped by memory ID, ranked |
+| `tests/graph_degradation_test.go` | Graceful degradation: Neo4j down → Qdrant-only recall; Claude API down → safe defaults |
 
 **Integration test** (behind build tag):
 
 | File | Coverage |
 |------|----------|
-| `tests/integration/graphiti_integration_test.go` | `//go:build integration` — real Graphiti + Neo4j via testcontainers (`github.com/testcontainers/testcontainers-go`), full capture-to-recall round-trip |
+| `tests/integration/graph_integration_test.go` | `//go:build integration` — real Neo4j via testcontainers (`github.com/testcontainers/testcontainers-go`), full capture-to-recall round-trip |
 
 ## Files Changed
 
@@ -258,30 +544,51 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 
 | Action | File | What |
 |--------|------|------|
-| Modify | `internal/capture/capture.go` | Wire EntityExtractor into capture flow |
-| Modify | `internal/api/server.go` | Add entity CRUD routes |
+| Modify | `internal/capture/capture.go` | Wire EntityExtractor into capture flow (caller orchestration) |
+| Modify | `internal/api/server.go` | Add entity search/get routes |
 | Modify | `internal/mcp/server.go` | Add entity_search, entity_get tools |
+| Modify | `cmd/openclaw-cortex/cmd_stats.go` | Add entity count to stats output |
 | Create | `tests/entity_pipeline_test.go` | Capture + entity extraction tests |
 | Create | `tests/entity_api_test.go` | HTTP endpoint tests |
 | Create | `tests/entity_mcp_test.go` | MCP tool contract tests |
-| Modify | `cmd/openclaw-cortex/cmd_stats.go` | Add entity count to stats output |
 
 ### Phase 2
 
 | Action | File | What |
 |--------|------|------|
-| Create | `internal/graph/client.go` | Client interface + types only |
-| Create | `internal/graph/graphiti.go` | REST implementation with timeouts |
+| Create | `internal/models/fact.go` | `Fact` struct with bi-temporal fields |
+| Modify | `internal/models/entity.go` | Add `Summary`, `NameEmbedding`, `CommunityID` fields |
+| Create | `internal/graph/client.go` | `Client` interface + types |
+| Create | `internal/graph/neo4j.go` | `Neo4jClient` implementation (Bolt driver) |
+| Create | `internal/graph/entity_resolver.go` | Three-stage entity resolution |
+| Create | `internal/graph/fact_extractor.go` | Claude Haiku fact extraction |
+| Create | `internal/graph/fact_resolver.go` | Fact dedup + contradiction detection |
+| Create | `internal/graph/search.go` | Hybrid search (BM25 + cosine + BFS) with RRF |
 | Create | `internal/graph/mock_client.go` | MockGraphClient for tests |
-| Modify | `internal/config/config.go` | graphiti.* config keys |
-| Modify | `internal/capture/capture.go` | Conditional Graphiti write path |
-| Modify | `internal/recall/recall.go` | Sequential merge: Qdrant + Graphiti + dedup |
+| Modify | `internal/config/config.go` | `graph.*` config keys |
+| Modify | `internal/capture/capture.go` | Fact extraction + graph write when enabled |
+| Modify | `internal/recall/recall.go` | Graph recall merge: Qdrant + graph → dedup → Rank() |
 | Modify | `cmd/openclaw-cortex/main.go` | Wire graph.Client when enabled |
-| Modify | `docker-compose.yml` | Add Neo4j + Graphiti services (commented) |
-| Modify | `cmd/openclaw-cortex/cmd_health.go` | Report Graphiti health as optional service |
-| Create | `tests/graph_client_test.go` | Graphiti REST mock tests |
-| Create | `tests/graph_recall_merge_test.go` | Merge + dedup logic tests |
+| Modify | `cmd/openclaw-cortex/cmd_health.go` | Report Neo4j/graph health as optional service |
+| Modify | `docker-compose.yml` | Add Neo4j service (commented out) |
+| Create | `tests/graph_client_test.go` | Neo4j client tests |
+| Create | `tests/entity_resolution_test.go` | Three-stage resolution tests |
+| Create | `tests/fact_extraction_test.go` | Fact extractor tests |
+| Create | `tests/fact_resolution_test.go` | Fact resolution + invalidation tests |
+| Create | `tests/graph_search_test.go` | Hybrid search + RRF tests |
+| Create | `tests/graph_recall_merge_test.go` | Recall merge + dedup tests |
 | Create | `tests/graph_degradation_test.go` | Graceful degradation tests |
-| Create | `tests/graph_capture_test.go` | Dual-write capture tests |
-| Create | `tests/integration/graphiti_integration_test.go` | Full round-trip integration test (build tag) |
-| Modify | `go.mod` / `go.sum` | Add `testcontainers-go` dependency (integration tests only) |
+| Create | `tests/integration/graph_integration_test.go` | Full round-trip integration test |
+| Modify | `go.mod` / `go.sum` | Add `neo4j-go-driver/v5`, `testcontainers-go` |
+
+## Dependencies
+
+| Dependency | Purpose | Notes |
+|---|---|---|
+| `github.com/neo4j/neo4j-go-driver/v5` | Neo4j Bolt protocol driver | Official Go driver, well-maintained |
+| `github.com/testcontainers/testcontainers-go` | Integration tests only | Behind `//go:build integration` tag |
+| Neo4j 5 (Docker) | Graph database | Self-hosted, no external API dependency |
+| Claude Haiku (Anthropic API) | Entity resolution, fact extraction, fact resolution, entity summaries | Already a dependency for capture — no new API keys needed |
+| Ollama / nomic-embed-text | Embeddings for entity names and fact text | Already a dependency — no new services |
+
+**No OpenAI. No Graphiti. No new API keys.** The entire graph layer runs on the same Claude + Ollama + self-hosted infrastructure that openclaw-cortex already uses.
