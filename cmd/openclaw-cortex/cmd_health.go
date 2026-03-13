@@ -47,6 +47,25 @@ func healthCmd() *cobra.Command {
 				fmt.Println("Claude API: OK")
 			}
 
+			// Check Neo4j (optional)
+			if cfg.Graph.Enabled {
+				gc, gcErr := newGraphClient(ctx, logger)
+				if gcErr != nil {
+					fmt.Printf("Neo4j:  FAIL (%v)\n", gcErr)
+					allOK = false
+				} else {
+					if gc.Healthy(ctx) {
+						fmt.Println("Neo4j:  OK")
+					} else {
+						fmt.Println("Neo4j:  FAIL (unhealthy)")
+						allOK = false
+					}
+					_ = gc.Close()
+				}
+			} else {
+				fmt.Println("Neo4j:  SKIP (graph.enabled=false)")
+			}
+
 			if !allOK {
 				return fmt.Errorf("one or more health checks failed")
 			}

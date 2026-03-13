@@ -13,6 +13,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
@@ -108,6 +109,30 @@ func newStore(logger *slog.Logger) (store.Store, error) {
 		cfg.Qdrant.UseTLS,
 		logger,
 	)
+}
+
+// newGraphClient creates a graph.Client if graph integration is enabled.
+// Returns (nil, nil) when disabled — callers must nil-check.
+func newGraphClient(ctx context.Context, logger *slog.Logger) (graph.Client, error) {
+	if !cfg.Graph.Enabled {
+		return nil, nil
+	}
+	client, clientErr := graph.NewNeo4jClient(
+		ctx,
+		cfg.Graph.Neo4j.URI,
+		cfg.Graph.Neo4j.Username,
+		cfg.Graph.Neo4j.Password,
+		cfg.Graph.Neo4j.Database,
+		logger,
+	)
+	if clientErr != nil {
+		return nil, fmt.Errorf("graph client: %w", clientErr)
+	}
+	if schemaErr := client.EnsureSchema(ctx); schemaErr != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("graph schema: %w", schemaErr)
+	}
+	return client, nil
 }
 
 func truncate(s string, maxLen int) string {
