@@ -40,6 +40,36 @@ type Config struct {
 	Embedder       EmbedderConfig       `mapstructure:"embedder"`
 	Recall         RecallConfig         `mapstructure:"recall"`
 	CaptureQuality CaptureQualityConfig `mapstructure:"capture_quality"`
+	Graph          GraphConfig          `mapstructure:"graph"`
+}
+
+// GraphConfig holds entity-relationship graph settings.
+type GraphConfig struct {
+	Enabled           bool                   `mapstructure:"enabled"`
+	Neo4j             Neo4jConfig            `mapstructure:"neo4j"`
+	EntityResolution  EntityResolutionConfig `mapstructure:"entity_resolution"`
+	FactExtraction    FactExtractionConfig   `mapstructure:"fact_extraction"`
+	RecallBudgetMs    int                    `mapstructure:"recall_budget_ms"`
+	RecallBudgetCLIMs int                    `mapstructure:"recall_budget_cli_ms"`
+}
+
+// Neo4jConfig holds Neo4j graph database connection settings.
+type Neo4jConfig struct {
+	URI      string `mapstructure:"uri"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	Database string `mapstructure:"database"`
+}
+
+// EntityResolutionConfig holds entity resolution parameters.
+type EntityResolutionConfig struct {
+	SimilarityThreshold float64 `mapstructure:"similarity_threshold"`
+	MaxCandidates       int     `mapstructure:"max_candidates"`
+}
+
+// FactExtractionConfig holds fact extraction settings.
+type FactExtractionConfig struct {
+	Enabled bool `mapstructure:"enabled"`
 }
 
 // RecallConfig holds re-ranking and latency budget settings for recall.
@@ -189,6 +219,17 @@ func Load() (*Config, error) {
 	v.SetDefault("recall.weights.confidence", 0.10)
 	v.SetDefault("recall.weights.reinforcement", 0.07)
 	v.SetDefault("recall.weights.tag_affinity", 0.05)
+
+	v.SetDefault("graph.enabled", false)
+	v.SetDefault("graph.neo4j.uri", "bolt://localhost:7687")
+	v.SetDefault("graph.neo4j.username", "neo4j")
+	v.SetDefault("graph.neo4j.password", "openclaw-cortex")
+	v.SetDefault("graph.neo4j.database", "neo4j")
+	v.SetDefault("graph.entity_resolution.similarity_threshold", 0.95)
+	v.SetDefault("graph.entity_resolution.max_candidates", 10)
+	v.SetDefault("graph.fact_extraction.enabled", true)
+	v.SetDefault("graph.recall_budget_ms", 50)
+	v.SetDefault("graph.recall_budget_cli_ms", 500)
 
 	v.SetDefault("capture_quality.context_window_turns", 3)
 	v.SetDefault("capture_quality.reinforcement_threshold", 0.80)
