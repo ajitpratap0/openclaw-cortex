@@ -1,6 +1,7 @@
 package recall
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math"
@@ -8,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 const (
@@ -94,10 +97,27 @@ var TypePriority = map[models.MemoryType]float64{
 	models.MemoryTypePreference: 0.7,
 }
 
+// graphDefaultSimilarity is the default similarity score assigned to memories
+// retrieved via graph traversal (no vector match available).
+const graphDefaultSimilarity = 0.5
+
 // Recaller performs multi-factor ranking of search results.
 type Recaller struct {
-	weights Weights
-	logger  *slog.Logger
+	weights      Weights
+	logger       *slog.Logger
+	graphClient  graph.Client
+	store        store.Store
+	graphBudgetMs int
+}
+
+// SetGraphClient attaches an optional graph client and backing store to the
+// recaller. budgetMs is the maximum time in milliseconds allowed for the graph
+// recall call; if the call exceeds the budget it is canceled and only Qdrant
+// results are used.
+func (r *Recaller) SetGraphClient(gc graph.Client, st store.Store, budgetMs int) {
+	r.graphClient = gc
+	r.store = st
+	r.graphBudgetMs = budgetMs
 }
 
 // NewRecaller creates a new recaller with the given weights.
@@ -199,6 +219,65 @@ func (r *Recaller) ShouldRerank(results []models.RecallResult, threshold float64
 	}
 	spread := results[0].FinalScore - results[3].FinalScore
 	return spread <= threshold
+}
+
+// RecallWithGraph merges graph-sourced memory IDs with qdrantResults, deduplicates,
+// and runs Rank on the combined set.
+//
+// If GraphClient is nil the function is equivalent to calling Rank(qdrantResults, project, query).
+// If the graph call exceeds the latency budget, the function falls back to Qdrant-only results.
+func (r *Recaller) RecallWithGraph(
+	ctx context.Context,
+	query string,
+	embedding []float32,
+	qdrantResults []models.SearchResult,
+	project string,
+) []models.RecallResult {
+	if r.graphClient == nil {
+		return r.Rank(qdrantResults, project, query)
+	}
+
+	// Build a set of IDs already present in qdrantResults.
+	existing := make(map[string]struct{}, len(qdrantResults))
+	for i := range qdrantResults {
+		existing[qdrantResults[i].Memory.ID] = struct{}{}
+	}
+
+	// Call graph with a deadline derived from the latency budget.
+	budgetMs := r.graphBudgetMs
+	if budgetMs <= 0 {
+		budgetMs = 200 // fallback default
+	}
+	gCtx, cancel := context.WithTimeout(ctx, time.Duration(budgetMs)*time.Millisecond)
+	defer cancel()
+
+	graphIDs, err := r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
+	if err != nil {
+		r.logger.Warn("graph recall failed, using qdrant-only results", "error", err)
+		return r.Rank(qdrantResults, project, query)
+	}
+
+	// Fetch memories for graph IDs not already present in qdrantResults.
+	merged := make([]models.SearchResult, len(qdrantResults))
+	copy(merged, qdrantResults)
+
+	for _, id := range graphIDs {
+		if _, ok := existing[id]; ok {
+			continue
+		}
+		mem, fetchErr := r.store.Get(ctx, id)
+		if fetchErr != nil {
+			r.logger.Warn("failed to fetch graph memory", "id", id, "error", fetchErr)
+			continue
+		}
+		merged = append(merged, models.SearchResult{
+			Memory: *mem,
+			Score:  graphDefaultSimilarity,
+		})
+		existing[id] = struct{}{}
+	}
+
+	return r.Rank(merged, project, query)
 }
 
 // recencyScore uses exponential decay. Half-life of 7 days. Returns [0,1].
