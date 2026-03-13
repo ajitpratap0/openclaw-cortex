@@ -3,12 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
-	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 func searchCmd() *cobra.Command {
@@ -42,29 +40,9 @@ func searchCmd() *cobra.Command {
 				return fmt.Errorf("search: embedding query: %w", err)
 			}
 
-			var filters *store.SearchFilters
-			if memType != "" || memScope != "" || project != "" || tagsFlag != "" {
-				filters = &store.SearchFilters{}
-				if memType != "" {
-					mt := models.MemoryType(memType)
-					if !mt.IsValid() {
-						return fmt.Errorf("search: invalid type %q (want: rule|fact|episode|procedure|preference)", memType)
-					}
-					filters.Type = &mt
-				}
-				if memScope != "" {
-					ms := models.MemoryScope(memScope)
-					if !ms.IsValid() {
-						return fmt.Errorf("search: invalid scope %q (want: permanent|project|session|ttl)", memScope)
-					}
-					filters.Scope = &ms
-				}
-				if project != "" {
-					filters.Project = &project
-				}
-				if tagsFlag != "" {
-					filters.Tags = strings.Split(tagsFlag, ",")
-				}
+			filters, filterErr := buildSearchFilters("search", memType, memScope, project, tagsFlag)
+			if filterErr != nil {
+				return filterErr
 			}
 
 			results, err := st.Search(ctx, vec, limit, filters)
