@@ -146,7 +146,7 @@ export OPENCLAW_CORTEX_OLLAMA_BASE_URL=http://my-ollama:11434
 
 ## Next Steps
 
-- [Architecture](architecture.md) — understand how recall scoring works
+- [Architecture](ARCHITECTURE.md) — understand how recall scoring works
 - [Claude Code Hooks](hooks.md) — automatic memory for every conversation
 - [HTTP API](api.md) — integrate with other tools
 - [MCP Server](mcp.md) — use from Claude Desktop

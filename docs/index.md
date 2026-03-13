@@ -42,7 +42,7 @@ cortex capture "Always prefer explicit error handling over panics" --type rule
 | Section | Description |
 |---------|-------------|
 | [Quickstart](quickstart.md) | End-to-end setup in 5 minutes |
-| [Architecture](architecture.md) | How the system works internally |
+| [Architecture](ARCHITECTURE.md) | How the system works internally |
 | [Claude Code Hooks](hooks.md) | Automatic memory injection for Claude Code |
 | [HTTP API](api.md) | REST API reference with request/response schemas |
 | [MCP Server](mcp.md) | Model Context Protocol integration for Claude Desktop |
