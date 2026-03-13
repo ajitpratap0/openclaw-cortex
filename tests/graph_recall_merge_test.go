@@ -63,24 +63,24 @@ func populatedStore(t *testing.T, memories []models.Memory) store.Store {
 // Qdrant results without duplicates.
 func TestRecallWithGraphMerge(t *testing.T) {
 	mem1 := models.Memory{
-		ID:      "mem-1",
-		Type:    models.MemoryTypeFact,
-		Scope:   models.ScopePermanent,
-		Content: "Qdrant memory one",
+		ID:         "mem-1",
+		Type:       models.MemoryTypeFact,
+		Scope:      models.ScopePermanent,
+		Content:    "Qdrant memory one",
 		Confidence: 0.9,
 	}
 	mem2 := models.Memory{
-		ID:      "mem-2",
-		Type:    models.MemoryTypeFact,
-		Scope:   models.ScopePermanent,
-		Content: "Qdrant memory two (also returned by graph)",
+		ID:         "mem-2",
+		Type:       models.MemoryTypeFact,
+		Scope:      models.ScopePermanent,
+		Content:    "Qdrant memory two (also returned by graph)",
 		Confidence: 0.8,
 	}
 	mem3 := models.Memory{
-		ID:      "mem-3",
-		Type:    models.MemoryTypeRule,
-		Scope:   models.ScopePermanent,
-		Content: "Graph-only memory",
+		ID:         "mem-3",
+		Type:       models.MemoryTypeRule,
+		Scope:      models.ScopePermanent,
+		Content:    "Graph-only memory",
 		Confidence: 0.85,
 	}
 
@@ -115,17 +115,17 @@ func TestRecallWithGraphMerge(t *testing.T) {
 // on the provided qdrantResults without error.
 func TestRecallWithoutGraph(t *testing.T) {
 	mem1 := models.Memory{
-		ID:      "no-graph-1",
-		Type:    models.MemoryTypeRule,
-		Scope:   models.ScopePermanent,
-		Content: "Rule memory",
+		ID:         "no-graph-1",
+		Type:       models.MemoryTypeRule,
+		Scope:      models.ScopePermanent,
+		Content:    "Rule memory",
 		Confidence: 0.9,
 	}
 	mem2 := models.Memory{
-		ID:      "no-graph-2",
-		Type:    models.MemoryTypeFact,
-		Scope:   models.ScopePermanent,
-		Content: "Fact memory",
+		ID:         "no-graph-2",
+		Type:       models.MemoryTypeFact,
+		Scope:      models.ScopePermanent,
+		Content:    "Fact memory",
 		Confidence: 0.7,
 	}
 
@@ -148,10 +148,10 @@ func TestRecallWithoutGraph(t *testing.T) {
 // latency budget causes the recaller to fall back gracefully to Qdrant-only results.
 func TestRecallGraphTimeout(t *testing.T) {
 	mem1 := models.Memory{
-		ID:      "timeout-1",
-		Type:    models.MemoryTypeFact,
-		Scope:   models.ScopePermanent,
-		Content: "Qdrant result under timeout",
+		ID:         "timeout-1",
+		Type:       models.MemoryTypeFact,
+		Scope:      models.ScopePermanent,
+		Content:    "Qdrant result under timeout",
 		Confidence: 0.8,
 	}
 

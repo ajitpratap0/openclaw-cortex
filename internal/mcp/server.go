@@ -404,4 +404,3 @@ func (s *Server) handleStats(ctx context.Context, _ mcpgo.CallToolRequest) (*mcp
 	}
 	return toolResultJSON(stats)
 }
-
