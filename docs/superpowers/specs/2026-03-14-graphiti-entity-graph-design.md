@@ -54,7 +54,9 @@ Recall Flow (Phase 2):
 
 After `store.Upsert(memory)` succeeds, call `EntityExtractor.Extract(content)` to get entities, then `store.UpsertEntity()` and `store.LinkMemoryToEntity()` for each. Entity extraction failures are logged and skipped — the memory is stored regardless.
 
-The `Capturer` struct gains an optional `EntityExtractor` field. When nil (default for hooks where latency matters), entity extraction is skipped. The CLI `capture` command and API endpoint wire it in.
+The orchestration happens in the callers (`cmd/cmd_capture.go`, API handler), not inside `ClaudeCapturer`. `Capturer` is an interface — its `Extract()` method returns memories. The caller then optionally runs `EntityExtractor.Extract()` and calls `store.UpsertEntity()` / `store.LinkMemoryToEntity()` for each entity. This keeps `Capturer` focused on memory extraction and avoids coupling it to the entity store.
+
+The CLI `capture` command and API endpoint wire in entity extraction. Hook callers skip it (latency-sensitive).
 
 ### API Endpoints
 
@@ -62,10 +64,12 @@ Add to `internal/api/server.go`:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities |
+| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100) |
 | `GET` | `/v1/entities/{id}` | Get entity by ID |
 
 Entity creation happens implicitly through capture — no standalone create endpoint needed.
+
+**Phase 1 limitation:** `store.SearchEntities()` uses name-substring matching, not semantic/vector search. Entity search quality is limited to exact or partial name matches. Phase 2 (Graphiti) provides full semantic entity search via its graph-native query engine.
 
 ### MCP Tools
 
@@ -80,7 +84,7 @@ Add to `internal/mcp/server.go`:
 
 ### New Package: `internal/graph/`
 
-**`client.go`** — Interface and implementation:
+**`client.go`** — Interface and types only:
 
 ```go
 type Client interface {
@@ -114,7 +118,7 @@ type EntityResult struct {
 When `graphiti.enabled=true`:
 
 1. After `store.Upsert(memory)`, call `graph.Client.AddEpisode()` with the conversation content and session ID
-2. Graphiti extracts entities and relationships internally (using its own LLM calls)
+2. Graphiti extracts entities and relationships internally using its own LLM calls (requires `OPENAI_API_KEY` — Graphiti uses OpenAI for entity/relationship extraction; see Configuration note below)
 3. Skip `EntityExtractor` — Graphiti owns entity extraction
 4. On Graphiti failure: log warning, memory is already stored in Qdrant
 
@@ -129,7 +133,7 @@ Sequential merge with dedup:
 1. Qdrant vector search returns top-50 candidates (existing behavior)
 2. Extract entity names from query (simple NER or keyword match)
 3. `graph.Client.SearchEntities(query)` returns entity-linked memory IDs with latency budget
-4. Fetch any graph-sourced memories not already in Qdrant results via `store.GetByID()`
+4. Fetch any graph-sourced memories not already in Qdrant results via `store.Get(ctx, id)`
 5. Merge into candidate list, dedup by memory ID (Qdrant results take priority)
 6. Run full `Recaller.Rank()` on merged set
 7. `tokenizer.FormatMemoriesWithBudget()` as usual
@@ -159,6 +163,8 @@ Environment variable overrides:
 - `OPENCLAW_CORTEX_GRAPHITI_TIMEOUT_MS`
 - `OPENCLAW_CORTEX_GRAPHITI_RECALL_BUDGET_MS`
 - `OPENCLAW_CORTEX_GRAPHITI_RECALL_BUDGET_CLI_MS`
+
+**External dependency note:** Graphiti requires `OPENAI_API_KEY` for its internal LLM-powered entity and relationship extraction. This is a Graphiti requirement, not an openclaw-cortex one. The key is passed through to the Graphiti container via Docker Compose environment variable. Graphiti currently supports OpenAI only for its internal LLM calls; alternative LLM backends are on Graphiti's own roadmap. This means enabling Phase 2 adds an OpenAI API cost alongside the existing Anthropic API cost for capture.
 
 ### Docker Compose
 
@@ -202,16 +208,22 @@ Both phases follow the established pattern — optional services never block cor
 - **Write path** (capture): Log warning, skip graph write. Memory stored in Qdrant regardless.
 - **Read path** (recall): Log warning, return empty graph results. Qdrant results proceed through ranking normally.
 - **Delete path**: Log error, return error to caller (orphaned graph data should surface).
-- **Health**: `cortex stats` / `cortex health` reports Graphiti status as "optional: degraded" when unavailable. Does not affect overall health.
+- **Health**: `cortex stats` / `cortex health` reports Graphiti status as "optional: degraded" when unavailable. Does not affect overall health. Phase 1 adds entity count to `cortex stats` output.
 
 **Latency budgets (recall merge):**
 
 | Context | Graphiti Budget | Total Budget |
 |---------|----------------|--------------|
-| Hook (PreTurnHook) | 50ms | 100ms |
-| CLI (`cortex recall`) | 500ms | 3000ms |
+| Hook (PreTurnHook) | 50ms (entire Graphiti call) | 100ms |
+| CLI (`cortex recall`) | 500ms (entire Graphiti call) | 3000ms |
 
 On timeout: use Qdrant-only results.
+
+**Delete path asymmetry:** Write-path failures are silenced because the memory is safely stored in Qdrant — no data is lost. Delete-path failures surface because they leave orphaned graph data that cannot be automatically cleaned up.
+
+## Migration & Backfill
+
+Existing memories in Qdrant will have no entity links after upgrading. Backfill is out of scope for this spec — both phases only extract entities from new captures. A future `cortex reindex-entities` command could backfill by re-running entity extraction over existing memories, but this is not required for the integration to be useful. New captures will progressively build the entity graph.
 
 ## Testing Strategy
 
@@ -238,7 +250,7 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 
 | File | Coverage |
 |------|----------|
-| `tests/integration/graphiti_integration_test.go` | `//go:build integration` — real Graphiti + Neo4j via testcontainers, full capture-to-recall round-trip |
+| `tests/integration/graphiti_integration_test.go` | `//go:build integration` — real Graphiti + Neo4j via testcontainers (`github.com/testcontainers/testcontainers-go`), full capture-to-recall round-trip |
 
 ## Files Changed
 
@@ -257,7 +269,7 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 
 | Action | File | What |
 |--------|------|------|
-| Create | `internal/graph/client.go` | Client interface + GraphitiClient |
+| Create | `internal/graph/client.go` | Client interface + types only |
 | Create | `internal/graph/graphiti.go` | REST implementation with timeouts |
 | Create | `internal/graph/mock_client.go` | MockGraphClient for tests |
 | Modify | `internal/config/config.go` | graphiti.* config keys |
@@ -269,3 +281,5 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 | Create | `tests/graph_recall_merge_test.go` | Merge + dedup logic tests |
 | Create | `tests/graph_degradation_test.go` | Graceful degradation tests |
 | Create | `tests/graph_capture_test.go` | Dual-write capture tests |
+| Create | `tests/integration/graphiti_integration_test.go` | Full round-trip integration test (build tag) |
+| Modify | `go.mod` / `go.sum` | Add `testcontainers-go` dependency (integration tests only) |
