@@ -68,6 +68,9 @@ interface PluginConfig {
   tokenBudget?: number;
   autoRecall?: boolean;
   autoCapture?: boolean;
+  minUserMessageLength?: number;
+  minAssistantMessageLength?: number;
+  blocklistPatterns?: string[];
 }
 
 // ============================================================================
@@ -645,6 +648,29 @@ const memoryCortexPlugin = {
 
           if (!userMsg || !assistantMsg) return;
           if (userMsg.includes("<relevant-memories>")) return;
+
+          // Pre-capture quality filtering: skip trivial exchanges.
+          const minUserLen = (cfg as Record<string, unknown>).minUserMessageLength as number | undefined ?? 20;
+          const minAssistantLen = (cfg as Record<string, unknown>).minAssistantMessageLength as number | undefined ?? 20;
+          const blocklist: string[] = ((cfg as Record<string, unknown>).blocklistPatterns as string[] | undefined) ?? [
+            "HEARTBEAT_OK",
+            "NO_REPLY",
+          ];
+
+          if (userMsg.trim().length < minUserLen || assistantMsg.trim().length < minAssistantLen) {
+            api.logger.info("memory-cortex: skipping short conversation turn");
+            return;
+          }
+
+          const lowerUser = userMsg.toLowerCase();
+          const lowerAssistant = assistantMsg.toLowerCase();
+          for (const pattern of blocklist) {
+            const lp = pattern.toLowerCase();
+            if (lowerUser.includes(lp) || lowerAssistant.includes(lp)) {
+              api.logger.info(`memory-cortex: skipping blocklisted pattern "${pattern}"`);
+              return;
+            }
+          }
 
           await cortex.capture(userMsg, assistantMsg);
           api.logger.info("memory-cortex: auto-captured from conversation turn");
