@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -56,6 +57,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/memories/{id}", s.auth(s.handleDeleteMemory))
 	mux.HandleFunc("POST /v1/search", s.auth(s.handleSearch))
 	mux.HandleFunc("GET /v1/stats", s.auth(s.handleStats))
+
+	// Entity endpoints.
+	mux.HandleFunc("GET /v1/entities/{id}", s.auth(s.handleGetEntity))
+	mux.HandleFunc("GET /v1/entities", s.auth(s.handleSearchEntities))
 
 	return mux
 }
@@ -530,6 +535,63 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, stats)
+}
+
+// --- entity handlers ---
+
+func (s *Server) handleSearchEntities(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	typeFilter := r.URL.Query().Get("type")
+	limitStr := r.URL.Query().Get("limit")
+
+	limit := 10
+	if limitStr != "" {
+		if parsed, parseErr := strconv.Atoi(limitStr); parseErr == nil && parsed > 0 {
+			if parsed > 100 {
+				parsed = 100
+			}
+			limit = parsed
+		}
+	}
+
+	entities, err := s.store.SearchEntities(r.Context(), query)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Sprintf("search failed: %s", err))
+		return
+	}
+
+	// In-process type filtering (store.SearchEntities has no type param).
+	if typeFilter != "" {
+		filtered := make([]models.Entity, 0, len(entities))
+		for i := range entities {
+			if string(entities[i].Type) == typeFilter {
+				filtered = append(filtered, entities[i])
+			}
+		}
+		entities = filtered
+	}
+
+	if len(entities) > limit {
+		entities = entities[:limit]
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if encErr := json.NewEncoder(w).Encode(map[string]any{"entities": entities}); encErr != nil {
+		s.logger.Error("failed to encode entity search response", "error", encErr)
+	}
+}
+
+func (s *Server) handleGetEntity(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	entity, err := s.store.GetEntity(r.Context(), id)
+	if err != nil {
+		s.writeError(w, http.StatusNotFound, "entity not found")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if encErr := json.NewEncoder(w).Encode(entity); encErr != nil {
+		s.logger.Error("failed to encode entity response", "error", encErr)
+	}
 }
 
 // --- helpers ---
