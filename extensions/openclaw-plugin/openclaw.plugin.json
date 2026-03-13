@@ -1,0 +1,34 @@
+{
+  "id": "memory-cortex",
+  "kind": "memory",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "binaryPath": {
+        "type": "string",
+        "description": "Path to openclaw-cortex binary (default: uses PATH)"
+      },
+      "project": {
+        "type": "string",
+        "description": "Default project name for scoped memories"
+      },
+      "tokenBudget": {
+        "type": "number",
+        "description": "Token budget for auto-recall injection (default: 2000)"
+      },
+      "autoRecall": {
+        "type": "boolean",
+        "description": "Inject relevant memories before each turn (default: true)"
+      },
+      "autoCapture": {
+        "type": "boolean",
+        "description": "Capture memories from conversation turns (default: true)"
+      }
+    }
+  },
+  "uiHints": {
+    "binaryPath": { "label": "Binary Path", "placeholder": "openclaw-cortex" },
+    "project": { "label": "Project Name", "placeholder": "my-project" }
+  }
+}
