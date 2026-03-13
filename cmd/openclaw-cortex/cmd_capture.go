@@ -9,6 +9,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
+	graphpkg "github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
@@ -117,10 +118,10 @@ func captureCmd() *cobra.Command {
 			}
 
 			// Entity extraction (graceful — skipped if no API key or on error)
+			var allEntityNames []string
 			if cfg.Claude.APIKey != "" {
 				extractor := capture.NewEntityExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
 				for i := range storedIDs {
-					// Use index to get corresponding memory content
 					if i >= len(memories) {
 						break
 					}
@@ -136,6 +137,37 @@ func captureCmd() *cobra.Command {
 						}
 						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedIDs[i]); linkErr != nil {
 							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
+						}
+						allEntityNames = append(allEntityNames, entities[j].Name)
+					}
+				}
+			}
+
+			// Fact extraction + graph write (graceful — skipped if graph disabled or on error)
+			if cfg.Graph.Enabled && cfg.Claude.APIKey != "" && len(allEntityNames) > 0 {
+				gc, gcErr := newGraphClient(ctx, logger)
+				if gcErr != nil {
+					logger.Warn("graph client init failed, skipping fact extraction", "error", gcErr)
+				} else if gc != nil {
+					defer func() { _ = gc.Close() }()
+					factExtractor := graphpkg.NewFactExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					for i := range storedIDs {
+						if i >= len(memories) {
+							break
+						}
+						facts, factErr := factExtractor.Extract(ctx, memories[i].Content, allEntityNames)
+						if factErr != nil {
+							logger.Warn("fact extraction failed, skipping", "error", factErr)
+							continue
+						}
+						for j := range facts {
+							if upsertErr := gc.UpsertFact(ctx, facts[j]); upsertErr != nil {
+								logger.Warn("upsert fact failed", "fact_id", facts[j].ID, "error", upsertErr)
+								continue
+							}
+							if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedIDs[i]); linkErr != nil {
+								logger.Warn("link fact to memory failed", "fact_id", facts[j].ID, "error", linkErr)
+							}
 						}
 					}
 				}

@@ -112,6 +112,15 @@ func hookPreCmd() *cobra.Command {
 			}
 
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
+
+			gc, gcErr := newGraphClient(ctx, logger)
+			if gcErr != nil {
+				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
+			} else if gc != nil {
+				defer func() { _ = gc.Close() }()
+				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetMs)
+			}
+
 			preTurnHook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
 			if cfg.Claude.APIKey != "" {

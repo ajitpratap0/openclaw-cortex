@@ -59,7 +59,17 @@ func recallCmd() *cobra.Command {
 
 			// Re-rank with multi-factor scoring using config-loaded weights.
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
-			ranked := recaller.Rank(results, project, query)
+
+			// Wire optional graph client for graph-augmented recall.
+			gc, gcErr := newGraphClient(ctx, logger)
+			if gcErr != nil {
+				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
+			} else if gc != nil {
+				defer func() { _ = gc.Close() }()
+				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetCLIMs)
+			}
+
+			ranked := recaller.RecallWithGraph(ctx, query, vec, results, project)
 
 			// Optionally re-rank with Claude for genuine relevance.
 			// Threshold-gated: also triggers automatically when top-4 scores are clustered.

@@ -27,6 +27,14 @@ func serveCmd() *cobra.Command {
 
 			rec := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
+			gc, gcErr := newGraphClient(cmd.Context(), logger)
+			if gcErr != nil {
+				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
+			} else if gc != nil {
+				defer func() { _ = gc.Close() }()
+				rec.SetGraphClient(gc, st, cfg.Graph.RecallBudgetCLIMs)
+			}
+
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
 
 			if cfg.API.AuthToken == "" {
