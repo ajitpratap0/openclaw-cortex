@@ -287,7 +287,7 @@ func (m *Manager) consolidate(ctx context.Context, dryRun bool) (int, error) {
 // resolveConflicts batch-resolves active conflict groups by picking a winner
 // (highest confidence, then most recent) and marking all members "resolved".
 func (m *Manager) resolveConflicts(ctx context.Context, dryRun bool) (int, error) {
-	activeStatus := "active"
+	activeStatus := models.ConflictStatusActive
 	memories, err := m.listAll(ctx, &store.SearchFilters{ConflictStatus: &activeStatus})
 	if err != nil {
 		return 0, fmt.Errorf("resolveConflicts: list active: %w", err)
@@ -312,10 +312,10 @@ func (m *Manager) resolveConflicts(ctx context.Context, dryRun bool) (int, error
 			return mems[i].CreatedAt.After(mems[j].CreatedAt)
 		})
 		if !dryRun {
-			_ = m.store.UpdateConflictFields(ctx, mems[0].ID, groupID, "resolved")
+			_ = m.store.UpdateConflictFields(ctx, mems[0].ID, groupID, string(models.ConflictStatusResolved))
 			for i := range mems[1:] {
 				loser := &mems[i+1]
-				if updateErr := m.store.UpdateConflictFields(ctx, loser.ID, groupID, "resolved"); updateErr != nil {
+				if updateErr := m.store.UpdateConflictFields(ctx, loser.ID, groupID, string(models.ConflictStatusResolved)); updateErr != nil {
 					m.logger.Warn("resolveConflicts: failed to mark resolved", "id", loser.ID, "error", updateErr)
 					continue
 				}

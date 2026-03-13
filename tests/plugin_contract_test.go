@@ -126,8 +126,11 @@ func TestPluginContract_MemoryFieldNames(t *testing.T) {
 		"content",
 		"type",
 		"scope",
+		"visibility",
 		"confidence",
+		"source",
 		"tags",
+		"project",
 		"created_at",
 		"updated_at",
 		"last_accessed",
@@ -142,9 +145,43 @@ func TestPluginContract_MemoryFieldNames(t *testing.T) {
 	assert.IsType(t, "", m["content"], "content must be a string")
 	assert.IsType(t, "", m["type"], "type must be a string")
 	assert.IsType(t, "", m["scope"], "scope must be a string")
+	assert.IsType(t, "", m["visibility"], "visibility must be a string")
+	assert.IsType(t, "", m["source"], "source must be a string")
+	assert.IsType(t, "", m["project"], "project must be a string")
 	assert.IsType(t, float64(0), m["confidence"], "confidence must be a number")
 	assert.IsType(t, []interface{}{}, m["tags"], "tags must be an array")
 	assert.IsType(t, float64(0), m["access_count"], "access_count must be a number")
+}
+
+// TestPluginContract_MemoryOptionalFields validates that optional Memory fields
+// are present in the JSON output when they are populated.
+func TestPluginContract_MemoryOptionalFields(t *testing.T) {
+	mem := sampleMemory()
+	mem.TTLSeconds = 3600
+	mem.ReinforcedCount = 5
+	mem.ReinforcedAt = time.Now().UTC()
+	mem.SupersedesID = "old-memory-id"
+	mem.ConflictGroupID = "conflict-group-1"
+	mem.ConflictStatus = models.ConflictStatusActive
+	mem.ValidUntil = time.Now().Add(24 * time.Hour).UTC()
+	mem.Metadata = map[string]any{"key": "value"}
+
+	data, marshalErr := json.Marshal(mem)
+	require.NoError(t, marshalErr)
+
+	var m map[string]interface{}
+	unmarshalErr := json.Unmarshal(data, &m)
+	require.NoError(t, unmarshalErr)
+
+	// Optional fields should be present when populated.
+	assert.Contains(t, m, "ttl_seconds")
+	assert.Contains(t, m, "reinforced_count")
+	assert.Contains(t, m, "reinforced_at")
+	assert.Contains(t, m, "supersedes_id")
+	assert.Contains(t, m, "conflict_group_id")
+	assert.Contains(t, m, "conflict_status")
+	assert.Contains(t, m, "valid_until")
+	assert.Contains(t, m, "metadata")
 }
 
 // TestPluginContract_SearchFiltersScope validates that store.SearchFilters
@@ -312,4 +349,97 @@ func TestPluginContract_CollectionStatsJSONShape(t *testing.T) {
 	require.True(t, ok)
 	assert.Contains(t, byScope, "permanent")
 	assert.Contains(t, byScope, "session")
+}
+
+// TestPluginContract_RecallResultNewFields validates that the new enhanced
+// scoring fields are present in the JSON serialization and have the correct types.
+func TestPluginContract_RecallResultNewFields(t *testing.T) {
+	result := models.RecallResult{
+		Memory:              sampleMemory(),
+		SimilarityScore:     0.85,
+		RecencyScore:        0.72,
+		FrequencyScore:      0.50,
+		TypeBoost:           1.00,
+		ScopeBoost:          0.67,
+		ConfidenceScore:     0.90,
+		ReinforcementScore:  0.60,
+		TagAffinityScore:    0.75,
+		SupersessionPenalty: 1.0,
+		ConflictPenalty:     0.8,
+		FinalScore:          0.65,
+	}
+
+	data, marshalErr := json.Marshal(result)
+	require.NoError(t, marshalErr)
+
+	var m map[string]interface{}
+	unmarshalErr := json.Unmarshal(data, &m)
+	require.NoError(t, unmarshalErr)
+
+	// New fields must exist in JSON output
+	newFields := []string{
+		"confidence_score",
+		"reinforcement_score",
+		"tag_affinity_score",
+		"supersession_penalty",
+		"conflict_penalty",
+	}
+	for i := range newFields {
+		assert.Contains(t, m, newFields[i], "RecallResult must have '%s' field", newFields[i])
+		assert.IsType(t, float64(0), m[newFields[i]], "%s must be a float64", newFields[i])
+	}
+
+	// Old fields must still exist (backwards compatibility)
+	oldFields := []string{
+		"memory",
+		"similarity_score",
+		"recency_score",
+		"frequency_score",
+		"type_boost",
+		"scope_boost",
+		"final_score",
+	}
+	for i := range oldFields {
+		assert.Contains(t, m, oldFields[i], "RecallResult must still have '%s' field", oldFields[i])
+	}
+}
+
+// TestPluginContract_RecallResultNewFieldsRoundTrip validates that all new
+// RecallResult fields survive a JSON marshal/unmarshal round trip.
+func TestPluginContract_RecallResultNewFieldsRoundTrip(t *testing.T) {
+	original := models.RecallResult{
+		Memory:              sampleMemory(),
+		SimilarityScore:     0.85,
+		RecencyScore:        0.72,
+		FrequencyScore:      0.50,
+		TypeBoost:           1.00,
+		ScopeBoost:          0.67,
+		ConfidenceScore:     0.91,
+		ReinforcementScore:  0.63,
+		TagAffinityScore:    0.75,
+		SupersessionPenalty: 0.3,
+		ConflictPenalty:     0.8,
+		FinalScore:          0.42,
+	}
+
+	data, marshalErr := json.Marshal(original)
+	require.NoError(t, marshalErr)
+
+	var roundTripped models.RecallResult
+	unmarshalErr := json.Unmarshal(data, &roundTripped)
+	require.NoError(t, unmarshalErr)
+
+	assert.InDelta(t, original.ConfidenceScore, roundTripped.ConfidenceScore, 1e-9)
+	assert.InDelta(t, original.ReinforcementScore, roundTripped.ReinforcementScore, 1e-9)
+	assert.InDelta(t, original.TagAffinityScore, roundTripped.TagAffinityScore, 1e-9)
+	assert.InDelta(t, original.SupersessionPenalty, roundTripped.SupersessionPenalty, 1e-9)
+	assert.InDelta(t, original.ConflictPenalty, roundTripped.ConflictPenalty, 1e-9)
+
+	// Verify old fields also round-trip
+	assert.InDelta(t, original.SimilarityScore, roundTripped.SimilarityScore, 1e-9)
+	assert.InDelta(t, original.RecencyScore, roundTripped.RecencyScore, 1e-9)
+	assert.InDelta(t, original.FrequencyScore, roundTripped.FrequencyScore, 1e-9)
+	assert.InDelta(t, original.TypeBoost, roundTripped.TypeBoost, 1e-9)
+	assert.InDelta(t, original.ScopeBoost, roundTripped.ScopeBoost, 1e-9)
+	assert.InDelta(t, original.FinalScore, roundTripped.FinalScore, 1e-9)
 }

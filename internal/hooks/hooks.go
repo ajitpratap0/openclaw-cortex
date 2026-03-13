@@ -104,7 +104,7 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 	}
 
 	// Rank with multi-factor scoring
-	ranked := h.recaller.Rank(results, input.Project)
+	ranked := h.recaller.Rank(results, input.Project, input.Message)
 
 	// Optionally re-rank with Claude when scores are clustered.
 	if h.reasoner != nil && h.recaller.ShouldRerank(ranked, h.rerankCfg.ScoreSpreadThreshold) {
@@ -319,11 +319,11 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			UpdatedAt:       now,
 			LastAccessed:    now,
 			ConflictGroupID: conflictGroupID,
-			ConflictStatus: func() string {
+			ConflictStatus: func() models.ConflictStatus {
 				if conflictGroupID != "" {
-					return "active"
+					return models.ConflictStatusActive
 				}
-				return ""
+				return models.ConflictStatusNone
 			}(),
 		}
 

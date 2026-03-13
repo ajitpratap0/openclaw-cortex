@@ -62,6 +62,34 @@ func (ms MemoryScope) IsValid() bool {
 	return false
 }
 
+// ConflictStatus represents the conflict resolution state of a memory.
+type ConflictStatus string
+
+const (
+	ConflictStatusNone     ConflictStatus = ""
+	ConflictStatusActive   ConflictStatus = "active"
+	ConflictStatusResolved ConflictStatus = "resolved"
+)
+
+// ValidConflictStatuses lists all valid non-empty conflict statuses.
+var ValidConflictStatuses = []ConflictStatus{
+	ConflictStatusActive,
+	ConflictStatusResolved,
+}
+
+// IsValid returns true if cs is a recognized conflict status (including empty).
+func (cs ConflictStatus) IsValid() bool {
+	if cs == ConflictStatusNone {
+		return true
+	}
+	for i := range ValidConflictStatuses {
+		if ValidConflictStatuses[i] == cs {
+			return true
+		}
+	}
+	return false
+}
+
 // MemoryVisibility controls access to a memory.
 type MemoryVisibility string
 
@@ -104,7 +132,7 @@ type Memory struct {
 	ConflictGroupID string `json:"conflict_group_id,omitempty"`
 
 	// ConflictStatus tracks resolution: "" (no conflict), "active" (unresolved), "resolved".
-	ConflictStatus string `json:"conflict_status,omitempty"`
+	ConflictStatus ConflictStatus `json:"conflict_status,omitempty"`
 }
 
 // SearchResult wraps a Memory with its similarity score.
@@ -115,13 +143,18 @@ type SearchResult struct {
 
 // RecallResult wraps a Memory with multi-factor ranking details.
 type RecallResult struct {
-	Memory          Memory  `json:"memory"`
-	SimilarityScore float64 `json:"similarity_score"`
-	RecencyScore    float64 `json:"recency_score"`
-	FrequencyScore  float64 `json:"frequency_score"`
-	TypeBoost       float64 `json:"type_boost"`
-	ScopeBoost      float64 `json:"scope_boost"`
-	FinalScore      float64 `json:"final_score"`
+	Memory              Memory  `json:"memory"`
+	SimilarityScore     float64 `json:"similarity_score"`
+	RecencyScore        float64 `json:"recency_score"`
+	FrequencyScore      float64 `json:"frequency_score"`
+	TypeBoost           float64 `json:"type_boost"`
+	ScopeBoost          float64 `json:"scope_boost"`
+	ConfidenceScore     float64 `json:"confidence_score"`
+	ReinforcementScore  float64 `json:"reinforcement_score"`
+	TagAffinityScore    float64 `json:"tag_affinity_score"`
+	SupersessionPenalty float64 `json:"supersession_penalty"`
+	ConflictPenalty     float64 `json:"conflict_penalty"`
+	FinalScore          float64 `json:"final_score"`
 }
 
 // CapturedMemory is a memory extracted from a conversation by the LLM.

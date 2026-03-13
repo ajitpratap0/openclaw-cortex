@@ -42,11 +42,12 @@ type Server struct {
 
 // NewServer creates a new MCP server. If st or emb are nil,
 // the corresponding tool calls will return an error response instead of panicking.
-func NewServer(st store.Store, emb embedder.Embedder, logger *slog.Logger) *Server {
+// The recaller is used for multi-factor ranking in the recall tool.
+func NewServer(st store.Store, emb embedder.Embedder, recaller *recall.Recaller, logger *slog.Logger) *Server {
 	s := &Server{
 		st:       st,
 		emb:      emb,
-		recaller: recall.NewRecaller(recall.DefaultWeights(), logger),
+		recaller: recaller,
 		logger:   logger,
 	}
 
@@ -262,6 +263,9 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 	if s.emb == nil {
 		return mcpgo.NewToolResultError("embedder is unavailable"), nil
 	}
+	if s.recaller == nil {
+		return mcpgo.NewToolResultError("recaller is unavailable"), nil
+	}
 
 	message := req.GetString("message", "")
 	if strings.TrimSpace(message) == "" {
@@ -289,7 +293,7 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 		return mcpgo.NewToolResultErrorf("search failed: %s", err.Error()), nil
 	}
 
-	ranked := s.recaller.Rank(results, project)
+	ranked := s.recaller.Rank(results, project, message)
 
 	var contents []string
 	for i := range ranked {

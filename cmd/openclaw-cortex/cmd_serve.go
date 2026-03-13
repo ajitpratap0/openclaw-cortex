@@ -25,7 +25,7 @@ func serveCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			rec := recall.NewRecaller(recall.DefaultWeights(), logger)
+			rec := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
 

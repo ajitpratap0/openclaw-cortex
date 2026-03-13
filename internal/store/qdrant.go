@@ -858,7 +858,7 @@ func memoryToPayload(m models.Memory) map[string]*pb.Value {
 		"access_count":       {Kind: &pb.Value_IntegerValue{IntegerValue: m.AccessCount}},
 		"supersedes_id":      {Kind: &pb.Value_StringValue{StringValue: m.SupersedesID}},
 		"conflict_group_id":  {Kind: &pb.Value_StringValue{StringValue: m.ConflictGroupID}},
-		"conflict_status":    {Kind: &pb.Value_StringValue{StringValue: m.ConflictStatus}},
+		"conflict_status":    {Kind: &pb.Value_StringValue{StringValue: string(m.ConflictStatus)}},
 		"valid_until_unix":   {Kind: &pb.Value_IntegerValue{IntegerValue: validUntilUnix}},
 		"reinforced_at_unix": {Kind: &pb.Value_IntegerValue{IntegerValue: reinforcedAtUnix}},
 		"reinforced_count":   {Kind: &pb.Value_IntegerValue{IntegerValue: int64(m.ReinforcedCount)}},
@@ -898,7 +898,7 @@ func payloadToMemory(id string, payload map[string]*pb.Value) *models.Memory {
 		AccessCount:     getIntValue(payload, "access_count"),
 		SupersedesID:    getStringValue(payload, "supersedes_id"),
 		ConflictGroupID: getStringValue(payload, "conflict_group_id"),
-		ConflictStatus:  getStringValue(payload, "conflict_status"),
+		ConflictStatus:  models.ConflictStatus(getStringValue(payload, "conflict_status")),
 		ReinforcedCount: int(getIntValue(payload, "reinforced_count")),
 	}
 
@@ -1017,7 +1017,7 @@ func buildFilter(f *SearchFilters) *pb.Filter {
 			ConditionOneOf: &pb.Condition_Field{
 				Field: &pb.FieldCondition{
 					Key:   "conflict_status",
-					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: *f.ConflictStatus}},
+					Match: &pb.Match{MatchValue: &pb.Match_Keyword{Keyword: string(*f.ConflictStatus)}},
 				},
 			},
 		})

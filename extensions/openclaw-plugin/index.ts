@@ -28,13 +28,23 @@ interface CortexMemory {
   content: string;
   type: MemoryType;
   scope: MemoryScope;
+  visibility: string;
   confidence: number;
+  source: string;
   tags: string[];
   project: string;
   created_at: string;
   updated_at: string;
   last_accessed: string;
   access_count: number;
+  ttl_seconds?: number;
+  reinforced_at?: string;
+  reinforced_count?: number;
+  metadata?: Record<string, unknown>;
+  supersedes_id?: string;
+  valid_until?: string;
+  conflict_group_id?: string;
+  conflict_status?: string;
 }
 
 interface RecallResult {
@@ -44,6 +54,11 @@ interface RecallResult {
   frequency_score: number;
   type_boost: number;
   scope_boost: number;
+  confidence_score?: number;
+  reinforcement_score?: number;
+  tag_affinity_score?: number;
+  supersession_penalty?: number;
+  conflict_penalty?: number;
   final_score: number;
 }
 

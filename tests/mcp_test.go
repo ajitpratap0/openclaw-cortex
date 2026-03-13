@@ -13,6 +13,7 @@ import (
 
 	cortexmcp "github.com/ajitpratap0/openclaw-cortex/internal/mcp"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
@@ -53,7 +54,8 @@ func newMCPServer(t *testing.T) (*cortexmcp.Server, *store.MockStore) {
 	ms := store.NewMockStore()
 	emb := &mcpMockEmbedder{}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	srv := cortexmcp.NewServer(ms, emb, logger)
+	recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
+	srv := cortexmcp.NewServer(ms, emb, recaller, logger)
 	return srv, ms
 }
 

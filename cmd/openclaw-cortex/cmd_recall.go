@@ -55,9 +55,9 @@ func recallCmd() *cobra.Command {
 				return fmt.Errorf("recall: searching store: %w", err)
 			}
 
-			// Re-rank with multi-factor scoring
-			recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-			ranked := recaller.Rank(results, project)
+			// Re-rank with multi-factor scoring using config-loaded weights.
+			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
+			ranked := recaller.Rank(results, project, query)
 
 			// Optionally re-rank with Claude for genuine relevance.
 			// Threshold-gated: also triggers automatically when top-4 scores are clustered.
