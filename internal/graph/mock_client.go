@@ -41,7 +41,8 @@ func (m *MockGraphClient) SearchEntities(_ context.Context, query string, _ []fl
 	defer m.mu.RUnlock()
 
 	var results []EntityResult
-	for id, e := range m.entities {
+	for id := range m.entities {
+		e := m.entities[id]
 		if query == "" || strings.Contains(strings.ToLower(e.Name), strings.ToLower(query)) {
 			results = append(results, EntityResult{
 				ID:    id,
@@ -80,7 +81,8 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, _ string, _ []float32, 
 	defer m.mu.RUnlock()
 
 	var results []FactResult
-	for _, f := range m.facts {
+	for id := range m.facts {
+		f := m.facts[id]
 		if f.ExpiredAt != nil {
 			continue
 		}
@@ -118,7 +120,8 @@ func (m *MockGraphClient) GetFactsBetween(_ context.Context, sourceID, targetID 
 	defer m.mu.RUnlock()
 
 	var results []models.Fact
-	for _, f := range m.facts {
+	for id := range m.facts {
+		f := m.facts[id]
 		if f.ExpiredAt != nil {
 			continue
 		}
@@ -134,7 +137,8 @@ func (m *MockGraphClient) GetFactsForEntity(_ context.Context, entityID string) 
 	defer m.mu.RUnlock()
 
 	var results []models.Fact
-	for _, f := range m.facts {
+	for id := range m.facts {
+		f := m.facts[id]
 		if f.ExpiredAt != nil {
 			continue
 		}
@@ -176,7 +180,8 @@ func (m *MockGraphClient) GetMemoryFacts(_ context.Context, memoryID string) ([]
 	defer m.mu.RUnlock()
 
 	var results []models.Fact
-	for _, f := range m.facts {
+	for id := range m.facts {
+		f := m.facts[id]
 		for _, mid := range f.SourceMemoryIDs {
 			if mid == memoryID {
 				results = append(results, f)
@@ -193,7 +198,8 @@ func (m *MockGraphClient) RecallByGraph(_ context.Context, _ string, _ []float32
 
 	seen := make(map[string]bool)
 	var memoryIDs []string
-	for _, f := range m.facts {
+	for id := range m.facts {
+		f := m.facts[id]
 		if f.ExpiredAt != nil {
 			continue
 		}
