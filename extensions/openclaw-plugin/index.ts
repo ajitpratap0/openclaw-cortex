@@ -130,6 +130,28 @@ class CortexClient {
     }
   }
 
+  async storeBatch(
+    memories: Array<{ content: string; type?: MemoryType; scope?: MemoryScope; tags?: string[] }>,
+    project?: string,
+  ): Promise<Array<{ id: string | null; status: string }>> {
+    const args = ["store-batch"];
+    const proj = project || this.defaultProject;
+    if (proj) args.push("--project", proj);
+
+    try {
+      const input = JSON.stringify(memories);
+      const { stdout } = await execFileAsync(this.bin, args, {
+        timeout: 30_000,
+        maxBuffer: 1024 * 1024,
+        env: { ...process.env },
+        input,
+      });
+      return JSON.parse(stdout.trim()) as Array<{ id: string | null; status: string }>;
+    } catch {
+      return memories.map(() => ({ id: null, status: "error" }));
+    }
+  }
+
   async capture(userMsg: string, assistantMsg: string, sessionId?: string): Promise<void> {
     const args = ["capture", "--user", userMsg, "--assistant", assistantMsg];
     if (sessionId) args.push("--session-id", sessionId);
@@ -327,6 +349,69 @@ const memoryCortexPlugin = {
         },
       },
       { name: "memory_store" },
+    );
+
+    api.registerTool(
+      {
+        name: "memory_store_batch",
+        label: "Cortex Store Batch",
+        description:
+          "Store multiple memories in a single batch. More efficient than calling memory_store " +
+          "repeatedly — uses a single embedding round-trip. Returns an array of results with " +
+          "status 'created' or 'duplicate' for each memory.",
+        parameters: Type.Object({
+          memories: Type.Array(
+            Type.Object({
+              content: Type.String({ description: "Memory content to store" }),
+              type: Type.Optional(
+                Type.Unsafe<MemoryType>({
+                  type: "string",
+                  enum: ["rule", "fact", "episode", "procedure", "preference"],
+                  description: "Memory type (default: fact)",
+                }),
+              ),
+              scope: Type.Optional(
+                Type.Unsafe<MemoryScope>({
+                  type: "string",
+                  enum: ["permanent", "project", "session", "ttl"],
+                  description: "Memory scope (default: permanent)",
+                }),
+              ),
+              tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for filtering" })),
+            }),
+            { description: "Array of memories to store" },
+          ),
+        }),
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
+          const memories = params.memories as Array<{
+            content: string;
+            type?: MemoryType;
+            scope?: MemoryScope;
+            tags?: string[];
+          }>;
+
+          if (!memories || memories.length === 0) {
+            return {
+              content: [{ type: "text", text: "No memories provided." }],
+              details: { count: 0, results: [] },
+            };
+          }
+
+          const results = await cortex.storeBatch(memories);
+
+          const created = results.filter((r) => r.status === "created").length;
+          const duplicates = results.filter((r) => r.status === "duplicate").length;
+          const errors = results.filter((r) => r.status === "error").length;
+
+          const summary = `Batch store: ${created} created, ${duplicates} duplicates, ${errors} errors (${memories.length} total)`;
+
+          return {
+            content: [{ type: "text", text: summary }],
+            details: { count: memories.length, created, duplicates, errors, results },
+          };
+        },
+      },
+      { name: "memory_store_batch" },
     );
 
     api.registerTool(
