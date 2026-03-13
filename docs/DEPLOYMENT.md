@@ -111,7 +111,7 @@ spec:
 
 ### Config File
 
-Place at `~/.openclaw-cortex/config.yaml`. See [README](../README.md#configuration) for full schema.
+Place at `~/.openclaw-cortex/config.yaml`. See [README](https://github.com/ajitpratap0/openclaw-cortex/blob/main/README.md#configuration) for full schema.
 
 ## Health Checks
 
