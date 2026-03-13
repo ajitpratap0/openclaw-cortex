@@ -165,9 +165,25 @@ type CapturedMemory struct {
 	Tags       []string   `json:"tags"`
 }
 
+// MemoryPreview is a lightweight summary of a memory used in stats output.
+type MemoryPreview struct {
+	ID          string `json:"id"`
+	Content     string `json:"content"`
+	AccessCount int64  `json:"access_count"`
+}
+
 // CollectionStats holds summary statistics about the memory collection.
 type CollectionStats struct {
 	TotalMemories int64            `json:"total_memories"`
 	ByType        map[string]int64 `json:"by_type"`
 	ByScope       map[string]int64 `json:"by_scope"`
+
+	// Health metrics
+	OldestMemory       *time.Time       `json:"oldest_memory,omitempty"`
+	NewestMemory       *time.Time       `json:"newest_memory,omitempty"`
+	TopAccessed        []MemoryPreview  `json:"top_accessed,omitempty"`
+	ReinforcementTiers map[string]int64 `json:"reinforcement_tiers,omitempty"`
+	ActiveConflicts    int64            `json:"active_conflicts"`
+	PendingTTLExpiry   int64            `json:"pending_ttl_expiry"`
+	StorageEstimate    int64            `json:"storage_estimate_bytes"`
 }

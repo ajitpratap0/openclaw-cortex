@@ -355,6 +355,8 @@ func (q *QdrantStore) UpdateAccessMetadata(ctx context.Context, id string) error
 }
 
 // Stats returns collection statistics. Type and scope counts are fetched concurrently.
+// Health metrics (temporal range, top accessed, reinforcement tiers, conflicts, TTL, storage)
+// are computed by scrolling all points once.
 func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error) {
 	rctx, rcancel := withTimeout(ctx, qdrantReadTimeout)
 	defer rcancel()
@@ -366,9 +368,10 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 	}
 
 	stats := &models.CollectionStats{
-		TotalMemories: int64(info.GetResult().GetPointsCount()),
-		ByType:        make(map[string]int64),
-		ByScope:       make(map[string]int64),
+		TotalMemories:      int64(info.GetResult().GetPointsCount()),
+		ByType:             make(map[string]int64),
+		ByScope:            make(map[string]int64),
+		ReinforcementTiers: make(map[string]int64),
 	}
 
 	type countResult struct {
@@ -398,7 +401,7 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 		g.Go(func() error {
 			cctx, ccancel := withTimeout(gctx, qdrantReadTimeout)
 			defer ccancel()
-			countResp, err := q.points.Count(cctx, &pb.CountPoints{
+			countResp, countErr := q.points.Count(cctx, &pb.CountPoints{
 				CollectionName: q.collName,
 				Filter: &pb.Filter{
 					Must: []*pb.Condition{
@@ -416,9 +419,9 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 				},
 				Exact: boolPtr(true),
 			})
-			if err != nil {
+			if countErr != nil {
 				// Non-fatal: log and continue with 0 count.
-				q.logger.Warn("counting by field", "field", t.field, "key", t.key, "error", err)
+				q.logger.Warn("counting by field", "field", t.field, "key", t.key, "error", countErr)
 				results[i] = countResult{field: t.field, key: t.key, count: 0}
 				return nil
 			}
@@ -427,8 +430,8 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 		})
 	}
 
-	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("counting stats: %w", err)
+	if waitErr := g.Wait(); waitErr != nil {
+		return nil, fmt.Errorf("counting stats: %w", waitErr)
 	}
 
 	for _, r := range results {
@@ -440,7 +443,136 @@ func (q *QdrantStore) Stats(ctx context.Context) (*models.CollectionStats, error
 		}
 	}
 
+	// Scroll all points for health metrics.
+	q.populateHealthMetrics(ctx, stats)
+
+	// Storage estimate: total_memories * dimension * 4 bytes per float32
+	stats.StorageEstimate = stats.TotalMemories * int64(q.dimension) * 4
+
 	return stats, nil
+}
+
+// populateHealthMetrics scrolls through all points to compute temporal range,
+// top accessed, reinforcement tiers, active conflicts, and pending TTL expiry.
+func (q *QdrantStore) populateHealthMetrics(ctx context.Context, stats *models.CollectionStats) {
+	now := time.Now().UTC()
+	ttlDeadline := now.Add(24 * time.Hour)
+
+	// topAccessed keeps the top 5 memories by access_count.
+	var topAccessed []accessEntry
+
+	const pageSize = 100
+	limit := uint32(pageSize)
+	var offset *pb.PointId
+
+	for {
+		sctx, scancel := withTimeout(ctx, qdrantReadTimeout)
+		resp, scrollErr := q.points.Scroll(sctx, &pb.ScrollPoints{
+			CollectionName: q.collName,
+			Limit:          &limit,
+			WithPayload:    &pb.WithPayloadSelector{SelectorOptions: &pb.WithPayloadSelector_Enable{Enable: true}},
+			Offset:         offset,
+		})
+		scancel()
+		if scrollErr != nil {
+			q.logger.Warn("stats: scrolling for health metrics", "error", scrollErr)
+			return
+		}
+
+		for _, point := range resp.GetResult() {
+			mem := payloadToMemory(point.GetId().GetUuid(), point.GetPayload())
+
+			// Temporal range
+			if !mem.CreatedAt.IsZero() {
+				if stats.OldestMemory == nil || mem.CreatedAt.Before(*stats.OldestMemory) {
+					t := mem.CreatedAt
+					stats.OldestMemory = &t
+				}
+				if stats.NewestMemory == nil || mem.CreatedAt.After(*stats.NewestMemory) {
+					t := mem.CreatedAt
+					stats.NewestMemory = &t
+				}
+			}
+
+			// Reinforcement tiers
+			rc := mem.ReinforcedCount
+			switch {
+			case rc == 0:
+				stats.ReinforcementTiers["0"]++
+			case rc >= 1 && rc <= 3:
+				stats.ReinforcementTiers["1-3"]++
+			case rc >= 4 && rc <= 10:
+				stats.ReinforcementTiers["4-10"]++
+			default:
+				stats.ReinforcementTiers["10+"]++
+			}
+
+			// Active conflicts
+			if mem.ConflictStatus == "active" {
+				stats.ActiveConflicts++
+			}
+
+			// Pending TTL expiry
+			if mem.Scope == models.ScopeTTL && !mem.ValidUntil.IsZero() && mem.ValidUntil.Before(ttlDeadline) {
+				stats.PendingTTLExpiry++
+			}
+
+			// Track top accessed
+			content := mem.Content
+			if len(content) > 80 {
+				content = content[:80]
+			}
+			entry := accessEntry{
+				id:          mem.ID,
+				content:     content,
+				accessCount: mem.AccessCount,
+			}
+			topAccessed = insertTopAccessed(topAccessed, entry, 5)
+		}
+
+		npo := resp.GetNextPageOffset()
+		if npo == nil {
+			break
+		}
+		offset = npo
+	}
+
+	for i := range topAccessed {
+		stats.TopAccessed = append(stats.TopAccessed, models.MemoryPreview{
+			ID:          topAccessed[i].id,
+			Content:     topAccessed[i].content,
+			AccessCount: topAccessed[i].accessCount,
+		})
+	}
+}
+
+type accessEntry struct {
+	id          string
+	content     string
+	accessCount int64
+}
+
+// insertTopAccessed maintains a sorted (descending by accessCount) slice of at most maxLen entries.
+func insertTopAccessed(top []accessEntry, entry accessEntry, maxLen int) []accessEntry {
+	// Find insertion point.
+	pos := len(top)
+	for i := range top {
+		if entry.accessCount > top[i].accessCount {
+			pos = i
+			break
+		}
+	}
+	if pos >= maxLen {
+		return top
+	}
+	// Insert at pos.
+	top = append(top, entry)
+	copy(top[pos+1:], top[pos:])
+	top[pos] = entry
+	if len(top) > maxLen {
+		top = top[:maxLen]
+	}
+	return top
 }
 
 // entityCollName returns the name of the entity collection derived from the
