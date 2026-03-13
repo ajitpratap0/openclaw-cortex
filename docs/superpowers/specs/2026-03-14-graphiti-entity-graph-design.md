@@ -64,7 +64,7 @@ Add to `internal/api/server.go`:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100) |
+| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100; enforced by handler — `store.SearchEntities` returns all matches, handler truncates) |
 | `GET` | `/v1/entities/{id}` | Get entity by ID |
 
 Entity creation happens implicitly through capture — no standalone create endpoint needed.
@@ -264,6 +264,7 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 | Create | `tests/entity_pipeline_test.go` | Capture + entity extraction tests |
 | Create | `tests/entity_api_test.go` | HTTP endpoint tests |
 | Create | `tests/entity_mcp_test.go` | MCP tool contract tests |
+| Modify | `cmd/openclaw-cortex/cmd_stats.go` | Add entity count to stats output |
 
 ### Phase 2
 
@@ -275,8 +276,9 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 | Modify | `internal/config/config.go` | graphiti.* config keys |
 | Modify | `internal/capture/capture.go` | Conditional Graphiti write path |
 | Modify | `internal/recall/recall.go` | Sequential merge: Qdrant + Graphiti + dedup |
-| Modify | `cmd/openclaw-cortex/root.go` | Wire graph.Client when enabled |
+| Modify | `cmd/openclaw-cortex/main.go` | Wire graph.Client when enabled |
 | Modify | `docker-compose.yml` | Add Neo4j + Graphiti services (commented) |
+| Modify | `cmd/openclaw-cortex/cmd_health.go` | Report Graphiti health as optional service |
 | Create | `tests/graph_client_test.go` | Graphiti REST mock tests |
 | Create | `tests/graph_recall_merge_test.go` | Merge + dedup logic tests |
 | Create | `tests/graph_degradation_test.go` | Graceful degradation tests |
