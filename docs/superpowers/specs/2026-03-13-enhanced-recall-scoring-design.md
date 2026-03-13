@@ -51,7 +51,7 @@ confidenceScore = mem.Confidence  // already [0,1]
 
 No transformation needed. The field is set by Claude Haiku during capture (range 0.0-1.0), and `UpdateReinforcement` bumps it by 0.05 (capped at 1.0).
 
-**Legacy memories (Confidence < 0.01):** Memories captured before confidence tracking may have a zero or near-zero `Confidence`. To avoid silently penalizing them (and to guard against float imprecision), treat `Confidence < 0.01` as "unknown" and substitute a neutral value of 0.7. This applies only in the scoring function — the stored value is not mutated.
+**Legacy memories (Confidence == 0):** Memories captured before confidence tracking may have a zero-value `Confidence`. To avoid silently penalizing them, treat `Confidence == 0` as "unknown" and substitute a neutral value of 0.7 (the median of observed capture confidences). This applies only in the scoring function — the stored value is not mutated.
 
 ### 2. Reinforcement Score (weight: 0.07)
 
