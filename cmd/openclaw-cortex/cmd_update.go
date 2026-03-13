@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -14,58 +16,72 @@ func updateCmd() *cobra.Command {
 	var (
 		content    string
 		memType    string
-		scope      string
 		tags       string
-		project    string
-		confidence float64
+		outputJSON bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update <memory-id>",
-		Short: "Update fields of an existing memory",
-		Args:  cobra.ExactArgs(1),
+		Short: "Update a memory with lineage preservation (creates new version, old stays for history)",
+		Long: `Create a new memory that supersedes an existing one.
+
+The old memory remains in the store for history. The new memory carries forward
+access_count and reinforced_count from the original, and sets supersedes_id to
+link back to it. Superseded memories are automatically demoted during recall.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
 			ctx := cmd.Context()
-			id := args[0]
+			oldID := args[0]
+
+			if !cmd.Flags().Changed("content") {
+				return fmt.Errorf("update: --content is required")
+			}
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
-			if err != nil {
-				return fmt.Errorf("update: connecting to store: %w", err)
+			st, storeErr := newStore(logger)
+			if storeErr != nil {
+				return fmt.Errorf("update: connecting to store: %w", storeErr)
 			}
 			defer func() { _ = st.Close() }()
 
-			mem, err := st.Get(ctx, id)
-			if err != nil {
-				return fmt.Errorf("update: fetching memory: %w", err)
+			// Fetch the old memory.
+			old, getErr := st.Get(ctx, oldID)
+			if getErr != nil {
+				return fmt.Errorf("update: fetching memory %s: %w", oldID, getErr)
 			}
 
-			// Apply provided flag values.
+			// Build new memory, carrying forward fields from old.
+			now := time.Now().UTC()
+			newMem := models.Memory{
+				ID:              uuid.New().String(),
+				Type:            old.Type,
+				Scope:           old.Scope,
+				Visibility:      old.Visibility,
+				Content:         content,
+				Confidence:      old.Confidence,
+				Source:          old.Source,
+				Tags:            old.Tags,
+				Project:         old.Project,
+				TTLSeconds:      old.TTLSeconds,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+				LastAccessed:    now,
+				AccessCount:     old.AccessCount,
+				ReinforcedCount: old.ReinforcedCount,
+				SupersedesID:    oldID,
+				ValidUntil:      old.ValidUntil,
+				Metadata:        old.Metadata,
+			}
+
+			// Apply optional overrides.
 			if cmd.Flags().Changed("type") {
 				mt := models.MemoryType(memType)
 				if !mt.IsValid() {
 					return fmt.Errorf("update: invalid --type %q: must be one of %s",
 						memType, validTypesString())
 				}
-				mem.Type = mt
-			}
-
-			if cmd.Flags().Changed("scope") {
-				ms := models.MemoryScope(scope)
-				if !ms.IsValid() {
-					return fmt.Errorf("update: invalid --scope %q: must be one of %s",
-						scope, validScopesString())
-				}
-				mem.Scope = ms
-			}
-
-			if cmd.Flags().Changed("project") {
-				mem.Project = project
-			}
-
-			if cmd.Flags().Changed("confidence") {
-				mem.Confidence = confidence
+				newMem.Type = mt
 			}
 
 			if cmd.Flags().Changed("tags") {
@@ -76,39 +92,41 @@ func updateCmd() *cobra.Command {
 						tagList[i] = strings.TrimSpace(tagList[i])
 					}
 				}
-				mem.Tags = tagList
+				newMem.Tags = tagList
 			}
 
-			var vec []float32
-			if cmd.Flags().Changed("content") {
-				mem.Content = content
-				vec, err = emb.Embed(ctx, content)
-				if err != nil {
-					return fmt.Errorf("update: embedding new content: %w", err)
+			// Embed new content.
+			vec, embedErr := emb.Embed(ctx, content)
+			if embedErr != nil {
+				return fmt.Errorf("update: embedding new content: %w", embedErr)
+			}
+
+			// Ensure collection exists before upserting.
+			if ensureErr := st.EnsureCollection(ctx); ensureErr != nil {
+				return fmt.Errorf("update: ensuring collection: %w", ensureErr)
+			}
+
+			if upsertErr := st.Upsert(ctx, newMem, vec); upsertErr != nil {
+				return fmt.Errorf("update: saving new memory: %w", upsertErr)
+			}
+
+			if outputJSON {
+				out, marshalErr := json.MarshalIndent(newMem, "", "  ")
+				if marshalErr != nil {
+					return fmt.Errorf("update: marshaling JSON: %w", marshalErr)
 				}
+				fmt.Println(string(out))
 			} else {
-				// Re-embed existing content to preserve the vector (no content change).
-				vec, err = emb.Embed(ctx, mem.Content)
-				if err != nil {
-					return fmt.Errorf("update: re-embedding existing content: %w", err)
-				}
+				fmt.Printf("Updated memory %s -> %s [%s/%s]\n", oldID, newMem.ID, newMem.Type, newMem.Scope)
 			}
 
-			mem.UpdatedAt = time.Now().UTC()
-			if upsertErr := st.Upsert(ctx, *mem, vec); upsertErr != nil {
-				return fmt.Errorf("update: saving memory: %w", upsertErr)
-			}
-
-			fmt.Printf("Updated memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&content, "content", "", "new content for the memory")
+	cmd.Flags().StringVar(&content, "content", "", "new content for the memory (required)")
 	cmd.Flags().StringVar(&memType, "type", "", "memory type (rule|fact|episode|procedure|preference)")
-	cmd.Flags().StringVar(&scope, "scope", "", "memory scope (permanent|project|session|ttl)")
 	cmd.Flags().StringVar(&tags, "tags", "", "comma-separated tags (replaces existing tags)")
-	cmd.Flags().StringVar(&project, "project", "", "project name")
-	cmd.Flags().Float64Var(&confidence, "confidence", 0, "confidence score (0.0-1.0)")
+	cmd.Flags().BoolVar(&outputJSON, "json", false, "output the new memory as JSON")
 	return cmd
 }

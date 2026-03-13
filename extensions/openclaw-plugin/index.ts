@@ -177,6 +177,21 @@ class CortexClient {
     }
   }
 
+  async update(id: string, content: string, opts?: { type?: MemoryType; tags?: string[] }): Promise<string | null> {
+    const args = ["update", id, "--content", content, "--json"];
+    if (opts?.type) args.push("--type", opts.type);
+    if (opts?.tags?.length) args.push("--tags", opts.tags.join(","));
+
+    try {
+      const out = await this.run(args);
+      if (!out) return null;
+      const parsed = JSON.parse(out) as CortexMemory;
+      return parsed.id;
+    } catch {
+      return null;
+    }
+  }
+
   async health(): Promise<boolean> {
     try {
       await this.run(["health"]);
@@ -416,6 +431,55 @@ const memoryCortexPlugin = {
         },
       },
       { name: "memory_forget" },
+    );
+
+    api.registerTool(
+      {
+        name: "memory_update",
+        label: "Cortex Update",
+        description:
+          "Update an existing memory with lineage preservation. Creates a new version that " +
+          "supersedes the old one. The old memory stays for history but is demoted in recall. " +
+          "Carries forward access_count and reinforced_count.",
+        parameters: Type.Object({
+          memoryId: Type.String({ description: "ID of the memory to update" }),
+          content: Type.String({ description: "New content for the memory" }),
+          type: Type.Optional(
+            Type.Unsafe<MemoryType>({
+              type: "string",
+              enum: ["rule", "fact", "episode", "procedure", "preference"],
+              description: "New memory type (default: keep original)",
+            }),
+          ),
+          tags: Type.Optional(Type.Array(Type.String(), { description: "New tags (replaces existing)" })),
+        }),
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
+          const memoryId = params.memoryId as string;
+          const content = params.content as string;
+          const type = params.type as MemoryType | undefined;
+          const tags = params.tags as string[] | undefined;
+
+          const newId = await cortex.update(memoryId, content, { type, tags });
+
+          if (!newId) {
+            return {
+              content: [{ type: "text", text: `Failed to update memory ${memoryId}.` }],
+              details: { action: "failed", oldId: memoryId },
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Updated memory ${memoryId} -> ${newId}: "${content.slice(0, 80)}..."`,
+              },
+            ],
+            details: { action: "updated", oldId: memoryId, newId },
+          };
+        },
+      },
+      { name: "memory_update" },
     );
 
     api.registerTool(
