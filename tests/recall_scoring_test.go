@@ -582,7 +582,7 @@ func TestTagAffinityMultiWordTag(t *testing.T) {
 }
 
 func TestTagAffinityEmptyQuery(t *testing.T) {
-	r := recall.NewRecaller(recall.DefaultWeights(), slog.Default())
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 	now := time.Now().UTC()
 
 	results := []models.SearchResult{

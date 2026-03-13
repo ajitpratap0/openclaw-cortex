@@ -508,7 +508,7 @@ func (q *QdrantStore) populateHealthMetrics(ctx context.Context, stats *models.C
 			}
 
 			// Active conflicts
-			if mem.ConflictStatus == "active" {
+			if mem.ConflictStatus == models.ConflictStatusActive {
 				stats.ActiveConflicts++
 			}
 

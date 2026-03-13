@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -85,14 +84,11 @@ link back to it. Superseded memories are automatically demoted during recall.`,
 			}
 
 			if cmd.Flags().Changed("tags") {
-				var tagList []string
 				if tags != "" {
-					tagList = strings.Split(tags, ",")
-					for i := range tagList {
-						tagList[i] = strings.TrimSpace(tagList[i])
-					}
+					newMem.Tags = parseTags(tags)
+				} else {
+					newMem.Tags = nil
 				}
-				newMem.Tags = tagList
 			}
 
 			// Embed new content.

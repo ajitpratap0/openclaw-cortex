@@ -297,7 +297,7 @@ func (m *MockStore) Stats(_ context.Context) (*models.CollectionStats, error) {
 		}
 
 		// Active conflicts
-		if mem.ConflictStatus == "active" {
+		if mem.ConflictStatus == models.ConflictStatusActive {
 			stats.ActiveConflicts++
 		}
 

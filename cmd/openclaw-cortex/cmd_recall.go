@@ -4,14 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
-	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -48,29 +45,9 @@ func recallCmd() *cobra.Command {
 				return fmt.Errorf("recall: embedding query: %w", err)
 			}
 
-			var filters *store.SearchFilters
-			if memType != "" || memScope != "" || project != "" || tagsFlag != "" {
-				filters = &store.SearchFilters{}
-				if memType != "" {
-					mt := models.MemoryType(memType)
-					if !mt.IsValid() {
-						return fmt.Errorf("recall: invalid type %q (want: rule|fact|episode|procedure|preference)", memType)
-					}
-					filters.Type = &mt
-				}
-				if memScope != "" {
-					ms := models.MemoryScope(memScope)
-					if !ms.IsValid() {
-						return fmt.Errorf("recall: invalid scope %q (want: permanent|project|session|ttl)", memScope)
-					}
-					filters.Scope = &ms
-				}
-				if project != "" {
-					filters.Project = &project
-				}
-				if tagsFlag != "" {
-					filters.Tags = strings.Split(tagsFlag, ",")
-				}
+			filters, filterErr := buildSearchFilters("recall", memType, memScope, project, tagsFlag)
+			if filterErr != nil {
+				return filterErr
 			}
 
 			// Fetch more results than needed for re-ranking

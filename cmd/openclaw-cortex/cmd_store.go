@@ -73,10 +73,7 @@ func storeCmd() *cobra.Command {
 			now := time.Now().UTC()
 			var tagList []string
 			if tags != "" {
-				tagList = strings.Split(tags, ",")
-				for i := range tagList {
-					tagList[i] = strings.TrimSpace(tagList[i])
-				}
+				tagList = parseTags(tags)
 			}
 
 			mem := models.Memory{
