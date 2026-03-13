@@ -42,6 +42,7 @@ func main() {
 		indexCmd(),
 		searchCmd(),
 		storeCmd(),
+		storeBatchCmd(),
 		forgetCmd(),
 		listCmd(),
 		captureCmd(),
