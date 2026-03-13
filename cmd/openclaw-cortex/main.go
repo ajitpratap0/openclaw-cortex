@@ -48,6 +48,7 @@ func main() {
 		recallCmd(),
 		statsCmd(),
 		consolidateCmd(),
+		lifecycleCmd(),
 		getCmd(),
 		updateCmd(),
 		exportCmd(),
