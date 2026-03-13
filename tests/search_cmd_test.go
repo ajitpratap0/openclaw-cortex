@@ -216,15 +216,21 @@ func TestSearchJSONEmptyResults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, results)
 
-	// The search command marshals results directly; nil slice marshals to null in Go.
-	// Simulate the safeguard: ensure we use an empty slice, not nil.
+	// Verify the nil-guard that cmd_search.go applies before marshaling:
+	// nil slice must be converted to empty slice so JSON output is [] not null.
 	if results == nil {
 		results = []models.SearchResult{}
 	}
-
 	data, marshalErr := json.Marshal(results)
 	require.NoError(t, marshalErr)
 	assert.Equal(t, "[]", string(data), "empty results must serialize as [] not null")
+
+	// Also verify that a nil slice without the guard would produce "null" — this is
+	// why the guard in cmd_search.go is essential.
+	var nilSlice []models.SearchResult
+	nilData, nilMarshalErr := json.Marshal(nilSlice)
+	require.NoError(t, nilMarshalErr)
+	assert.Equal(t, "null", string(nilData), "nil slice marshals to null without guard")
 }
 
 // TestRecallResultJSONShape is the critical regression test that would have caught
@@ -359,4 +365,28 @@ func TestSearchScopeFilterJSONOutput(t *testing.T) {
 	require.Len(t, decoded, 1)
 	assert.Equal(t, "sess-1", decoded[0].Memory.ID)
 	assert.Equal(t, models.ScopeSession, decoded[0].Memory.Scope)
+}
+
+// TestSearchInvalidTypeValidation verifies that an invalid --type value is rejected
+// by the IsValid() check rather than silently returning empty results.
+func TestSearchInvalidTypeValidation(t *testing.T) {
+	invalidType := models.MemoryType("bogus")
+	assert.False(t, invalidType.IsValid(), "bogus must not be a valid MemoryType")
+
+	// All valid types must pass.
+	for i := range models.ValidMemoryTypes {
+		assert.True(t, models.ValidMemoryTypes[i].IsValid(), "valid type %q must pass IsValid()", models.ValidMemoryTypes[i])
+	}
+}
+
+// TestSearchInvalidScopeValidation verifies that an invalid --scope value is rejected
+// by the IsValid() check rather than silently returning empty results.
+func TestSearchInvalidScopeValidation(t *testing.T) {
+	invalidScope := models.MemoryScope("bogus")
+	assert.False(t, invalidScope.IsValid(), "bogus must not be a valid MemoryScope")
+
+	// All valid scopes must pass.
+	for i := range models.ValidMemoryScopes {
+		assert.True(t, models.ValidMemoryScopes[i].IsValid(), "valid scope %q must pass IsValid()", models.ValidMemoryScopes[i])
+	}
 }

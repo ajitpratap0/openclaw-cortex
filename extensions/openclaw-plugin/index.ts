@@ -32,6 +32,7 @@ interface CortexMemory {
   tags: string[];
   project: string;
   created_at: string;
+  updated_at: string;
   last_accessed: string;
   access_count: number;
 }
@@ -241,7 +242,8 @@ const memoryCortexPlugin = {
         async execute(_toolCallId: string, params: Record<string, unknown>) {
           const query = params.query as string;
           const project = (params.project as string) || cfg.project;
-          const budget = ((params.limit as number) || 10) * 200;
+          const limit = (params.limit as number | undefined) ?? 10;
+          const budget = Math.min(limit, 50) * 200;
 
           const results = await cortex.recall(query, { budget, project });
 
@@ -255,7 +257,7 @@ const memoryCortexPlugin = {
           const text = results
             .map(
               (r, i) =>
-                `${i + 1}. [${r.memory.type}] ${r.memory.content} (${(r.final_score * 100).toFixed(0)}%)`,
+                `${i + 1}. [${r.memory.type}] ${escapeForPrompt(r.memory.content)} (${(r.final_score * 100).toFixed(0)}%)`,
             )
             .join("\n");
 

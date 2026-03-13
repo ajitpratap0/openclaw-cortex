@@ -129,6 +129,7 @@ func TestPluginContract_MemoryFieldNames(t *testing.T) {
 		"confidence",
 		"tags",
 		"created_at",
+		"updated_at",
 		"last_accessed",
 		"access_count",
 	}

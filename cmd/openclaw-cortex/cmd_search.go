@@ -45,10 +45,16 @@ func searchCmd() *cobra.Command {
 				filters = &store.SearchFilters{}
 				if memType != "" {
 					mt := models.MemoryType(memType)
+					if !mt.IsValid() {
+						return fmt.Errorf("search: invalid type %q (want: rule|fact|episode|procedure|preference)", memType)
+					}
 					filters.Type = &mt
 				}
 				if memScope != "" {
 					ms := models.MemoryScope(memScope)
+					if !ms.IsValid() {
+						return fmt.Errorf("search: invalid scope %q (want: permanent|project|session|ttl)", memScope)
+					}
 					filters.Scope = &ms
 				}
 				if project != "" {
@@ -62,6 +68,9 @@ func searchCmd() *cobra.Command {
 			}
 
 			if jsonFlag {
+				if results == nil {
+					results = []models.SearchResult{}
+				}
 				out, marshalErr := json.MarshalIndent(results, "", "  ")
 				if marshalErr != nil {
 					return fmt.Errorf("search: marshaling results: %w", marshalErr)
