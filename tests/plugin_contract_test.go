@@ -20,19 +20,19 @@ import (
 func sampleMemory() models.Memory {
 	now := time.Now().UTC()
 	return models.Memory{
-		ID:          "abc123",
-		Type:        models.MemoryTypeRule,
-		Scope:       models.ScopePermanent,
-		Visibility:  models.VisibilityPrivate,
-		Content:     "Always use context.Context as the first argument",
-		Confidence:  0.9,
-		Source:      "test",
-		Tags:        []string{"go", "best-practice"},
-		Project:     "openclaw-cortex",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           "abc123",
+		Type:         models.MemoryTypeRule,
+		Scope:        models.ScopePermanent,
+		Visibility:   models.VisibilityPrivate,
+		Content:      "Always use context.Context as the first argument",
+		Confidence:   0.9,
+		Source:       "test",
+		Tags:         []string{"go", "best-practice"},
+		Project:      "openclaw-cortex",
+		CreatedAt:    now,
+		UpdatedAt:    now,
 		LastAccessed: now,
-		AccessCount: 5,
+		AccessCount:  5,
 	}
 }
 
@@ -41,7 +41,6 @@ func sampleMemory() models.Memory {
 // expects. The critical regression: "score" must NOT appear at the top level —
 // only "final_score" does.
 func TestPluginContract_RecallResultFieldNames(t *testing.T) {
-
 
 	result := models.RecallResult{
 		Memory:          sampleMemory(),
@@ -90,7 +89,6 @@ func TestPluginContract_RecallResultFieldNames(t *testing.T) {
 // { memory: CortexMemory; score: number }.
 func TestPluginContract_SearchResultFieldNames(t *testing.T) {
 
-
 	result := models.SearchResult{
 		Memory: sampleMemory(),
 		Score:  0.91,
@@ -112,7 +110,6 @@ func TestPluginContract_SearchResultFieldNames(t *testing.T) {
 // TestPluginContract_MemoryFieldNames validates that models.Memory serializes
 // with every field the TypeScript CortexMemory interface requires.
 func TestPluginContract_MemoryFieldNames(t *testing.T) {
-
 
 	mem := sampleMemory()
 
@@ -154,7 +151,6 @@ func TestPluginContract_MemoryFieldNames(t *testing.T) {
 // --scope flag wires up to the correct JSON key.
 func TestPluginContract_SearchFiltersScope(t *testing.T) {
 
-
 	scope := models.ScopeProject
 	filters := store.SearchFilters{
 		Scope: &scope,
@@ -175,7 +171,6 @@ func TestPluginContract_SearchFiltersScope(t *testing.T) {
 // FinalScore field is correctly marshaled as a non-zero float. This guards
 // against accidental zero-value omission or field renaming.
 func TestPluginContract_RecallResultFinalScorePopulated(t *testing.T) {
-
 
 	result := models.RecallResult{
 		Memory:          sampleMemory(),
@@ -204,7 +199,6 @@ func TestPluginContract_RecallResultFinalScorePopulated(t *testing.T) {
 // uses "score" while RecallResult uses "final_score". Both are tested side by
 // side so a future refactor cannot accidentally unify them under the wrong name.
 func TestPluginContract_ScoreFieldDistinction(t *testing.T) {
-
 
 	mem := sampleMemory()
 
@@ -240,7 +234,6 @@ func TestPluginContract_ScoreFieldDistinction(t *testing.T) {
 // serializes with the fields expected by capture output consumers.
 func TestPluginContract_CapturedMemoryJSONShape(t *testing.T) {
 
-
 	captured := models.CapturedMemory{
 		Content:    "Prefer small, focused functions over large ones",
 		Type:       models.MemoryTypeRule,
@@ -274,14 +267,13 @@ func TestPluginContract_CapturedMemoryJSONShape(t *testing.T) {
 // serializes with the expected summary fields.
 func TestPluginContract_CollectionStatsJSONShape(t *testing.T) {
 
-
 	stats := models.CollectionStats{
 		TotalMemories: 42,
 		ByType: map[string]int64{
-			"rule":      10,
-			"fact":      20,
-			"episode":   5,
-			"procedure": 4,
+			"rule":       10,
+			"fact":       20,
+			"episode":    5,
+			"procedure":  4,
 			"preference": 3,
 		},
 		ByScope: map[string]int64{
