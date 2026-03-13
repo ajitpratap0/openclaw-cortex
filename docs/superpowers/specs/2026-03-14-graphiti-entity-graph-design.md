@@ -145,22 +145,24 @@ type Entity struct {
 - `Community` — entity clusters (Phase 3)
 
 **Relationship types:**
-- `RELATES_TO` — entity-to-entity facts (carries all `Fact` fields as properties)
-- `DERIVED_FROM` — fact-to-memory provenance (links fact UUID to memory UUID)
-- `HAS_MEMBER` — community-to-entity membership (Phase 3)
+- `RELATES_TO` — `(Entity)-[:RELATES_TO]->(Entity)` — entity-to-entity facts (carries all `Fact` fields as properties)
+- `DERIVED_FROM` — `(Entity)-[:RELATES_TO {uuid}]->(Entity)` edge has `source_memory_ids` property linking to Qdrant memory UUIDs. Additionally, a `DERIVED_FROM` relationship `(Entity)-[:DERIVED_FROM]->(Memory)` is created as a lightweight provenance pointer (Memory node is a stub with just `uuid` — actual memory data lives in Qdrant).
+- `HAS_MEMBER` — `(Community)-[:HAS_MEMBER]->(Entity)` membership (Phase 3)
 
 **Indexes:**
 
 | Index Type | Target | Fields | Purpose |
 |---|---|---|---|
 | Range | Entity | `uuid` | Lookup by ID |
-| Range | Entity | `group_id` | Project/tenant isolation |
+| Range | Entity | `project` | Project/tenant isolation (maps to `Memory.Project`) |
 | Range | RELATES_TO | `uuid` | Lookup by ID |
 | Range | RELATES_TO | `created_at`, `expired_at`, `valid_at`, `invalid_at` | Temporal queries |
 | Fulltext | Entity | `name`, `summary` | BM25 entity search |
 | Fulltext | RELATES_TO | `relation_type`, `fact` | BM25 fact search |
 
 Vector similarity is computed at query time using stored embeddings (same approach as Graphiti — no declarative vector index needed for Neo4j).
+
+**Neo4j edition note:** All features used (fulltext indexes, Bolt driver, `vector.similarity.cosine()`) are available in Neo4j Community Edition (free, open source). Neo4j 5.13+ required for `vector.similarity.cosine`. The `docker-compose.yml` uses `neo4j:5` which pulls Community — no Enterprise features are required.
 
 ## Phase 1: Complete Entity Pipeline
 
@@ -172,7 +174,7 @@ The orchestration happens in callers (`cmd/cmd_capture.go`, API handler), not in
 
 1. `EntityExtractor.Extract(content)` → list of entities
 2. `store.UpsertEntity(entity)` for each
-3. `store.LinkMemoryToEntity(memoryID, entityID)` for each
+3. `store.LinkMemoryToEntity(entityID, memoryID)` for each
 
 Entity extraction failures are logged and skipped. The memory is stored regardless.
 
@@ -184,10 +186,12 @@ Add to `internal/api/server.go`:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100; enforced by handler — `store.SearchEntities` returns all matches, handler truncates) |
+| `GET` | `/v1/entities?query=<text>&type=<type>&limit=<n>` | Search entities (limit default 10, max 100) |
 | `GET` | `/v1/entities/{id}` | Get entity by ID |
 
-**Phase 1 limitation:** `store.SearchEntities()` uses name-substring matching, not semantic search. Phase 2 adds full hybrid search via Neo4j.
+**Phase 1 limitations:**
+- `store.SearchEntities(ctx, name)` takes only a name string — no type filter parameter. The API handler applies `type` and `limit` filtering in-process after the store call returns all matches. Acceptable for Phase 1 entity counts; Phase 2 replaces with Neo4j hybrid search.
+- Name-substring matching only, not semantic search.
 
 ### MCP Tools
 
@@ -202,26 +206,29 @@ Add to `internal/mcp/server.go`:
 
 ### New Package: `internal/graph/`
 
-**`client.go`** — Interface and types:
+**`client.go`** — Storage interface (Neo4j CRUD only, no business logic):
 
 ```go
-// Client defines the interface for graph operations.
+// Client defines the interface for graph storage operations.
 // All methods accept ctx for timeout/cancellation.
+// Resolution logic lives in EntityResolver and FactResolver (separate types),
+// matching the pattern where ConflictDetector is separate from Store.
 type Client interface {
     // Schema
     EnsureSchema(ctx context.Context) error
 
     // Entities
     UpsertEntity(ctx context.Context, entity models.Entity) error
-    ResolveEntity(ctx context.Context, extracted models.Entity, candidates []models.Entity) (resolvedID string, isNew bool, err error)
     SearchEntities(ctx context.Context, query string, embedding []float32, limit int) ([]EntityResult, error)
     GetEntity(ctx context.Context, id string) (*models.Entity, error)
 
     // Facts
     UpsertFact(ctx context.Context, fact models.Fact) error
-    ResolveFact(ctx context.Context, newFact models.Fact, existingFacts []models.Fact) (action FactAction, err error)
     SearchFacts(ctx context.Context, query string, embedding []float32, limit int) ([]FactResult, error)
     InvalidateFact(ctx context.Context, id string, expiredAt, invalidAt time.Time) error
+    GetFactsBetween(ctx context.Context, sourceID, targetID string) ([]models.Fact, error)
+    GetFactsForEntity(ctx context.Context, entityID string) ([]models.Fact, error)
+    AppendEpisode(ctx context.Context, factID, episodeID string) error
 
     // Provenance
     LinkFactToMemory(ctx context.Context, factID, memoryID string) error
@@ -234,7 +241,11 @@ type Client interface {
     Healthy(ctx context.Context) bool
     Close() error
 }
+```
 
+**`types.go`** — Shared types used by both Client and resolvers:
+
+```go
 type FactAction int
 const (
     FactActionInsert      FactAction = iota // new fact, no duplicates
@@ -243,9 +254,15 @@ const (
 )
 ```
 
-**`neo4j.go`** — `Neo4jClient` implementation using the official `neo4j-go-driver/v5` Bolt driver.
+**`neo4j.go`** — `Neo4jClient` implementation using the official `neo4j-go-driver/v5` Bolt driver. Each write operation uses an auto-commit write transaction via `session.ExecuteWrite`; parallel graph search queries run in a single read session via `session.ExecuteRead`. Schema creation (`EnsureSchema`) uses schema transactions as required by Neo4j 5 for index creation.
 
 **`mock_client.go`** — `MockGraphClient` for tests.
+
+**`entity_resolver.go`** — `EntityResolver` (standalone type, like `ConflictDetector`). Takes `Client` for candidate retrieval + Claude Haiku for LLM fallback.
+
+**`fact_resolver.go`** — `FactResolver` (standalone type). Takes `Client` for candidate retrieval + Claude Haiku for contradiction detection.
+
+**Package layering note:** `EntityExtractor` remains in `internal/capture/` (existing code). `FactExtractor`, `EntityResolver`, and `FactResolver` live in `internal/graph/` (new code). The capture orchestrator in `cmd/cmd_capture.go` imports both packages. This mirrors how `cmd/` already imports both `internal/capture` and `internal/store`.
 
 ### Entity Resolution (3-stage, adapted from Graphiti)
 
@@ -290,14 +307,15 @@ For each fact provide:
 - target_entity_name: must match one of the KNOWN ENTITIES exactly
 - relation_type: SCREAMING_SNAKE_CASE (e.g., WORKS_AT, DEPENDS_ON, DECIDED_TO)
 - fact: natural language description, paraphrased (not verbatim quotes)
-- valid_at: ISO 8601 if known, null if ongoing/unknown
-- invalid_at: ISO 8601 if fact is known to have ended, null otherwise
+- valid_at: ISO 8601 if the text states when the fact became true, null if ongoing or unknown
+- invalid_at: ISO 8601 if the text states when the fact ended, null otherwise
 
 Rules:
 - Only extract facts between two DISTINCT known entities
 - Do not invent entities not in the provided list
-- Set valid_at to reference time for ongoing facts
+- Set valid_at to null for ongoing facts with no known start date
 - Only set invalid_at when the text explicitly states something has ended
+- Do not hallucinate temporal bounds — leave null when uncertain
 
 <known_entities>{entity names from extraction step}</known_entities>
 <content>{XML-escaped conversation text}</content>
@@ -347,7 +365,8 @@ Return JSON: {"duplicate_indices": [int], "contradicted_indices": [int]}
 **Method 1: BM25 fulltext**
 ```cypher
 CALL db.index.fulltext.queryRelationships("fact_fulltext", $query, {limit: $limit})
-YIELD relationship AS r, score
+YIELD relationship, score
+WITH relationship AS r, score
 MATCH (s:Entity)-[r]->(t:Entity)
 WHERE r.expired_at IS NULL
 RETURN r.uuid, r.fact, r.source_memory_ids, score
@@ -363,7 +382,9 @@ RETURN r.uuid, r.fact, r.source_memory_ids, score
 ORDER BY score DESC LIMIT $limit
 ```
 
-**Method 3: 1-hop BFS from entity matches**
+**Performance note:** Method 2 computes cosine similarity at query time over all `RELATES_TO` edges (no vector index on relationships in Neo4j 5). This is a full scan — acceptable for graphs under ~100K edges. At larger scale, pre-filter by entity proximity or switch to application-side vector comparison. Will revisit when Neo4j adds vector index support for relationships.
+
+**Method 3: 1-hop BFS from entity matches (undirected)**
 ```cypher
 MATCH (n:Entity)
 WHERE vector.similarity.cosine(n.name_embedding, $query_embedding) > 0.7
@@ -373,10 +394,13 @@ RETURN DISTINCT r.uuid, r.fact, r.source_memory_ids
 LIMIT $limit
 ```
 
+Note: Method 3 uses undirected traversal (`-[r]-` not `-[r]->`) intentionally — BFS should find facts where the matched entity is either source or target.
+
 **RRF Merge** (from Graphiti):
 ```go
+// Reciprocal Rank Fusion with k=60 (Cormack et al. 2009)
 // For each fact UUID appearing in any result list:
-// score[uuid] += 1.0 / (rank + k)  // k=1, summed across all methods
+// score[uuid] += 1.0 / (rank + 60)  // rank is 1-based, summed across all methods
 // Sort by score descending, take top limit
 ```
 
@@ -400,6 +424,8 @@ Recall(ctx context.Context, query string, ...) ([]RecallResult, error):
 ```
 
 Graph-sourced memories enter ranking with `similarity=0` since they weren't retrieved by vector search. They compete on other factors (recency, type, confidence, tag affinity, etc.) and on whatever graph relevance they carry. This is conservative — graph results must earn their place.
+
+**Note:** The recall scoring formula is the 8-factor weighted sum from v0.4.0 (`internal/recall/recall.go`), not the 5-factor formula in CLAUDE.md (which is stale). The authoritative formula: `0.35*similarity + 0.15*recency + 0.10*frequency + 0.10*typeBoost + 0.08*scopeBoost + 0.10*confidence + 0.07*reinforcement + 0.05*tagAffinity` plus supersession and conflict penalties.
 
 ### Entity Summary Generation
 
@@ -435,6 +461,37 @@ graph:
   recall_budget_ms: 50            # hook context latency budget (entire graph call)
   recall_budget_cli_ms: 500       # CLI context latency budget (entire graph call)
 ```
+
+**Go config struct** (added to `internal/config/config.go`):
+
+```go
+type GraphConfig struct {
+    Enabled          bool                   `mapstructure:"enabled"`
+    Neo4j            Neo4jConfig            `mapstructure:"neo4j"`
+    EntityResolution EntityResolutionConfig `mapstructure:"entity_resolution"`
+    FactExtraction   FactExtractionConfig   `mapstructure:"fact_extraction"`
+    RecallBudgetMs   int                    `mapstructure:"recall_budget_ms"`
+    RecallBudgetCLIMs int                   `mapstructure:"recall_budget_cli_ms"`
+}
+
+type Neo4jConfig struct {
+    URI      string `mapstructure:"uri"`
+    Username string `mapstructure:"username"`
+    Password string `mapstructure:"password"`
+    Database string `mapstructure:"database"`
+}
+
+type EntityResolutionConfig struct {
+    SimilarityThreshold float64 `mapstructure:"similarity_threshold"`
+    MaxCandidates       int     `mapstructure:"max_candidates"`
+}
+
+type FactExtractionConfig struct {
+    Enabled bool `mapstructure:"enabled"`
+}
+```
+
+A `Graph GraphConfig` field is added to the top-level `Config` struct.
 
 Environment variable overrides:
 - `OPENCLAW_CORTEX_GRAPH_ENABLED`
@@ -544,10 +601,10 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 
 | Action | File | What |
 |--------|------|------|
-| Modify | `internal/capture/capture.go` | Wire EntityExtractor into capture flow (caller orchestration) |
+| Modify | `cmd/openclaw-cortex/cmd_capture.go` | Wire EntityExtractor call after Capturer.Extract() |
 | Modify | `internal/api/server.go` | Add entity search/get routes |
 | Modify | `internal/mcp/server.go` | Add entity_search, entity_get tools |
-| Modify | `cmd/openclaw-cortex/cmd_stats.go` | Add entity count to stats output |
+| Modify | `cmd/openclaw-cortex/cmd_stats.go` | Add entity count to stats output (calls `store.SearchEntities(ctx, "")` and counts results; Phase 2 replaces with `graph.Client` count query) |
 | Create | `tests/entity_pipeline_test.go` | Capture + entity extraction tests |
 | Create | `tests/entity_api_test.go` | HTTP endpoint tests |
 | Create | `tests/entity_mcp_test.go` | MCP tool contract tests |
@@ -558,7 +615,8 @@ All tests in top-level `tests/` package per project convention. All use `MockSto
 |--------|------|------|
 | Create | `internal/models/fact.go` | `Fact` struct with bi-temporal fields |
 | Modify | `internal/models/entity.go` | Add `Summary`, `NameEmbedding`, `CommunityID` fields |
-| Create | `internal/graph/client.go` | `Client` interface + types |
+| Create | `internal/graph/client.go` | `Client` interface (storage only) |
+| Create | `internal/graph/types.go` | `FactAction`, `EntityResult`, `FactResult` shared types |
 | Create | `internal/graph/neo4j.go` | `Neo4jClient` implementation (Bolt driver) |
 | Create | `internal/graph/entity_resolver.go` | Three-stage entity resolution |
 | Create | `internal/graph/fact_extractor.go` | Claude Haiku fact extraction |
