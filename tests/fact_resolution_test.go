@@ -4,6 +4,10 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -40,7 +44,7 @@ func TestFactResolver_ExactDuplicate(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if action != graph.FactActionSkip {
-		t.Errorf("expected FactActionSkip, got %d", action)
+		t.Errorf("expected FactActionSkip, got %s", action)
 	}
 	if len(ids) != 1 || ids[0] != "fact-1" {
 		t.Errorf("expected affected ID [fact-1], got %v", ids)
@@ -77,7 +81,7 @@ func TestFactResolver_NewFact(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if action != graph.FactActionInsert {
-		t.Errorf("expected FactActionInsert, got %d", action)
+		t.Errorf("expected FactActionInsert, got %s", action)
 	}
 	if len(ids) != 0 {
 		t.Errorf("expected no affected IDs, got %v", ids)
@@ -102,7 +106,7 @@ func TestFactResolver_NoCandidates(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if action != graph.FactActionInsert {
-		t.Errorf("expected FactActionInsert, got %d", action)
+		t.Errorf("expected FactActionInsert, got %s", action)
 	}
 	if len(ids) != 0 {
 		t.Errorf("expected no affected IDs, got %v", ids)
@@ -140,9 +144,57 @@ func TestFactResolver_GracefulDegradation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if action != graph.FactActionInsert {
-		t.Errorf("expected FactActionInsert (graceful degradation), got %d", action)
+		t.Errorf("expected FactActionInsert (graceful degradation), got %s", action)
 	}
 	if len(ids) != 0 {
 		t.Errorf("expected no affected IDs, got %v", ids)
 	}
+}
+
+func TestFactInvalidation_MockGraphClient(t *testing.T) {
+	gc := graph.NewMockGraphClient()
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	fact := models.Fact{
+		ID:             "fact-1",
+		SourceEntityID: "entity-a",
+		TargetEntityID: "entity-b",
+		RelationType:   "WORKS_AT",
+		Fact:           "Alice works at Acme",
+		CreatedAt:      now,
+		Confidence:     0.9,
+	}
+	require.NoError(t, gc.UpsertFact(ctx, fact))
+
+	// Verify fact is searchable before invalidation
+	results, err := gc.SearchFacts(ctx, "", nil, 10)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	// Invalidate the fact (simulating contradiction detection)
+	expiredAt := now.Add(time.Hour)
+	invalidAt := now.Add(time.Hour)
+	require.NoError(t, gc.InvalidateFact(ctx, fact.ID, expiredAt, invalidAt))
+
+	// Verify fact is no longer returned by SearchFacts (which filters expired)
+	results, err = gc.SearchFacts(ctx, "", nil, 10)
+	require.NoError(t, err)
+	require.Len(t, results, 0)
+
+	// Verify fact is also excluded from GetFactsForEntity
+	entityFacts, err := gc.GetFactsForEntity(ctx, "entity-a")
+	require.NoError(t, err)
+	require.Len(t, entityFacts, 0)
+
+	// Verify RecallByGraph also excludes invalidated facts
+	memIDs, err := gc.RecallByGraph(ctx, "", nil, 10)
+	require.NoError(t, err)
+	require.Len(t, memIDs, 0)
+}
+
+func TestFactActionConstants(t *testing.T) {
+	assert.Equal(t, graph.FactAction("insert"), graph.FactActionInsert)
+	assert.Equal(t, graph.FactAction("skip"), graph.FactActionSkip)
+	assert.Equal(t, graph.FactAction("invalidate"), graph.FactActionInvalidate)
 }

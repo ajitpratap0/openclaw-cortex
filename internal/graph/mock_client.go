@@ -17,6 +17,9 @@ type MockGraphClient struct {
 	facts    map[string]models.Fact
 }
 
+// Compile-time interface assertion.
+var _ Client = (*MockGraphClient)(nil)
+
 // NewMockGraphClient creates a new MockGraphClient.
 func NewMockGraphClient() *MockGraphClient {
 	return &MockGraphClient{
@@ -125,7 +128,8 @@ func (m *MockGraphClient) GetFactsBetween(_ context.Context, sourceID, targetID 
 		if f.ExpiredAt != nil {
 			continue
 		}
-		if f.SourceEntityID == sourceID && f.TargetEntityID == targetID {
+		if (f.SourceEntityID == sourceID && f.TargetEntityID == targetID) ||
+			(f.SourceEntityID == targetID && f.TargetEntityID == sourceID) {
 			results = append(results, f)
 		}
 	}
@@ -157,6 +161,11 @@ func (m *MockGraphClient) AppendEpisode(_ context.Context, factID, episodeID str
 	if !ok {
 		return fmt.Errorf("fact %s not found", factID)
 	}
+	for _, e := range f.Episodes {
+		if e == episodeID {
+			return nil // already present
+		}
+	}
 	f.Episodes = append(f.Episodes, episodeID)
 	m.facts[factID] = f
 	return nil
@@ -169,6 +178,11 @@ func (m *MockGraphClient) AppendMemoryToFact(_ context.Context, factID, memoryID
 	f, ok := m.facts[factID]
 	if !ok {
 		return fmt.Errorf("fact %s not found", factID)
+	}
+	for _, mid := range f.SourceMemoryIDs {
+		if mid == memoryID {
+			return nil // already present
+		}
 	}
 	f.SourceMemoryIDs = append(f.SourceMemoryIDs, memoryID)
 	m.facts[factID] = f

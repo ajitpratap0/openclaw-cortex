@@ -305,7 +305,7 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 		return mcpgo.NewToolResultErrorf("search failed: %s", err.Error()), nil
 	}
 
-	ranked := s.recaller.Rank(results, project, message)
+	ranked := s.recaller.RecallWithGraph(ctx, message, vec, results, project)
 
 	var contents []string
 	for i := range ranked {
@@ -368,6 +368,9 @@ func (s *Server) handleSearch(ctx context.Context, req mcpgo.CallToolRequest) (*
 	limit := req.GetInt("limit", defaultSearchLimit)
 	if limit <= 0 {
 		limit = defaultSearchLimit
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 	project := req.GetString("project", "")
 

@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
@@ -162,9 +165,14 @@ func TestMockGraphClient_RecallByGraph(t *testing.T) {
 	}
 
 	// Should have 3 unique memory IDs: mem-1, mem-2, mem-3
-	if len(memIDs) != 3 {
-		t.Errorf("expected 3 unique memory IDs, got %d: %v", len(memIDs), memIDs)
+	require.Len(t, memIDs, 3)
+	seen := make(map[string]bool)
+	for i := range memIDs {
+		seen[memIDs[i]] = true
 	}
+	assert.True(t, seen["mem-1"], "expected mem-1 in results")
+	assert.True(t, seen["mem-2"], "expected mem-2 in results")
+	assert.True(t, seen["mem-3"], "expected mem-3 in results")
 }
 
 func TestMockGraphClient_SearchEntities(t *testing.T) {

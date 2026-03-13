@@ -223,7 +223,7 @@ func Load() (*Config, error) {
 	v.SetDefault("graph.enabled", false)
 	v.SetDefault("graph.neo4j.uri", "bolt://localhost:7687")
 	v.SetDefault("graph.neo4j.username", "neo4j")
-	v.SetDefault("graph.neo4j.password", "openclaw-cortex")
+	v.SetDefault("graph.neo4j.password", "")
 	v.SetDefault("graph.neo4j.database", "neo4j")
 	v.SetDefault("graph.entity_resolution.similarity_threshold", 0.95)
 	v.SetDefault("graph.entity_resolution.max_candidates", 10)

@@ -210,6 +210,17 @@ func (r *EntityResolver) claudeFallback(ctx context.Context, extracted models.En
 	}
 
 	if result.IsDuplicate && result.ExistingID != "" {
+		// Validate that Claude returned an ID from our candidate set
+		found := false
+		for _, c := range candidates {
+			if c.ID == result.ExistingID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return extracted.ID, true, nil // treat as new if hallucinated ID
+		}
 		return result.ExistingID, true, nil
 	}
 

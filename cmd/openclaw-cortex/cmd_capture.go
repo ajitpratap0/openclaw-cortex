@@ -69,8 +69,13 @@ func captureCmd() *cobra.Command {
 
 			logger.Info("extracted memories", "count", len(memories))
 
+			type storedMemory struct {
+				id      string
+				content string
+			}
+
 			stored := 0
-			storedIDs := make([]string, 0, len(memories))
+			storedMems := make([]storedMemory, 0, len(memories))
 			for _, cm := range memories {
 				// Classify if not already typed
 				if cm.Type == "" {
@@ -113,7 +118,7 @@ func captureCmd() *cobra.Command {
 					continue
 				}
 				stored++
-				storedIDs = append(storedIDs, mem.ID)
+				storedMems = append(storedMems, storedMemory{id: mem.ID, content: cm.Content})
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
 			}
 
@@ -121,11 +126,8 @@ func captureCmd() *cobra.Command {
 			var allEntityNames []string
 			if cfg.Claude.APIKey != "" {
 				extractor := capture.NewEntityExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
-				for i := range storedIDs {
-					if i >= len(memories) {
-						break
-					}
-					entities, extractErr := extractor.Extract(ctx, memories[i].Content)
+				for i := range storedMems {
+					entities, extractErr := extractor.Extract(ctx, storedMems[i].content)
 					if extractErr != nil {
 						logger.Warn("entity extraction failed, skipping", "error", extractErr)
 						continue
@@ -135,7 +137,7 @@ func captureCmd() *cobra.Command {
 							logger.Warn("upsert entity failed", "entity", entities[j].Name, "error", upsertErr)
 							continue
 						}
-						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedIDs[i]); linkErr != nil {
+						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedMems[i].id); linkErr != nil {
 							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
 						}
 						allEntityNames = append(allEntityNames, entities[j].Name)
@@ -151,11 +153,8 @@ func captureCmd() *cobra.Command {
 				} else if gc != nil {
 					defer func() { _ = gc.Close() }()
 					factExtractor := graphpkg.NewFactExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
-					for i := range storedIDs {
-						if i >= len(memories) {
-							break
-						}
-						facts, factErr := factExtractor.Extract(ctx, memories[i].Content, allEntityNames)
+					for i := range storedMems {
+						facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)
 						if factErr != nil {
 							logger.Warn("fact extraction failed, skipping", "error", factErr)
 							continue
@@ -165,7 +164,7 @@ func captureCmd() *cobra.Command {
 								logger.Warn("upsert fact failed", "fact_id", facts[j].ID, "error", upsertErr)
 								continue
 							}
-							if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedIDs[i]); linkErr != nil {
+							if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedMems[i].id); linkErr != nil {
 								logger.Warn("link fact to memory failed", "fact_id", facts[j].ID, "error", linkErr)
 							}
 						}

@@ -219,7 +219,7 @@ func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ranked := s.recall.Rank(results, req.Project, req.Message)
+	ranked := s.recall.RecallWithGraph(r.Context(), req.Message, vec, results, req.Project)
 
 	var contents []string
 	for i := range ranked {
@@ -496,6 +496,15 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Type != "" && !req.Type.IsValid() {
+		s.writeError(w, http.StatusBadRequest, "invalid type filter")
+		return
+	}
+	if req.Scope != "" && !req.Scope.IsValid() {
+		s.writeError(w, http.StatusBadRequest, "invalid scope filter")
+		return
+	}
+
 	var filters *store.SearchFilters
 	if req.Project != "" || req.Type != "" || req.Scope != "" || len(req.Tags) > 0 {
 		filters = &store.SearchFilters{}
@@ -575,23 +584,21 @@ func (s *Server) handleSearchEntities(w http.ResponseWriter, r *http.Request) {
 		entities = entities[:limit]
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if encErr := json.NewEncoder(w).Encode(map[string]any{"entities": entities}); encErr != nil {
-		s.logger.Error("failed to encode entity search response", "error", encErr)
-	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"entities": entities})
 }
 
 func (s *Server) handleGetEntity(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	entity, err := s.store.GetEntity(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusNotFound, "entity not found")
+		if errors.Is(err, store.ErrNotFound) {
+			http.Error(w, "entity not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if encErr := json.NewEncoder(w).Encode(entity); encErr != nil {
-		s.logger.Error("failed to encode entity response", "error", encErr)
-	}
+	s.writeJSON(w, http.StatusOK, entity)
 }
 
 // --- helpers ---

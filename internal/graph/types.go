@@ -1,12 +1,12 @@
 package graph
 
 // FactAction represents the resolution outcome for a new fact.
-type FactAction int
+type FactAction string
 
 const (
-	FactActionInsert     FactAction = iota // new fact, no duplicates
-	FactActionSkip                         // exact duplicate, append episode
-	FactActionInvalidate                   // contradicts existing, invalidate old
+	FactActionInsert     FactAction = "insert"     // new fact, no duplicates
+	FactActionSkip       FactAction = "skip"       // exact duplicate, append episode
+	FactActionInvalidate FactAction = "invalidate" // contradicts existing, invalidate old
 )
 
 // EntityResult is a search result from the graph entity index.
