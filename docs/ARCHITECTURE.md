@@ -196,24 +196,26 @@ The central struct is `models.Memory` in `internal/models/memory.go`.
 | `AccessCount` | int | Total recall count |
 | `SupersedesID` | string | ID of the memory this one replaces (conflict resolution) |
 
-## Recall Scoring
+## Recall Scoring (v0.4.0)
 
-The multi-factor scoring formula combines five signals:
+The multi-factor scoring formula combines eight weighted signals plus two multiplicative penalties:
 
-```
-score = 0.5 * similarity
-      + 0.2 * recency
-      + 0.1 * frequency
-      + 0.1 * typeBoost
-      + 0.1 * scopeBoost
-```
-
-**Similarity** (50%): Cosine similarity from Qdrant. The primary signal.
-
-**Recency** (20%): Exponential decay with a 7-day half-life:
+### Weighted Components (sum = 1.0)
 
 ```
-recency = exp(-ln(2) * daysSinceAccess / 7)
+weightedSum = 0.35 * similarity + 0.15 * recency + 0.10 * frequency
+            + 0.10 * typeBoost  + 0.08 * scopeBoost + 0.10 * confidence
+            + 0.07 * reinforcement + 0.05 * tagAffinity
+
+finalScore = weightedSum * supersessionPenalty * conflictPenalty
+```
+
+**Similarity** (35%): Cosine similarity from Qdrant. The primary signal.
+
+**Recency** (15%): Exponential decay with a 7-day half-life:
+
+```
+recency = exp(-ln(2) * hoursSinceAccess / 168)
 ```
 
 **Frequency** (10%): Log₂-scale access count, capped at 1.0:
@@ -226,7 +228,25 @@ This saturates at ~1000 accesses (log₂(1001) ≈ 10).
 
 **Type boost** (10%): Multiplier based on memory type priority (see table above).
 
-**Scope boost** (10%): Normalized multiplier. Project-scoped memories whose project matches the query receive a score of 1.0 (vs. 0.67 for `permanent`-scope and 0.53 for `session`/`ttl`). This surfaces project-specific context over global memories when a project is specified.
+**Scope boost** (8%): Normalized multiplier. Project-scoped memories whose project matches the query receive a score of 1.0 (vs. 0.67 for `permanent`-scope and 0.53 for `session`/`ttl`).
+
+**Confidence** (10%): Uses the memory's `Confidence` field directly (0.0-1.0). Legacy memories with `Confidence < 0.01` are treated as "unknown" and substituted with 0.7.
+
+**Reinforcement** (7%): Log-scaled reinforcement count, saturating at ~32 reinforcements:
+
+```
+reinforcement = min(1.0, log2(reinforcedCount + 1) / 5.0)
+```
+
+**Tag affinity** (5%): Fraction of the memory's tags that match query words (case-insensitive, exact word match). Returns 0 if the memory has no tags.
+
+### Multiplicative Penalties
+
+**Supersession penalty** (x0.3): Applied when both a superseding memory and its predecessor appear in the same result set. The older memory is penalized; the newer one is not.
+
+**Conflict penalty** (x0.8): Applied to memories with `ConflictStatus == "active"`. Mild demotion for unresolved conflicts. Resolved conflicts are not penalized.
+
+All weights are configurable via `recall.weights.*` in config.yaml or `OPENCLAW_CORTEX_RECALL_WEIGHTS_*` environment variables. Invalid weights (negative or don't sum to 1.0) trigger a warning and fallback to defaults.
 
 ## Key Design Decisions
 

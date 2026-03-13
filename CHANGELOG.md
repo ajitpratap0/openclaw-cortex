@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-14
+
+### Added
+- **Enhanced recall scoring**: 8-factor weighted formula (similarity 0.35, recency 0.15, frequency 0.10, typeBoost 0.10, scopeBoost 0.08, confidence 0.10, reinforcement 0.07, tagAffinity 0.05) plus multiplicative penalties for superseded memories (x0.3) and active conflicts (x0.8)
+- **Recall filters**: `--type`, `--scope`, `--tags`, `--project` flags on `recall` and `search` commands; tag filtering with AND semantics across multiple tags
+- **Memory update with lineage**: `cortex update <id>` creates a new memory with `SupersedesID` pointing to the old one, preserving counters and history; superseded memories are penalized in recall ranking
+- **Lifecycle CLI**: `cortex lifecycle` exposes TTL expiry, session decay, consolidation, and conflict resolution with `--dry-run` and `--json` flags
+- **Batch store**: `cortex store-batch` reads a JSON array from stdin, performs a single `EmbedBatch()` round-trip, per-entry dedup, and outputs JSON results
+- **Pre-capture quality filtering**: configurable `min_user_message_length`, `min_assistant_message_length`, and `blocklist_patterns` to skip low-quality captures
+- **Health metrics in stats**: `cortex stats` now reports temporal range, top-accessed memories, reinforcement tier distribution, active conflicts, and pending TTL expiry counts; `--json` flag for machine-readable output
+- **Configurable recall weights**: `recall.weights.*` in config.yaml and `OPENCLAW_CORTEX_RECALL_WEIGHTS_*` env vars with validation and fallback to defaults
+- **`ConflictStatus` typed constant**: promoted from bare string to `models.ConflictStatus` with `IsValid()` method
+- **Plugin expansion**: `memory_update`, `memory_lifecycle`, `memory_store_batch` tools; `memory_recall` gains `type`, `scope`, `tags` parameters; auto-capture quality filtering in `agent_end` handler
+- **60+ new tests**: recall scoring, tag/type/scope filtering, update lineage, lifecycle commands, quality filtering, batch store, health metrics, and plugin contract tests
+
+### Changed
+- Recall scoring formula expanded from 5 factors to 8 factors plus 2 multiplicative penalties
+- `Rank()` signature accepts `query string` parameter for tag affinity scoring
+- `DefaultWeights()` updated: similarity 0.50 -> 0.35, new weights for confidence, reinforcement, and tag affinity
+- `RecallResult` struct gains 5 new fields: `ConfidenceScore`, `ReinforcementScore`, `TagAffinityScore`, `SupersessionPenalty`, `ConflictPenalty`
+- `CollectionStats` extended with health metrics (temporal range, reinforcement tiers, conflict/TTL counts)
+- DRY refactoring: `buildSearchFilters()` and `parseTags()` helpers eliminate cmd duplication
+
 ## [0.3.0] - 2026-03-09
 
 ### Added
