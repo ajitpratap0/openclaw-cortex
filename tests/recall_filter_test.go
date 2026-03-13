@@ -125,7 +125,7 @@ func TestRecallWithTypeFilter(t *testing.T) {
 	// Rank the filtered results.
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-	ranked := recaller.Rank(results, "")
+	ranked := recaller.Rank(results, "", "")
 	require.Len(t, ranked, 1)
 	assert.Equal(t, "recall-rule", ranked[0].Memory.ID)
 	assert.Equal(t, models.MemoryTypeRule, ranked[0].Memory.Type)
@@ -152,7 +152,7 @@ func TestRecallWithScopeFilter(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-	ranked := recaller.Rank(results, "")
+	ranked := recaller.Rank(results, "", "")
 	require.Len(t, ranked, 1)
 	assert.Equal(t, "recall-sess", ranked[0].Memory.ID)
 	assert.Equal(t, models.ScopeSession, ranked[0].Memory.Scope)
@@ -201,7 +201,7 @@ func TestRecallWithCombinedFilters(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	recaller := recall.NewRecaller(recall.DefaultWeights(), logger)
-	ranked := recaller.Rank(results, "myproject")
+	ranked := recaller.Rank(results, "myproject", "")
 	require.Len(t, ranked, 1)
 	assert.Equal(t, "combo-match", ranked[0].Memory.ID)
 }
