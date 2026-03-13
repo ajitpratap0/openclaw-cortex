@@ -38,7 +38,12 @@ interface CortexMemory {
 
 interface RecallResult {
   memory: CortexMemory;
-  score: number;
+  similarity_score: number;
+  recency_score: number;
+  frequency_score: number;
+  type_boost: number;
+  scope_boost: number;
+  final_score: number;
 }
 
 interface PluginConfig {
@@ -182,7 +187,7 @@ function formatMemoriesContext(memories: RecallResult[]): string {
   if (memories.length === 0) return "";
   const lines = memories.map(
     (r, i) =>
-      `${i + 1}. [${r.memory.type}/${r.memory.scope}] ${escapeForPrompt(r.memory.content)} (score: ${(r.score * 100).toFixed(0)}%)`,
+      `${i + 1}. [${r.memory.type}/${r.memory.scope}] ${escapeForPrompt(r.memory.content)} (score: ${(r.final_score * 100).toFixed(0)}%)`,
   );
   return [
     "<relevant-memories>",
@@ -250,7 +255,7 @@ const memoryCortexPlugin = {
           const text = results
             .map(
               (r, i) =>
-                `${i + 1}. [${r.memory.type}] ${r.memory.content} (${(r.score * 100).toFixed(0)}%)`,
+                `${i + 1}. [${r.memory.type}] ${r.memory.content} (${(r.final_score * 100).toFixed(0)}%)`,
             )
             .join("\n");
 
@@ -263,7 +268,7 @@ const memoryCortexPlugin = {
                 content: r.memory.content,
                 type: r.memory.type,
                 scope: r.memory.scope,
-                score: r.score,
+                score: r.final_score,
               })),
             },
           };

@@ -13,6 +13,7 @@ import (
 func searchCmd() *cobra.Command {
 	var (
 		memType  string
+		memScope string
 		limit    uint64
 		project  string
 		jsonFlag bool
@@ -40,11 +41,15 @@ func searchCmd() *cobra.Command {
 			}
 
 			var filters *store.SearchFilters
-			if memType != "" || project != "" {
+			if memType != "" || memScope != "" || project != "" {
 				filters = &store.SearchFilters{}
 				if memType != "" {
 					mt := models.MemoryType(memType)
 					filters.Type = &mt
+				}
+				if memScope != "" {
+					ms := models.MemoryScope(memScope)
+					filters.Scope = &ms
 				}
 				if project != "" {
 					filters.Project = &project
@@ -80,6 +85,7 @@ func searchCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
+	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
 	cmd.Flags().Uint64Var(&limit, "limit", 10, "max results")
 	cmd.Flags().StringVar(&project, "project", "", "filter by project")
 	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output results as JSON")

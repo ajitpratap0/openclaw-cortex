@@ -6,7 +6,9 @@
   "main": "index.ts",
   "keywords": ["openclaw", "plugin", "memory", "cortex", "qdrant"],
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
   "devDependencies": {
     "openclaw": "*"
   },
