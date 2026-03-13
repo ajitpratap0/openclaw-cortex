@@ -62,6 +62,8 @@ func NewServer(st store.Store, emb embedder.Embedder, recaller *recall.Recaller,
 	mcpSrv.AddTool(buildForgetTool(), s.handleForget)
 	mcpSrv.AddTool(buildSearchTool(), s.handleSearch)
 	mcpSrv.AddTool(buildStatsTool(), s.handleStats)
+	mcpSrv.AddTool(buildEntitySearchTool(), s.handleEntitySearch)
+	mcpSrv.AddTool(buildEntityGetTool(), s.handleEntityGet)
 
 	s.mcp = mcpSrv
 	return s
@@ -96,6 +98,16 @@ func (s *Server) HandleSearch(ctx context.Context, req mcpgo.CallToolRequest) (*
 // HandleStats is the exported handler for the "stats" tool.
 func (s *Server) HandleStats(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 	return s.handleStats(ctx, req)
+}
+
+// HandleEntitySearch is the exported handler for the "entity_search" tool.
+func (s *Server) HandleEntitySearch(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	return s.handleEntitySearch(ctx, req)
+}
+
+// HandleEntityGet is the exported handler for the "entity_get" tool.
+func (s *Server) HandleEntityGet(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+	return s.handleEntityGet(ctx, req)
 }
 
 // --- helpers ---
@@ -392,3 +404,4 @@ func (s *Server) handleStats(ctx context.Context, _ mcpgo.CallToolRequest) (*mcp
 	}
 	return toolResultJSON(stats)
 }
+

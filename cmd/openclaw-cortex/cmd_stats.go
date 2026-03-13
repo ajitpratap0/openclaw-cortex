@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 func statsCmd() *cobra.Command {
@@ -30,16 +31,31 @@ func statsCmd() *cobra.Command {
 				return fmt.Errorf("stats: fetching statistics: %w", err)
 			}
 
+			// Entity count (count via SearchEntities with empty query)
+			entities, entErr := st.SearchEntities(ctx, "")
+			entityCount := 0
+			if entErr == nil {
+				entityCount = len(entities)
+			}
+
 			if jsonOutput {
+				output := struct {
+					*models.CollectionStats
+					EntityCount int `json:"entity_count"`
+				}{
+					CollectionStats: stats,
+					EntityCount:     entityCount,
+				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				if encErr := enc.Encode(stats); encErr != nil {
+				if encErr := enc.Encode(output); encErr != nil {
 					return fmt.Errorf("stats: encoding JSON: %w", encErr)
 				}
 				return nil
 			}
 
 			fmt.Printf("Total memories: %d\n\n", stats.TotalMemories)
+			fmt.Printf("Entities:       %d\n", entityCount)
 
 			fmt.Println("By type:")
 			for t, c := range stats.ByType {
