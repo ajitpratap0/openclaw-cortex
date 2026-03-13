@@ -42,4 +42,10 @@ type Entity struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
+
+	// Graph integration fields (v0.5.0)
+	Project       string    `json:"project,omitempty"`
+	Summary       string    `json:"summary,omitempty"`
+	NameEmbedding []float32 `json:"name_embedding,omitempty"`
+	CommunityID   string    `json:"community_id,omitempty"`
 }
