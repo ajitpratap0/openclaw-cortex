@@ -158,6 +158,17 @@ class CortexClient {
     }
   }
 
+  async lifecycle(dryRun?: boolean): Promise<string> {
+    const args = ["lifecycle", "--json"];
+    if (dryRun) args.push("--dry-run");
+
+    try {
+      return await this.run(args, 30_000);
+    } catch (err) {
+      return `Error: ${String(err)}`;
+    }
+  }
+
   async health(): Promise<boolean> {
     try {
       await this.run(["health"]);
@@ -396,6 +407,55 @@ const memoryCortexPlugin = {
         },
       },
       { name: "memory_stats" },
+    );
+
+    api.registerTool(
+      {
+        name: "memory_lifecycle",
+        label: "Cortex Lifecycle",
+        description:
+          "Run memory lifecycle management: TTL expiry, session decay, consolidation, " +
+          "fact retirement, and conflict resolution. Returns a report with counts for each phase.",
+        parameters: Type.Object({
+          dry_run: Type.Optional(
+            Type.Boolean({ description: "Preview changes without applying (default: false)" }),
+          ),
+        }),
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
+          const dryRun = (params.dry_run as boolean | undefined) ?? false;
+          const raw = await cortex.lifecycle(dryRun);
+
+          try {
+            const report = JSON.parse(raw) as {
+              expired: number;
+              decayed: number;
+              consolidated: number;
+              retired: number;
+              conflicts_resolved: number;
+            };
+
+            const lines = [
+              `Expired (TTL):       ${report.expired}`,
+              `Decayed (session):   ${report.decayed}`,
+              `Consolidated:        ${report.consolidated}`,
+              `Retired (facts):     ${report.retired}`,
+              `Conflicts resolved:  ${report.conflicts_resolved}`,
+            ];
+            if (dryRun) lines.push("(dry run — no changes applied)");
+
+            return {
+              content: [{ type: "text", text: `Lifecycle report:\n${lines.join("\n")}` }],
+              details: { ...report, dry_run: dryRun },
+            };
+          } catch {
+            return {
+              content: [{ type: "text", text: raw }],
+              details: { error: "parse_failed" },
+            };
+          }
+        },
+      },
+      { name: "memory_lifecycle" },
     );
 
     // ========================================================================
