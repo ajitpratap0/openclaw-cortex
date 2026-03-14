@@ -27,7 +27,7 @@ most relevant context within your token budget.
 | Drop-in for Claude Code | Pre/post-turn hooks — no code changes needed |
 | Intelligent ranking | Threshold-gated LLM re-ranking when scores are ambiguous |
 
-**Status**: v0.4.0 — production-ready for single-user / small-team use.
+**Status**: v0.6.0 — production-ready for single-user / small-team use.
 
 ## Install
 

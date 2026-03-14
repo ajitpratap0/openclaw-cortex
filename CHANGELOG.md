@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-15
+
+### Added
+- Neo4j entity-relationship graph integration with bi-temporal fact model
+- Entity extraction via Claude Haiku during capture pipeline
+- Fact extraction and relationship creation in Neo4j
+- Three-stage entity resolution (exact match → embedding → Claude LLM fallback)
+- Fact resolution with dedup and contradiction detection
+- Hybrid graph search with Reciprocal Rank Fusion (RRF)
+- Graph-augmented recall with latency budgets (50ms hooks, 500ms CLI)
+- Graceful degradation — all graph operations optional, failures logged and skipped
+- Entity name→UUID resolution in capture pipeline for Neo4j fact writes
+- `llm.StripCodeFences()` utility for gateway model JSON responses
+- REST API endpoints: `GET /v1/entities/{id}`, `GET /v1/entities`
+- MCP tools: `entity_search`, `entity_get`
+- Entity count in `stats` output
+- Neo4j service in docker-compose.yml with JVM vector module enabled
+- Neo4j health check in `openclaw-cortex health`
+
+## [0.5.0] - 2026-03-15
+
+### Added
+- LLM gateway abstraction (`internal/llm/` package) with `LLMClient` interface
+- `GatewayClient` for routing Claude calls through OpenClaw gateway (Max plan support)
+- `AnthropicClient` wrapping direct Anthropic SDK calls
+- Factory function `llm.NewClient()` picks implementation from config
+- Plugin versioning: `PLUGIN_VERSION` constant, `openclaw cortex version` CLI command
+- Version mismatch detection on plugin startup
+- Config options: `claude.gateway_url`, `claude.gateway_token`
+
+### Changed
+- All 8 LLM call sites refactored from direct Anthropic SDK to `LLMClient` interface
+- Health check recognizes gateway as valid LLM path
+- Capture command accepts gateway config (no longer requires `ANTHROPIC_API_KEY`)
+
 ## [0.4.0] - 2026-03-14
 
 ### Added
@@ -74,3 +109,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Multi-stage Dockerfile
 - Comprehensive test suite with mocked Qdrant
 - golangci-lint configuration
+
+[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.1.0

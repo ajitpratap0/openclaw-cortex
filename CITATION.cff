@@ -9,8 +9,8 @@ authors:
 repository-code: "https://github.com/ajitpratap0/openclaw-cortex"
 url: "https://github.com/ajitpratap0/openclaw-cortex"
 license: MIT
-version: 0.3.0
-date-released: "2026-03-09"
+version: 0.6.0
+date-released: "2026-03-15"
 keywords:
   - ai-memory
   - semantic-search
