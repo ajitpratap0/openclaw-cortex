@@ -59,6 +59,9 @@ func (c *Neo4jClient) EnsureSchema(ctx context.Context) error {
 	defer c.closeSession(ctx, session)
 
 	queries := []string{
+		// Uniqueness constraint on Entity name (prevents duplicate nodes for the same entity)
+		"CREATE CONSTRAINT entity_name_unique IF NOT EXISTS FOR (e:Entity) REQUIRE e.name IS UNIQUE",
+
 		// Range indexes on Entity
 		"CREATE INDEX entity_uuid IF NOT EXISTS FOR (n:Entity) ON (n.uuid)",
 		"CREATE INDEX entity_project IF NOT EXISTS FOR (n:Entity) ON (n.project)",
@@ -96,19 +99,30 @@ func (c *Neo4jClient) UpsertEntity(ctx context.Context, entity models.Entity) er
 
 	typeLabel := entityTypeLabel(entity.Type)
 
-	// MERGE on uuid, then SET all properties and add the dynamic type label.
+	// MERGE on name so the same entity is never duplicated.
+	// ON CREATE: assign a fresh UUID, set immutable fields, and stamp created_at via datetime().
+	// ON MATCH: update mutable fields but preserve the original UUID and created_at.
+	// updated_at is always refreshed via datetime() so it is never zero.
 	cypher := fmt.Sprintf(`
-		MERGE (n:Entity {uuid: $uuid})
-		SET n.name = $name,
-		    n.type = $type,
-		    n.project = $project,
-		    n.summary = $summary,
-		    n.aliases = $aliases,
-		    n.memory_ids = $memory_ids,
-		    n.name_embedding = $name_embedding,
-		    n.community_id = $community_id,
-		    n.created_at = $created_at,
-		    n.updated_at = $updated_at
+		MERGE (n:Entity {name: $name})
+		ON CREATE SET n.uuid = $uuid,
+		              n.type = $type,
+		              n.project = $project,
+		              n.summary = $summary,
+		              n.aliases = $aliases,
+		              n.memory_ids = $memory_ids,
+		              n.name_embedding = $name_embedding,
+		              n.community_id = $community_id,
+		              n.created_at = datetime(),
+		              n.updated_at = datetime()
+		ON MATCH SET  n.type = $type,
+		              n.project = $project,
+		              n.summary = $summary,
+		              n.aliases = $aliases,
+		              n.memory_ids = $memory_ids,
+		              n.name_embedding = $name_embedding,
+		              n.community_id = $community_id,
+		              n.updated_at = datetime()
 		SET n:%s
 	`, typeLabel)
 
@@ -122,8 +136,6 @@ func (c *Neo4jClient) UpsertEntity(ctx context.Context, entity models.Entity) er
 		"memory_ids":     entity.MemoryIDs,
 		"name_embedding": entity.NameEmbedding,
 		"community_id":   entity.CommunityID,
-		"created_at":     entity.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":     entity.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	}
 
 	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -26,6 +27,7 @@ For each entity provide:
   - decision: A named decision, choice, or resolved question
   - concept: A named domain concept, idea, or abstraction
 - aliases: Alternative names or abbreviations (may be empty)
+- description: A brief one-sentence description of the entity and its role or significance in the given context
 
 Return a JSON array of entities. If no notable entities are found, return [].
 
@@ -35,9 +37,10 @@ Extract entities as JSON array:`
 
 // capturedEntity is the raw JSON shape returned by Claude for entity extraction.
 type capturedEntity struct {
-	Name    string   `json:"name"`
-	Type    string   `json:"type"`
-	Aliases []string `json:"aliases"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Aliases     []string `json:"aliases"`
+	Description string   `json:"description"`
 }
 
 // EntityExtractor identifies named entities in memory content using Claude.
@@ -95,11 +98,15 @@ func (e *EntityExtractor) Extract(ctx context.Context, content string) ([]models
 				"type", raw[i].Type, "name", raw[i].Name)
 			et = models.EntityTypeConcept
 		}
+		now := time.Now().UTC()
 		entities = append(entities, models.Entity{
-			ID:      uuid.New().String(),
-			Name:    raw[i].Name,
-			Type:    et,
-			Aliases: raw[i].Aliases,
+			ID:        uuid.New().String(),
+			Name:      raw[i].Name,
+			Type:      et,
+			Aliases:   raw[i].Aliases,
+			Summary:   raw[i].Description,
+			CreatedAt: now,
+			UpdatedAt: now,
 		})
 	}
 
