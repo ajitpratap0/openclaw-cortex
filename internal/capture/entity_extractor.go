@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/google/uuid"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -43,19 +42,18 @@ type capturedEntity struct {
 
 // EntityExtractor identifies named entities in memory content using Claude.
 type EntityExtractor struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewEntityExtractor creates a new entity extractor backed by the Claude API.
-func NewEntityExtractor(apiKey, model string, logger *slog.Logger) *EntityExtractor {
+func NewEntityExtractor(client llm.LLMClient, model string, logger *slog.Logger) *EntityExtractor {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &EntityExtractor{
-		client: &c,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -66,29 +64,14 @@ func NewEntityExtractor(apiKey, model string, logger *slog.Logger) *EntityExtrac
 func (e *EntityExtractor) Extract(ctx context.Context, content string) ([]models.Entity, error) {
 	prompt := fmt.Sprintf(entityExtractionPromptTemplate, xmlutil.Escape(content))
 
-	resp, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(e.model),
-		MaxTokens: 1024,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(
-				anthropic.NewTextBlock(prompt),
-			),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise entity extraction system. Output only valid JSON."},
-		},
-	})
+	responseText, err := e.client.Complete(ctx, e.model,
+		"You are a precise entity extraction system. Output only valid JSON.",
+		prompt,
+		1024,
+	)
 	if err != nil {
 		e.logger.Warn("entity extraction: Claude API error, skipping", "error", err)
 		return nil, nil
-	}
-
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = resp.Content[i].Text
-			break
-		}
 	}
 
 	if responseText == "" {

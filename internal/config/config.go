@@ -131,14 +131,16 @@ type EmbedderConfig struct {
 
 // ClaudeConfig holds Anthropic Claude API settings.
 type ClaudeConfig struct {
-	APIKey string `mapstructure:"api_key"`
-	Model  string `mapstructure:"model"`
+	APIKey       string `mapstructure:"api_key"`
+	Model        string `mapstructure:"model"`
+	GatewayURL   string `mapstructure:"gateway_url"`
+	GatewayToken string `mapstructure:"gateway_token"`
 }
 
 // String returns a safe representation of ClaudeConfig with the API key masked.
 func (c ClaudeConfig) String() string {
 	masked := maskAPIKey(c.APIKey)
-	return fmt.Sprintf("ClaudeConfig{APIKey:%s, Model:%s}", masked, c.Model)
+	return fmt.Sprintf("ClaudeConfig{APIKey:%s, Model:%s, GatewayURL:%s}", masked, c.Model, c.GatewayURL)
 }
 
 // String returns a safe representation of EmbedderConfig with the API key masked.
@@ -259,6 +261,8 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("embedder.openai_api_key", "OPENCLAW_CORTEX_OPENAI_API_KEY")
 	_ = v.BindEnv("embedder.openai_model", "OPENCLAW_CORTEX_OPENAI_MODEL")
 	_ = v.BindEnv("embedder.openai_dimensions", "OPENCLAW_CORTEX_OPENAI_DIMENSIONS")
+	_ = v.BindEnv("claude.gateway_url", "OPENCLAW_GATEWAY_URL")
+	_ = v.BindEnv("claude.gateway_token", "OPENCLAW_GATEWAY_TOKEN")
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

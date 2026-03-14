@@ -15,6 +15,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/indexer"
 	"github.com/ajitpratap0/openclaw-cortex/internal/lifecycle"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
@@ -202,7 +203,7 @@ func TestSectionSummarizer_SummarizeDirectory_FileReadError(t *testing.T) {
 	// Test that SummarizeDirectory handles the case where a file is gone after
 	// FindMarkdownFiles returns it — this exercises the ReadFile error path
 	// in summarizeFile (lines 174-177).
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	dir := t.TempDir()
@@ -228,7 +229,7 @@ func TestSectionSummarizer_SummarizeDirectory_FileReadError(t *testing.T) {
 // TestSectionSummarizer_SummarizeDirectory_FindMarkdownError covers the error path
 // in SummarizeDirectory (lines 148-151) when FindMarkdownFiles returns an error.
 func TestSectionSummarizer_SummarizeDirectory_FindMarkdownError(t *testing.T) {
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	st := store.NewMockStore()
@@ -243,7 +244,7 @@ func TestSectionSummarizer_SummarizeDirectory_FindMarkdownError(t *testing.T) {
 // TestSectionSummarizer_SummarizeTree_WithChildren covers the child-node traversal
 // in SummarizeTree (lines 128-131) where a node has children.
 func TestSectionSummarizer_SummarizeTree_WithChildren(t *testing.T) {
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	// Parent node with a child — both below threshold so no Claude calls needed
@@ -682,7 +683,7 @@ func TestIndexer_IndexFile_UpsertError(t *testing.T) {
 // (indexer/summarizer.go lines 129-131) when a child node's walk returns ctx.Err().
 // A pre-canceled context fires ctx.Done() immediately on the child walk's select.
 func TestSummarizeTree_ChildWalkContextCancelled(t *testing.T) {
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 
 	// Pre-cancel context so ctx.Done() triggers during child walk
 	ctx, cancel := context.WithCancel(context.Background())

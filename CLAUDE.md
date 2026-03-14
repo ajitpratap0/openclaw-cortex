@@ -25,18 +25,21 @@ golangci-lint run ./...
 # Format
 gofmt -w . && goimports -w .
 
-# Local Qdrant (required for full integration tests)
+# Local services (Qdrant required, Neo4j optional for graph features)
 docker compose up -d
+# Health check (verifies Qdrant, Ollama, Claude LLM, Neo4j)
+openclaw-cortex health
 ```
 
 ## Architecture
 
-OpenClaw Cortex is a hybrid semantic memory system for AI agents. It stores memories in Qdrant (vector DB over gRPC) and retrieves them using multi-factor ranking. All external services (Qdrant, Ollama, Claude API) are wired together only in `cmd/`; `internal/` packages accept interfaces.
+OpenClaw Cortex is a hybrid semantic memory system for AI agents. It stores memories in Qdrant (vector DB over gRPC) and retrieves them using multi-factor ranking. An optional Neo4j entity-relationship graph provides bi-temporal fact storage and graph-augmented recall. All external services (Qdrant, Ollama, Claude/Gateway, Neo4j) are wired together only in `cmd/`; `internal/` packages accept interfaces.
 
 **Layered call flow for a `recall` command:**
 ```
 cmd/cmd_recall.go
-  → recall.Recaller          (internal/recall/)   — multi-factor scoring
+  → recall.Recaller          (internal/recall/)   — multi-factor scoring + optional graph merge
+  → graph.Client             (internal/graph/)    — Neo4j graph recall (optional, latency-budgeted)
   → embedder.Embedder        (internal/embedder/) — Ollama HTTP, 768-dim nomic-embed-text
   → store.Store              (internal/store/)    — Qdrant gRPC CRUD + vector search
   → tokenizer.FormatMemoriesWithBudget (pkg/tokenizer/) — trim to token budget
@@ -46,8 +49,11 @@ cmd/cmd_recall.go
 ```
 cmd/cmd_capture.go
   → capture.Capturer         (internal/capture/)  — Claude Haiku extracts JSON memories
+  → capture.EntityExtractor  (internal/capture/)  — Claude Haiku extracts entities
+  → graph.FactExtractor      (internal/graph/)    — Claude Haiku extracts relationship facts
   → classifier.Classifier    (internal/classifier/) — heuristic keyword scoring → MemoryType
   → store.Store              — dedup via cosine similarity, then upsert
+  → graph.Client             — entity/fact upsert to Neo4j (optional)
 ```
 
 **Lifecycle flow** (`cmd consolidate`):
@@ -55,6 +61,20 @@ cmd/cmd_capture.go
 cmd/cmd_lifecycle.go
   → lifecycle.Manager        (internal/lifecycle/) — TTL expiry + session decay (24h)
 ```
+
+### LLM Client Abstraction (`internal/llm/`)
+
+All LLM calls go through the `llm.LLMClient` interface:
+```go
+type LLMClient interface {
+    Complete(ctx, model, systemPrompt, userMessage string, maxTokens int) (string, error)
+}
+```
+Two implementations:
+- `AnthropicClient` — direct Anthropic SDK calls (requires `ANTHROPIC_API_KEY`)
+- `GatewayClient` — routes through OpenClaw gateway's OpenAI-compatible endpoint (for Max plan / subscription users)
+
+The factory `llm.NewClient(cfg.Claude)` picks the right implementation based on config.
 
 ### Key Interfaces
 
@@ -64,6 +84,8 @@ cmd/cmd_lifecycle.go
 | `embedder.Embedder` | `internal/embedder/embedder.go` | `OllamaEmbedder` (HTTP) |
 | `classifier.Classifier` | `internal/classifier/classifier.go` | `HeuristicClassifier` |
 | `capture.Capturer` | `internal/capture/capture.go` | `ClaudeCapturer` |
+| `llm.LLMClient` | `internal/llm/client.go` | `AnthropicClient`, `GatewayClient` |
+| `graph.Client` | `internal/graph/client.go` | `Neo4jClient`, `MockGraphClient` |
 
 ### Core Data Model (`internal/models/memory.go`)
 
@@ -122,6 +144,16 @@ Required to merge:
 |---------|----------------|---------|
 | Qdrant | `localhost:6334` (gRPC) | Vector storage and search |
 | Ollama | `http://localhost:11434` | Embeddings (`nomic-embed-text`, 768-dim) |
-| Anthropic API | HTTPS | Memory extraction via Claude Haiku |
+| Claude LLM | Anthropic API or OpenClaw gateway | Memory extraction, entity/fact extraction, resolution |
+| Neo4j | `bolt://localhost:7687` | Entity-relationship graph (optional, `graph.enabled`) |
 
-Set `ANTHROPIC_API_KEY` for capture commands. Config is loaded from `~/.cortex/config.yaml` with env var overrides prefixed `OPENCLAW_CORTEX_` (e.g., `OPENCLAW_CORTEX_QDRANT_HOST`).
+### LLM Authentication (choose one)
+
+1. **API key**: Set `ANTHROPIC_API_KEY` env var or `claude.api_key` in config
+2. **OpenClaw gateway** (for Max plan users): Set `claude.gateway_url` and `claude.gateway_token` in config — routes through `http://127.0.0.1:18789/v1/chat/completions`
+
+Config is loaded from `~/.openclaw-cortex/config.yaml` with env var overrides prefixed `OPENCLAW_CORTEX_` (e.g., `OPENCLAW_CORTEX_QDRANT_HOST`).
+
+### Versioning
+
+Plugin version (`PLUGIN_VERSION` in `extensions/openclaw-plugin/index.ts`) and binary version (`version` in `cmd/openclaw-cortex/main.go`) should be kept in sync. On startup, the plugin logs both versions and warns on mismatch. Check with `openclaw cortex version`.

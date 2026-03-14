@@ -8,10 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/google/uuid"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -53,19 +52,18 @@ type rawFact struct {
 
 // FactExtractor extracts relationship facts from conversation text using Claude.
 type FactExtractor struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewFactExtractor creates a new fact extractor backed by the Claude API.
-func NewFactExtractor(apiKey, model string, logger *slog.Logger) *FactExtractor {
+func NewFactExtractor(client llm.LLMClient, model string, logger *slog.Logger) *FactExtractor {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &FactExtractor{
-		client: &c,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -84,6 +82,11 @@ func (e *FactExtractor) Extract(ctx context.Context, content string, entityNames
 		return nil, nil
 	}
 
+	if e.client == nil {
+		e.logger.Warn("fact extraction: no LLM client configured, skipping")
+		return nil, nil
+	}
+
 	namesJoined := strings.Join(entityNames, ", ")
 	prompt := fmt.Sprintf(factExtractionPromptTemplate,
 		xmlutil.Escape(namesJoined),
@@ -91,29 +94,14 @@ func (e *FactExtractor) Extract(ctx context.Context, content string, entityNames
 		time.Now().UTC().Format(time.RFC3339),
 	)
 
-	resp, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(e.model),
-		MaxTokens: 2048,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(
-				anthropic.NewTextBlock(prompt),
-			),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise fact extraction system. Output only valid JSON."},
-		},
-	})
+	responseText, err := e.client.Complete(ctx, e.model,
+		"You are a precise fact extraction system. Output only valid JSON.",
+		prompt,
+		2048,
+	)
 	if err != nil {
 		e.logger.Warn("fact extraction: Claude API error, skipping", "error", err)
 		return nil, nil
-	}
-
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = resp.Content[i].Text
-			break
-		}
 	}
 
 	if responseText == "" {
@@ -123,6 +111,7 @@ func (e *FactExtractor) Extract(ctx context.Context, content string, entityNames
 
 	e.logger.Debug("fact extraction response", "response", responseText)
 
+	responseText = llm.StripCodeFences(responseText)
 	var raw []rawFact
 	if jsonErr := json.Unmarshal([]byte(responseText), &raw); jsonErr != nil {
 		return nil, fmt.Errorf("fact extraction: parsing response: %w (raw: %s)", jsonErr, responseText)

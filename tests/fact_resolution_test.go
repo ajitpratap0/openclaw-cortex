@@ -31,7 +31,7 @@ func TestFactResolver_ExactDuplicate(t *testing.T) {
 	}
 
 	// Create resolver with no API key (won't matter — fast path should trigger).
-	resolver := graph.NewFactResolver(mock, "", "claude-3-haiku-20240307", slog.Default())
+	resolver := graph.NewFactResolver(mock, nil, "claude-3-haiku-20240307", slog.Default())
 
 	newFact := models.Fact{
 		SourceEntityID: "entity-a",
@@ -67,7 +67,7 @@ func TestFactResolver_NewFact(t *testing.T) {
 		t.Fatalf("upsert existing fact: %v", err)
 	}
 
-	resolver := graph.NewFactResolver(mock, "", "claude-3-haiku-20240307", slog.Default())
+	resolver := graph.NewFactResolver(mock, nil, "claude-3-haiku-20240307", slog.Default())
 
 	// New fact between completely different entities → no candidates.
 	newFact := models.Fact{
@@ -93,7 +93,7 @@ func TestFactResolver_NoCandidates(t *testing.T) {
 	ctx := context.Background()
 
 	// No facts at all in the graph.
-	resolver := graph.NewFactResolver(mock, "", "claude-3-haiku-20240307", slog.Default())
+	resolver := graph.NewFactResolver(mock, nil, "claude-3-haiku-20240307", slog.Default())
 
 	newFact := models.Fact{
 		SourceEntityID: "entity-a",
@@ -131,7 +131,7 @@ func TestFactResolver_GracefulDegradation(t *testing.T) {
 	}
 
 	// Empty API key → no Claude client → should treat as new fact.
-	resolver := graph.NewFactResolver(mock, "", "claude-3-haiku-20240307", slog.Default())
+	resolver := graph.NewFactResolver(mock, nil, "claude-3-haiku-20240307", slog.Default())
 
 	newFact := models.Fact{
 		SourceEntityID: "entity-a",

@@ -39,12 +39,14 @@ func healthCmd() *cobra.Command {
 				fmt.Println("Ollama: OK")
 			}
 
-			// Check Claude API key
-			if cfg.Claude.APIKey == "" {
-				fmt.Println("Claude API: FAIL (no API key configured)")
-				allOK = false
+			// Check Claude LLM access (API key or gateway)
+			if cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "" {
+				fmt.Printf("Claude LLM: OK (via gateway %s)\n", cfg.Claude.GatewayURL)
+			} else if cfg.Claude.APIKey != "" {
+				fmt.Println("Claude LLM: OK (API key)")
 			} else {
-				fmt.Println("Claude API: OK")
+				fmt.Println("Claude LLM: FAIL (no API key or gateway configured)")
+				allOK = false
 			}
 
 			// Check Neo4j (optional)

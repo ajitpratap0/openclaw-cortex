@@ -16,6 +16,10 @@ import { Type } from "@sinclair/typebox";
 
 const execFileAsync = promisify(execFile);
 
+// Plugin version — bump this when making changes to the plugin.
+// The binary also has its own version (set via ldflags at build time).
+const PLUGIN_VERSION = "0.5.0";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -71,6 +75,7 @@ interface PluginConfig {
   minUserMessageLength?: number;
   minAssistantMessageLength?: number;
   blocklistPatterns?: string[];
+  anthropicApiKey?: string;
 }
 
 // ============================================================================
@@ -80,17 +85,22 @@ interface PluginConfig {
 class CortexClient {
   private bin: string;
   private defaultProject: string;
+  private env: Record<string, string | undefined>;
 
-  constructor(binaryPath?: string, project?: string) {
+  constructor(binaryPath?: string, project?: string, anthropicApiKey?: string) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
+    this.env = { ...process.env };
+    if (anthropicApiKey) {
+      this.env.ANTHROPIC_API_KEY = anthropicApiKey;
+    }
   }
 
   private async run(args: string[], timeoutMs = 10_000): Promise<string> {
     const { stdout } = await execFileAsync(this.bin, args, {
       timeout: timeoutMs,
       maxBuffer: 1024 * 1024,
-      env: { ...process.env },
+      env: this.env,
     });
     return stdout.trim();
   }
@@ -165,7 +175,7 @@ class CortexClient {
       const { stdout } = await execFileAsync(this.bin, args, {
         timeout: 30_000,
         maxBuffer: 1024 * 1024,
-        env: { ...process.env },
+        env: this.env,
         input,
       });
       return JSON.parse(stdout.trim()) as Array<{ id: string | null; status: string }>;
@@ -191,6 +201,16 @@ class CortexClient {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async binaryVersion(): Promise<string> {
+    try {
+      const out = await this.run(["--version"]);
+      // Output: "openclaw-cortex version X.Y.Z"
+      return out.replace("openclaw-cortex version ", "").trim();
+    } catch {
+      return "unknown";
     }
   }
 
@@ -283,13 +303,13 @@ const memoryCortexPlugin = {
 
   register(api: OpenClawPluginApi) {
     const cfg: PluginConfig = api.pluginConfig ?? {};
-    const cortex = new CortexClient(cfg.binaryPath, cfg.project);
+    const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey);
     const autoRecall = cfg.autoRecall !== false;
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
 
     api.logger.info(
-      `memory-cortex: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"})`,
+      `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"})`,
     );
 
     // ========================================================================
@@ -680,6 +700,20 @@ const memoryCortexPlugin = {
           console.log(ok ? "Cortex: healthy" : "Cortex: unhealthy");
           if (!ok) process.exitCode = 1;
         });
+
+        const ver = (cmd as { command(n: string): Record<string, unknown> }).command("version");
+        (ver as Record<string, Function>).description("Show plugin and binary versions");
+        (ver as Record<string, Function>).action(async () => {
+          const binVer = await cortex.binaryVersion();
+          console.log(`Plugin:  v${PLUGIN_VERSION}`);
+          console.log(`Binary:  v${binVer}`);
+          if (binVer !== PLUGIN_VERSION && binVer !== "dev") {
+            console.log(`\nWARNING: version mismatch — rebuild binary or update plugin`);
+            process.exitCode = 1;
+          } else {
+            console.log(`\nVersions match.`);
+          }
+        });
       },
       { commands: ["cortex"] },
     );
@@ -774,6 +808,15 @@ const memoryCortexPlugin = {
     api.registerService({
       id: "memory-cortex",
       async start() {
+        const binVer = await cortex.binaryVersion();
+        api.logger.info(`memory-cortex: plugin v${PLUGIN_VERSION}, binary v${binVer}`);
+        if (binVer !== "unknown" && binVer !== PLUGIN_VERSION && binVer !== "dev") {
+          api.logger.warn(
+            `memory-cortex: version mismatch — plugin v${PLUGIN_VERSION} vs binary v${binVer}. ` +
+              "Run 'go build -o bin/openclaw-cortex ./cmd/openclaw-cortex' to rebuild.",
+          );
+        }
+
         const healthy = await cortex.health();
         if (healthy) {
           api.logger.info("memory-cortex: connected to Qdrant + Ollama");

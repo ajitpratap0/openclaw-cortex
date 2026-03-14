@@ -10,6 +10,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	graphpkg "github.com/ajitpratap0/openclaw-cortex/internal/graph"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
@@ -28,9 +29,9 @@ func captureCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			// Validate that the API key is present before making any API call.
-			if cfg.Claude.APIKey == "" {
-				return fmt.Errorf("capture: ANTHROPIC_API_KEY environment variable is not set")
+			// Validate that LLM access is available (API key or gateway).
+			if cfg.Claude.APIKey == "" && (cfg.Claude.GatewayURL == "" || cfg.Claude.GatewayToken == "") {
+				return fmt.Errorf("capture: no LLM configured (set ANTHROPIC_API_KEY or claude.gateway_url + claude.gateway_token)")
 			}
 
 			// Validate memory scope.
@@ -59,7 +60,8 @@ func captureCmd() *cobra.Command {
 				return nil
 			}
 
-			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+			llmClient := llm.NewClient(cfg.Claude)
+			cap := capture.NewCapturer(llmClient, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
 
 			memories, err := cap.Extract(ctx, userMsg, assistantMsg)
@@ -125,7 +127,7 @@ func captureCmd() *cobra.Command {
 			// Entity extraction (graceful — skipped if no API key or on error)
 			var allEntityNames []string
 			if cfg.Claude.APIKey != "" {
-				extractor := capture.NewEntityExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				extractor := capture.NewEntityExtractor(llmClient, cfg.Claude.Model, logger)
 				for i := range storedMems {
 					entities, extractErr := extractor.Extract(ctx, storedMems[i].content)
 					if extractErr != nil {
@@ -152,7 +154,7 @@ func captureCmd() *cobra.Command {
 					logger.Warn("graph client init failed, skipping fact extraction", "error", gcErr)
 				} else if gc != nil {
 					defer func() { _ = gc.Close() }()
-					factExtractor := graphpkg.NewFactExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					factExtractor := graphpkg.NewFactExtractor(llmClient, cfg.Claude.Model, logger)
 					for i := range storedMems {
 						facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)
 						if factErr != nil {

@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -29,16 +27,15 @@ const (
 // On any API failure the Reasoner degrades gracefully and returns results in
 // their original order so the caller always gets a usable response.
 type Reasoner struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewReasoner creates a Reasoner backed by the Anthropic Claude API.
-func NewReasoner(apiKey, model string, logger *slog.Logger) *Reasoner {
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+func NewReasoner(client llm.LLMClient, model string, logger *slog.Logger) *Reasoner {
 	return &Reasoner{
-		client: &c,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -85,26 +82,13 @@ Output ONLY a valid JSON array of integers, nothing else. Example: [2, 0, 3, 1]
 		sb.String(),
 	)
 
-	resp, err := r.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(r.model),
-		MaxTokens: reasonerMaxTokens,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		},
-	})
+	responseText, err := r.client.Complete(ctx, r.model, "", prompt, reasonerMaxTokens)
 	if err != nil {
 		r.logger.Warn("reasoner: Claude API call failed, using original order", "error", err)
 		return results, nil
 	}
 
-	// Extract the text block from the response.
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = strings.TrimSpace(resp.Content[i].Text)
-			break
-		}
-	}
+	responseText = strings.TrimSpace(responseText)
 	if responseText == "" {
 		r.logger.Warn("reasoner: empty response from Claude, using original order")
 		return results, nil

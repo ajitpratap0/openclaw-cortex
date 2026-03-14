@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
@@ -40,7 +38,7 @@ type resolutionResponse struct {
 // 3. Claude Haiku fallback for ambiguous cases
 type EntityResolver struct {
 	graph     Client
-	client    *anthropic.Client
+	client    llm.LLMClient
 	model     string
 	threshold float64
 	maxCands  int
@@ -48,16 +46,11 @@ type EntityResolver struct {
 }
 
 // NewEntityResolver creates a new EntityResolver.
-// If apiKey is empty, stage 3 (Claude fallback) is disabled and ambiguous entities
+// If client is nil, stage 3 (Claude fallback) is disabled and ambiguous entities
 // are treated as new.
-func NewEntityResolver(graph Client, apiKey, model string, threshold float64, maxCands int, logger *slog.Logger) *EntityResolver {
+func NewEntityResolver(graph Client, client llm.LLMClient, model string, threshold float64, maxCands int, logger *slog.Logger) *EntityResolver {
 	if logger == nil {
 		logger = slog.Default()
-	}
-	var client *anthropic.Client
-	if apiKey != "" {
-		c := anthropic.NewClient(option.WithAPIKey(apiKey))
-		client = &c
 	}
 	return &EntityResolver{
 		graph:     graph,
@@ -176,34 +169,20 @@ func (r *EntityResolver) claudeFallback(ctx context.Context, extracted models.En
 		xmlutil.Escape(conversationContext),
 	)
 
-	resp, apiErr := r.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(r.model),
-		MaxTokens: 256,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(
-				anthropic.NewTextBlock(prompt),
-			),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise entity resolution system. Output only valid JSON."},
-		},
-	})
+	responseText, apiErr := r.client.Complete(ctx, r.model,
+		"You are a precise entity resolution system. Output only valid JSON.",
+		prompt,
+		256,
+	)
 	if apiErr != nil {
 		return "", false, fmt.Errorf("claude API call: %w", apiErr)
-	}
-
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = resp.Content[i].Text
-			break
-		}
 	}
 
 	if responseText == "" {
 		return "", false, fmt.Errorf("empty response from Claude")
 	}
 
+	responseText = llm.StripCodeFences(responseText)
 	var result resolutionResponse
 	if jsonErr := json.Unmarshal([]byte(responseText), &result); jsonErr != nil {
 		return "", false, fmt.Errorf("parsing Claude response: %w (raw: %s)", jsonErr, responseText)

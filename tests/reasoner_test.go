@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
@@ -34,14 +35,14 @@ func newTestRecallResult(id, content string, score float64) models.RecallResult 
 }
 
 func TestReasoner_ReRank_EmptyResults(t *testing.T) {
-	r := recall.NewReasoner("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	results, err := r.ReRank(context.Background(), "test query", nil, 10)
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
 
 func TestReasoner_ReRank_EmptySlice(t *testing.T) {
-	r := recall.NewReasoner("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	results, err := r.ReRank(context.Background(), "test query", []models.RecallResult{}, 10)
 	require.NoError(t, err)
 	assert.Empty(t, results)
@@ -49,7 +50,7 @@ func TestReasoner_ReRank_EmptySlice(t *testing.T) {
 
 func TestReasoner_ReRank_InvalidAPIKey_DegradeGracefully(t *testing.T) {
 	// With an invalid API key, the Reasoner must return the original order without error.
-	r := recall.NewReasoner("invalid-key-xxx", "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient("invalid-key-xxx"), "claude-haiku-4-5-20251001", slog.Default())
 
 	input := []models.RecallResult{
 		newTestRecallResult("id-1", "content one", 0.9),
@@ -69,7 +70,7 @@ func TestReasoner_ReRank_InvalidAPIKey_DegradeGracefully(t *testing.T) {
 
 func TestReasoner_ReRank_ZeroCandidates_UsesDefault(t *testing.T) {
 	// maxCandidates=0 should use the internal default, not panic.
-	r := recall.NewReasoner("invalid-key", "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient("invalid-key"), "claude-haiku-4-5-20251001", slog.Default())
 	input := []models.RecallResult{
 		newTestRecallResult("id-1", "content", 0.9),
 	}
@@ -80,7 +81,7 @@ func TestReasoner_ReRank_ZeroCandidates_UsesDefault(t *testing.T) {
 
 func TestReasoner_ReRank_TailPreserved(t *testing.T) {
 	// Results beyond maxCandidates should appear unchanged after the re-ranked set.
-	r := recall.NewReasoner("invalid-key", "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient("invalid-key"), "claude-haiku-4-5-20251001", slog.Default())
 
 	input := make([]models.RecallResult, 5)
 	for i := range input {
@@ -107,7 +108,7 @@ func TestReasoner_ReRank_Integration(t *testing.T) {
 		t.Skip("ANTHROPIC_API_KEY not set — skipping integration test")
 	}
 
-	r := recall.NewReasoner(apiKey, "claude-haiku-4-5-20251001", slog.Default())
+	r := recall.NewReasoner(llm.NewAnthropicClient(apiKey), "claude-haiku-4-5-20251001", slog.Default())
 	input := []models.RecallResult{
 		newTestRecallResult("id-1", "Python is a dynamically typed language", 0.7),
 		newTestRecallResult("id-2", "Always deploy with --dry-run first in production", 0.8),

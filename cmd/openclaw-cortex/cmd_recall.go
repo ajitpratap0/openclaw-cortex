@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
@@ -78,7 +79,8 @@ func recallCmd() *cobra.Command {
 			forceRerank := reason
 
 			if cfg.Claude.APIKey != "" && (forceRerank || recaller.ShouldRerank(ranked, rerankThreshold)) {
-				reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				llmClient := llm.NewClient(cfg.Claude)
+				reasoner := recall.NewReasoner(llmClient, cfg.Claude.Model, logger)
 				rerankCtx, cancel := context.WithTimeout(ctx, time.Duration(budgetMs)*time.Millisecond)
 				defer cancel()
 				reranked, rerankErr := reasoner.ReRank(rerankCtx, query, ranked, reasonCandidates)

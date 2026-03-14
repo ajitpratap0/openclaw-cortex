@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -39,21 +37,16 @@ type factResolutionResponse struct {
 // by comparing it against existing facts between the same entity pair.
 type FactResolver struct {
 	graph  Client
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewFactResolver creates a new FactResolver.
-// If apiKey is empty, the resolver will treat all facts as new (graceful degradation).
-func NewFactResolver(graph Client, apiKey, model string, logger *slog.Logger) *FactResolver {
+// If client is nil, the resolver will treat all facts as new (graceful degradation).
+func NewFactResolver(graph Client, client llm.LLMClient, model string, logger *slog.Logger) *FactResolver {
 	if logger == nil {
 		logger = slog.Default()
-	}
-	var client *anthropic.Client
-	if apiKey != "" {
-		c := anthropic.NewClient(option.WithAPIKey(apiKey))
-		client = &c
 	}
 	return &FactResolver{
 		graph:  graph,
@@ -100,30 +93,15 @@ func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, convers
 
 	prompt := fmt.Sprintf(factResolutionPromptTemplate, sb.String(), xmlutil.Escape(newFact.Fact))
 
-	resp, err := r.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(r.model),
-		MaxTokens: 512,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(
-				anthropic.NewTextBlock(prompt),
-			),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise fact resolution system. Output only valid JSON."},
-		},
-	})
+	responseText, err := r.client.Complete(ctx, r.model,
+		"You are a precise fact resolution system. Output only valid JSON.",
+		prompt,
+		512,
+	)
 	if err != nil {
 		// On API error, treat as new fact (safe default, graceful degradation).
 		r.logger.Warn("fact resolver: Claude API error, treating as new fact", "error", err)
 		return FactActionInsert, nil, nil
-	}
-
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = resp.Content[i].Text
-			break
-		}
 	}
 
 	if responseText == "" {
@@ -133,6 +111,7 @@ func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, convers
 
 	r.logger.Debug("fact resolution response", "response", responseText)
 
+	responseText = llm.StripCodeFences(responseText)
 	var result factResolutionResponse
 	if jsonErr := json.Unmarshal([]byte(responseText), &result); jsonErr != nil {
 		r.logger.Warn("fact resolver: failed to parse Claude response, treating as new fact",
