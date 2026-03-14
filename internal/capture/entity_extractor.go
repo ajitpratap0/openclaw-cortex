@@ -81,6 +81,7 @@ func (e *EntityExtractor) Extract(ctx context.Context, content string) ([]models
 
 	e.logger.Debug("entity extraction response", "response", responseText)
 
+	responseText = llm.StripCodeFences(responseText)
 	var raw []capturedEntity
 	if jsonErr := json.Unmarshal([]byte(responseText), &raw); jsonErr != nil {
 		return nil, fmt.Errorf("entity extraction: parsing response: %w (raw: %s)", jsonErr, responseText)

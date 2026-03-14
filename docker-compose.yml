@@ -20,6 +20,7 @@ services:
     environment:
       NEO4J_AUTH: neo4j/openclaw-cortex
       NEO4J_PLUGINS: '[]'
+      NEO4J_server_jvm_additional: '--add-modules jdk.incubator.vector'
     volumes:
       - neo4j_data:/data
     restart: unless-stopped
