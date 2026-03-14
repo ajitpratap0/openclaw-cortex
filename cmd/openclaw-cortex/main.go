@@ -17,7 +17,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-var version = "0.5.0"
+var version = "0.6.0"
 
 var cfg *config.Config
 

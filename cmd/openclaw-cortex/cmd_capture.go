@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -124,9 +125,24 @@ func captureCmd() *cobra.Command {
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
 			}
 
-			// Entity extraction (graceful — skipped if no API key or on error)
+			// Initialize optional graph client (used for entity + fact writes to Neo4j).
+			var gc graphpkg.Client
+			if cfg.Graph.Enabled {
+				var gcErr error
+				gc, gcErr = newGraphClient(ctx, logger)
+				if gcErr != nil {
+					logger.Warn("graph client init failed, graph features disabled", "error", gcErr)
+				} else if gc != nil {
+					defer func() { _ = gc.Close() }()
+				}
+			}
+
+			// Entity extraction (graceful — skipped if no LLM or on error).
+			// entityNameToID maps lowercased entity names to their UUIDs so that
+			// the fact extractor (which returns names) can resolve to UUIDs.
 			var allEntityNames []string
-			if cfg.Claude.APIKey != "" {
+			entityNameToID := make(map[string]string)
+			if llmClient != nil {
 				extractor := capture.NewEntityExtractor(llmClient, cfg.Claude.Model, logger)
 				for i := range storedMems {
 					entities, extractErr := extractor.Extract(ctx, storedMems[i].content)
@@ -136,39 +152,54 @@ func captureCmd() *cobra.Command {
 					}
 					for j := range entities {
 						if upsertErr := st.UpsertEntity(ctx, entities[j]); upsertErr != nil {
-							logger.Warn("upsert entity failed", "entity", entities[j].Name, "error", upsertErr)
+							logger.Warn("upsert entity to qdrant failed", "entity", entities[j].Name, "error", upsertErr)
 							continue
 						}
 						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedMems[i].id); linkErr != nil {
 							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
 						}
+						// Also upsert entity to Neo4j graph for relationship traversal.
+						if gc != nil {
+							if graphErr := gc.UpsertEntity(ctx, entities[j]); graphErr != nil {
+								logger.Warn("upsert entity to neo4j failed", "entity", entities[j].Name, "error", graphErr)
+							}
+						}
 						allEntityNames = append(allEntityNames, entities[j].Name)
+						entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
 					}
 				}
 			}
 
-			// Fact extraction + graph write (graceful — skipped if graph disabled or on error)
-			if cfg.Graph.Enabled && cfg.Claude.APIKey != "" && len(allEntityNames) > 0 {
-				gc, gcErr := newGraphClient(ctx, logger)
-				if gcErr != nil {
-					logger.Warn("graph client init failed, skipping fact extraction", "error", gcErr)
-				} else if gc != nil {
-					defer func() { _ = gc.Close() }()
-					factExtractor := graphpkg.NewFactExtractor(llmClient, cfg.Claude.Model, logger)
-					for i := range storedMems {
-						facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)
-						if factErr != nil {
-							logger.Warn("fact extraction failed, skipping", "error", factErr)
+			// Fact extraction + graph write (graceful — skipped if graph disabled or on error).
+			// The FactExtractor returns entity names in SourceEntityID/TargetEntityID;
+			// we resolve them to UUIDs via entityNameToID before upserting to Neo4j.
+			if gc != nil && llmClient != nil && len(allEntityNames) > 0 {
+				factExtractor := graphpkg.NewFactExtractor(llmClient, cfg.Claude.Model, logger)
+				for i := range storedMems {
+					facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)
+					if factErr != nil {
+						logger.Warn("fact extraction failed, skipping", "error", factErr)
+						continue
+					}
+					for j := range facts {
+						// Resolve entity names to UUIDs.
+						srcID, srcOK := entityNameToID[strings.ToLower(facts[j].SourceEntityID)]
+						tgtID, tgtOK := entityNameToID[strings.ToLower(facts[j].TargetEntityID)]
+						if !srcOK || !tgtOK {
+							logger.Warn("fact references unknown entity, skipping",
+								"source", facts[j].SourceEntityID, "target", facts[j].TargetEntityID,
+								"source_resolved", srcOK, "target_resolved", tgtOK)
 							continue
 						}
-						for j := range facts {
-							if upsertErr := gc.UpsertFact(ctx, facts[j]); upsertErr != nil {
-								logger.Warn("upsert fact failed", "fact_id", facts[j].ID, "error", upsertErr)
-								continue
-							}
-							if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedMems[i].id); linkErr != nil {
-								logger.Warn("link fact to memory failed", "fact_id", facts[j].ID, "error", linkErr)
-							}
+						facts[j].SourceEntityID = srcID
+						facts[j].TargetEntityID = tgtID
+
+						if upsertErr := gc.UpsertFact(ctx, facts[j]); upsertErr != nil {
+							logger.Warn("upsert fact failed", "fact_id", facts[j].ID, "error", upsertErr)
+							continue
+						}
+						if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedMems[i].id); linkErr != nil {
+							logger.Warn("link fact to memory failed", "fact_id", facts[j].ID, "error", linkErr)
 						}
 					}
 				}
