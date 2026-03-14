@@ -40,11 +40,12 @@ func healthCmd() *cobra.Command {
 			}
 
 			// Check Claude LLM access (API key or gateway)
-			if cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "" {
+			switch {
+			case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
 				fmt.Printf("Claude LLM: OK (via gateway %s)\n", cfg.Claude.GatewayURL)
-			} else if cfg.Claude.APIKey != "" {
+			case cfg.Claude.APIKey != "":
 				fmt.Println("Claude LLM: OK (API key)")
-			} else {
+			default:
 				fmt.Println("Claude LLM: FAIL (no API key or gateway configured)")
 				allOK = false
 			}
