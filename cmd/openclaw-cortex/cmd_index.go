@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/indexer"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 )
 
 func indexCmd() *cobra.Command {
@@ -50,7 +51,8 @@ func indexCmd() *cobra.Command {
 				if cfg.Claude.APIKey == "" {
 					logger.Warn("--summarize requires ANTHROPIC_API_KEY; skipping summary generation")
 				} else {
-					sum := indexer.NewSectionSummarizer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					llmClient := llm.NewClient(cfg.Claude)
+					sum := indexer.NewSectionSummarizer(llmClient, cfg.Claude.Model, logger)
 					sumCount, sumErr := sum.SummarizeDirectory(ctx, path, emb, st)
 					if sumErr != nil {
 						logger.Error("summary generation failed", "error", sumErr)

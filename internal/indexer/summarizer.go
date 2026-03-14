@@ -8,11 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/google/uuid"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
@@ -32,16 +31,15 @@ const (
 // using Claude Haiku. Summaries are stored alongside the raw chunk memories and
 // surface during broad recall queries where a specific chunk might be missed.
 type SectionSummarizer struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewSectionSummarizer creates a SectionSummarizer backed by Claude.
-func NewSectionSummarizer(apiKey, model string, logger *slog.Logger) *SectionSummarizer {
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+func NewSectionSummarizer(client llm.LLMClient, model string, logger *slog.Logger) *SectionSummarizer {
 	return &SectionSummarizer{
-		client: &c,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -60,24 +58,12 @@ func (s *SectionSummarizer) SummarizeNode(ctx context.Context, node *SectionNode
 		node.Content,
 	)
 
-	resp, err := s.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(s.model),
-		MaxTokens: summaryMaxTokens,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		},
-	})
+	summary, err := s.client.Complete(ctx, s.model, "", prompt, summaryMaxTokens)
 	if err != nil {
 		return nil, fmt.Errorf("summarizing section %q: %w", node.Title, err)
 	}
 
-	var summary string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			summary = strings.TrimSpace(resp.Content[i].Text)
-			break
-		}
-	}
+	summary = strings.TrimSpace(summary)
 	if summary == "" {
 		return nil, nil
 	}

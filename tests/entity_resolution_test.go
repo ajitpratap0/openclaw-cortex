@@ -24,7 +24,7 @@ func TestEntityResolver_ExactNameMatch(t *testing.T) {
 	}
 	require.NoError(t, mock.UpsertEntity(ctx, existing))
 
-	resolver := graph.NewEntityResolver(mock, "", "claude-3-haiku-20240307", 0.9, 10, slog.Default())
+	resolver := graph.NewEntityResolver(mock, nil, "claude-3-haiku-20240307", 0.9, 10, slog.Default())
 
 	extracted := models.Entity{
 		ID:   "new-1",
@@ -51,7 +51,7 @@ func TestEntityResolver_AliasMatch(t *testing.T) {
 	}
 	require.NoError(t, mock.UpsertEntity(ctx, existing))
 
-	resolver := graph.NewEntityResolver(mock, "", "claude-3-haiku-20240307", 0.9, 10, slog.Default())
+	resolver := graph.NewEntityResolver(mock, nil, "claude-3-haiku-20240307", 0.9, 10, slog.Default())
 
 	// The new entity's name matches an alias of the existing entity
 	extracted := models.Entity{
@@ -71,7 +71,7 @@ func TestEntityResolver_NoMatch_NewEntity(t *testing.T) {
 	ctx := context.Background()
 
 	// No entities seeded — empty graph
-	resolver := graph.NewEntityResolver(mock, "", "claude-3-haiku-20240307", 0.9, 10, slog.Default())
+	resolver := graph.NewEntityResolver(mock, nil, "claude-3-haiku-20240307", 0.9, 10, slog.Default())
 
 	extracted := models.Entity{
 		ID:   "brand-new",
@@ -99,7 +99,7 @@ func TestEntityResolver_GracefulDegradation(t *testing.T) {
 	require.NoError(t, mock.UpsertEntity(ctx, existing))
 
 	// No API key → Claude fallback is disabled → should treat as new
-	resolver := graph.NewEntityResolver(mock, "", "claude-3-haiku-20240307", 0.9, 10, slog.Default())
+	resolver := graph.NewEntityResolver(mock, nil, "claude-3-haiku-20240307", 0.9, 10, slog.Default())
 
 	// Use a name that will be found by search (mock does substring match)
 	// but won't match deterministically

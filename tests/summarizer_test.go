@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/indexer"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 func TestSectionSummarizer_SummarizeTree_EmptyTree(t *testing.T) {
 	// With an empty tree, SummarizeTree should return empty results without error
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	memories, err := s.SummarizeTree(ctx, nil, "test-source")
@@ -26,7 +27,7 @@ func TestSectionSummarizer_SummarizeTree_EmptyTree(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeNode_BelowThreshold(t *testing.T) {
 	// A node with fewer than 20 words should return nil, nil (below threshold)
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	// Create a node with less than 20 words (summaryMinWords = 20)
@@ -45,7 +46,7 @@ func TestSectionSummarizer_SummarizeNode_BelowThreshold(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeTree_ShortSections(t *testing.T) {
 	// All nodes below word threshold should produce no summaries
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	// These sections all have fewer than 20 words
@@ -62,7 +63,7 @@ func TestSectionSummarizer_SummarizeTree_ShortSections(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeTree_CanceledContext(t *testing.T) {
 	// Canceled context should return context error
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
@@ -86,7 +87,7 @@ func TestSectionSummarizer_SummarizeTree_CanceledContext(t *testing.T) {
 func TestSectionSummarizer_SummarizeTree_APIError_Continues(t *testing.T) {
 	// Node with >= 20 words triggers Claude API call which fails with fake key.
 	// SummarizeTree should log warning and continue (graceful degradation).
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	// This section has enough words to exceed the threshold
@@ -109,7 +110,7 @@ func TestSectionSummarizer_SummarizeTree_APIError_Continues(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeDirectory_EmptyDir(t *testing.T) {
 	// Empty directory should return 0 summaries without error
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	dir := t.TempDir()
@@ -123,7 +124,7 @@ func TestSectionSummarizer_SummarizeDirectory_EmptyDir(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeDirectory_CanceledContext(t *testing.T) {
 	// Canceled context should propagate through SummarizeDirectory for long sections
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 
 	dir := t.TempDir()
 	// File with very short sections (below threshold) — no Claude calls needed
@@ -146,7 +147,7 @@ func TestSectionSummarizer_SummarizeDirectory_CanceledContext(t *testing.T) {
 
 func TestSectionSummarizer_SummarizeDirectory_OnlyShortSections(t *testing.T) {
 	// Files with only short sections (< 20 words) should produce no summaries
-	s := indexer.NewSectionSummarizer("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	s := indexer.NewSectionSummarizer(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	ctx := context.Background()
 
 	dir := t.TempDir()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
@@ -17,7 +18,7 @@ import (
 // TestConflictDetector_EmptyCandidates verifies that when no candidate memories
 // are provided, Detect immediately returns false without calling the API.
 func TestConflictDetector_EmptyCandidates(t *testing.T) {
-	cd := capture.NewConflictDetector("fake-api-key", "claude-haiku-4-5-20251001", slog.Default())
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("fake-api-key"), "claude-haiku-4-5-20251001", slog.Default())
 	contradicts, id, reason, err := cd.Detect(context.Background(), "some new memory", nil)
 	require.NoError(t, err)
 	assert.False(t, contradicts, "empty candidates should return false immediately")
@@ -28,7 +29,7 @@ func TestConflictDetector_EmptyCandidates(t *testing.T) {
 // TestConflictDetector_EmptySliceCandidates verifies that an empty (non-nil) slice
 // is treated the same as nil — returns false immediately.
 func TestConflictDetector_EmptySliceCandidates(t *testing.T) {
-	cd := capture.NewConflictDetector("fake-api-key", "claude-haiku-4-5-20251001", slog.Default())
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("fake-api-key"), "claude-haiku-4-5-20251001", slog.Default())
 	contradicts, id, reason, err := cd.Detect(context.Background(), "some new memory", []models.Memory{})
 	require.NoError(t, err)
 	assert.False(t, contradicts)
@@ -40,7 +41,7 @@ func TestConflictDetector_EmptySliceCandidates(t *testing.T) {
 // Claude API call fails (e.g., invalid API key), Detect returns false without
 // propagating an error — safe default is to store the memory anyway.
 func TestConflictDetector_InvalidAPIKey_GracefulDegradation(t *testing.T) {
-	cd := capture.NewConflictDetector("invalid-api-key-xxx", "claude-haiku-4-5-20251001", slog.Default())
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("invalid-api-key-xxx"), "claude-haiku-4-5-20251001", slog.Default())
 
 	candidates := []models.Memory{
 		newTestMemory("cand-1", models.MemoryTypeFact, "Python is a fast language"),
@@ -57,7 +58,7 @@ func TestConflictDetector_InvalidAPIKey_GracefulDegradation(t *testing.T) {
 
 // TestConflictDetector_Constructor verifies the constructor returns a non-nil detector.
 func TestConflictDetector_Constructor(t *testing.T) {
-	cd := capture.NewConflictDetector("fake-key", "claude-haiku-4-5-20251001", slog.Default())
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", slog.Default())
 	assert.NotNil(t, cd)
 }
 
@@ -78,7 +79,7 @@ func TestPostTurnHook_WithConflictDetector_GracefulDegradation(t *testing.T) {
 	emb := &hookMockEmbedder{dim: 8}
 
 	// ConflictDetector with a fake key — API call will fail, must degrade gracefully.
-	cd := capture.NewConflictDetector("invalid-api-key-xxx", "claude-haiku-4-5-20251001", logger)
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("invalid-api-key-xxx"), "claude-haiku-4-5-20251001", logger)
 
 	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95).
 		WithConflictDetector(cd)
@@ -141,7 +142,7 @@ func TestPostTurnHook_WithConflictDetector_WithExistingMemories(t *testing.T) {
 	// Use dim-based embedder so new memory gets a distinct vector from the existing one.
 	emb := &hookMockEmbedder{dim: 8}
 
-	cd := capture.NewConflictDetector("invalid-api-key-xxx", "claude-haiku-4-5-20251001", logger)
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("invalid-api-key-xxx"), "claude-haiku-4-5-20251001", logger)
 
 	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.50).
 		WithConflictDetector(cd)
@@ -163,7 +164,7 @@ func TestPostTurnHook_WithConflictDetector_ChainedCall(t *testing.T) {
 	cap := &hookMockCapturer{}
 	cls := &hookMockClassifier{}
 	emb := &hookMockEmbedder{dim: 8}
-	cd := capture.NewConflictDetector("fake-key", "claude-haiku-4-5-20251001", logger)
+	cd := capture.NewConflictDetector(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", logger)
 
 	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
 	returned := hook.WithConflictDetector(cd)

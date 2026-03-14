@@ -16,6 +16,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
@@ -124,7 +125,8 @@ func hookPreCmd() *cobra.Command {
 			preTurnHook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
 			if cfg.Claude.APIKey != "" {
-				reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				llmClient := llm.NewClient(cfg.Claude)
+				reasoner := recall.NewReasoner(llmClient, cfg.Claude.Model, logger)
 				preTurnHook = preTurnHook.WithReasoner(reasoner, hooks.RerankConfig{
 					ScoreSpreadThreshold: cfg.Recall.RerankScoreSpreadThreshold,
 					LatencyBudgetMs:      cfg.Recall.RerankLatencyBudgetHooksMs,
@@ -238,13 +240,14 @@ func hookPostCmd() *cobra.Command {
 				}
 			}
 
-			cap := capture.NewCapturer(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+			llmClient := llm.NewClient(cfg.Claude)
+			cap := capture.NewCapturer(llmClient, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
 
 			postHook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThresholdHook).
 				WithReinforcement(cfg.CaptureQuality.ReinforcementThreshold, cfg.CaptureQuality.ReinforcementConfidenceBoost)
 			if cfg.Claude.APIKey != "" {
-				cd := capture.NewConflictDetector(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+				cd := capture.NewConflictDetector(llmClient, cfg.Claude.Model, logger)
 				postHook = postHook.WithConflictDetector(cd)
 			}
 			hook := postHook
@@ -286,7 +289,8 @@ func hookPostCmd() *cobra.Command {
 					}
 					prewarmRecaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 					ranked := prewarmRecaller.Rank(results, input.Project, userMsg)
-					reasoner := recall.NewReasoner(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+					prewarmLLMClient := llm.NewClient(cfg.Claude)
+					reasoner := recall.NewReasoner(prewarmLLMClient, cfg.Claude.Model, logger)
 					reranked, rerankErr := reasoner.ReRank(prewarmCtx, userMsg, ranked, 0)
 					if rerankErr != nil {
 						return

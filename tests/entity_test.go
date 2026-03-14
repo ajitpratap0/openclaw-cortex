@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
@@ -235,7 +236,7 @@ func TestEntityExtractor_GracefulDegradation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	extractor := capture.NewEntityExtractor("sk-fake-key-for-testing", "claude-haiku-4-5", nil)
+	extractor := capture.NewEntityExtractor(llm.NewAnthropicClient("sk-fake-key-for-testing"), "claude-haiku-4-5", nil)
 	entities, err := extractor.Extract(ctx, "Alice works on the OpenClaw project.")
 
 	// On API error, extractor should degrade gracefully: no error, no entities.

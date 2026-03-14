@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -48,16 +46,15 @@ type conflictResponse struct {
 // On any API error or JSON parse failure the detector degrades gracefully and returns
 // (false, "", "", nil) so that the caller can always proceed with storing the memory.
 type ConflictDetector struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewConflictDetector creates a ConflictDetector backed by the Anthropic Claude API.
-func NewConflictDetector(apiKey, model string, logger *slog.Logger) *ConflictDetector {
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+func NewConflictDetector(client llm.LLMClient, model string, logger *slog.Logger) *ConflictDetector {
 	return &ConflictDetector{
-		client: &c,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -79,29 +76,17 @@ func (d *ConflictDetector) Detect(ctx context.Context, newContent string, candid
 
 	prompt := fmt.Sprintf(conflictPromptTemplate, xmlutil.Escape(newContent), sb.String())
 
-	resp, err := d.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(d.model),
-		MaxTokens: conflictDetectorMaxTokens,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise contradiction detection system. Output only valid JSON."},
-		},
-	})
+	responseText, err := d.client.Complete(ctx, d.model,
+		"You are a precise contradiction detection system. Output only valid JSON.",
+		prompt,
+		conflictDetectorMaxTokens,
+	)
 	if err != nil {
 		d.logger.Warn("conflict_detector: Claude API call failed, skipping contradiction check", "error", err)
 		return false, "", "", nil
 	}
 
-	// Extract the text block from the response.
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = strings.TrimSpace(resp.Content[i].Text)
-			break
-		}
-	}
+	responseText = strings.TrimSpace(responseText)
 	if responseText == "" {
 		d.logger.Warn("conflict_detector: empty response from Claude, skipping contradiction check")
 		return false, "", "", nil

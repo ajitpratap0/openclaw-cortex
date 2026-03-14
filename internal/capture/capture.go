@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/xmlutil"
 )
@@ -34,16 +32,15 @@ type Capturer interface {
 
 // ClaudeCapturer uses Claude Haiku to extract memories.
 type ClaudeCapturer struct {
-	client *anthropic.Client
+	client llm.LLMClient
 	model  string
 	logger *slog.Logger
 }
 
 // NewCapturer creates a new Claude-based memory capturer.
-func NewCapturer(apiKey, model string, logger *slog.Logger) *ClaudeCapturer {
-	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+func NewCapturer(client llm.LLMClient, model string, logger *slog.Logger) *ClaudeCapturer {
 	return &ClaudeCapturer{
-		client: &client,
+		client: client,
 		model:  model,
 		logger: logger,
 	}
@@ -119,29 +116,13 @@ func (c *ClaudeCapturer) ExtractWithContext(ctx context.Context, userMsg, assist
 
 // extractFromPrompt calls Claude with the given prompt and parses the response into memories.
 func (c *ClaudeCapturer) extractFromPrompt(ctx context.Context, prompt string) ([]models.CapturedMemory, error) {
-	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.Model(c.model),
-		MaxTokens: 2048,
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(
-				anthropic.NewTextBlock(prompt),
-			),
-		},
-		System: []anthropic.TextBlockParam{
-			{Text: "You are a precise memory extraction system. Output only valid JSON."},
-		},
-	})
+	responseText, err := c.client.Complete(ctx, c.model,
+		"You are a precise memory extraction system. Output only valid JSON.",
+		prompt,
+		2048,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("calling Claude API: %w", err)
-	}
-
-	// Extract text from response
-	var responseText string
-	for i := range resp.Content {
-		if resp.Content[i].Type == "text" {
-			responseText = resp.Content[i].Text
-			break
-		}
 	}
 
 	if responseText == "" {
@@ -149,6 +130,9 @@ func (c *ClaudeCapturer) extractFromPrompt(ctx context.Context, prompt string) (
 	}
 
 	c.logger.Debug("claude extraction response", "response", responseText)
+
+	// Strip markdown code fences if present (gateway models may wrap JSON).
+	responseText = llm.StripCodeFences(responseText)
 
 	// Try to parse as array directly
 	var memories []models.CapturedMemory
