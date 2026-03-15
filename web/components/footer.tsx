@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const footerLinks = {
   Product: [
@@ -53,7 +54,13 @@ export default function Footer() {
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-emerald-500 flex-shrink-0" />
+              <Image
+                src="/logo/logo-navbar.png"
+                alt="OpenClaw Cortex"
+                width={40}
+                height={40}
+                className="flex-shrink-0"
+              />
               <span className="font-semibold text-zinc-100 text-sm tracking-tight">
                 openclaw-cortex
               </span>

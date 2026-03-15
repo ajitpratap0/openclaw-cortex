@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Button from "@/components/ui/button";
 
 const terminalLines = [
@@ -40,6 +41,18 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <Image
+              src="/logo/logo-256.png"
+              alt="OpenClaw Cortex"
+              width={96}
+              height={96}
+              priority
+              className="drop-shadow-[0_0_24px_rgba(45,212,191,0.4)]"
+            />
+          </div>
+
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-zinc-50 leading-tight mb-6 tracking-tight">
             Memory that
             <br />

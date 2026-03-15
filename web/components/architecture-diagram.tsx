@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const containerVariants = {
   hidden: {},
@@ -112,6 +113,14 @@ export default function ArchitectureDiagram() {
             {/* Center: openclaw-cortex */}
             <motion.div variants={itemVariants} className="flex-shrink-0">
               <DiagramBox className="border-indigo-500 bg-indigo-500/10 text-indigo-300 w-52 glow-indigo-sm">
+                <div className="flex justify-center mb-1.5">
+                  <Image
+                    src="/logo/logo-128.png"
+                    alt="OpenClaw Cortex"
+                    width={32}
+                    height={32}
+                  />
+                </div>
                 <div className="text-base font-bold text-indigo-200">
                   openclaw-cortex
                 </div>

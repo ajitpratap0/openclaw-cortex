@@ -1,4 +1,7 @@
-# OpenClaw Cortex
+<p align="center">
+  <img src="web/public/logo/logo-256.png" alt="OpenClaw Cortex" width="120" />
+</p>
+<h1 align="center">OpenClaw Cortex</h1>
 
 <p align="center">
   <strong>Persistent, semantically searchable memory for AI agents — across sessions, projects, and context windows.</strong>

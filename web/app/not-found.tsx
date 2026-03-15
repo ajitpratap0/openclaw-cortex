@@ -1,9 +1,16 @@
-import Link from "next/link";
+import Image from "next/image";
 import Button from "@/components/ui/button";
 
 export default function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+      <Image
+        src="/logo/logo-128.png"
+        alt="OpenClaw Cortex"
+        width={64}
+        height={64}
+        className="mb-6 opacity-40"
+      />
       <p className="text-7xl font-bold text-zinc-800 select-none mb-4">404</p>
       <h1 className="text-2xl font-semibold text-zinc-100 mb-3">
         Page not found
