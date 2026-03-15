@@ -11,12 +11,13 @@ import (
 
 func searchCmd() *cobra.Command {
 	var (
-		memType  string
-		memScope string
-		tagsFlag string
-		limit    uint64
-		project  string
-		jsonFlag bool
+		memType        string
+		memScope       string
+		tagsFlag       string
+		limit          uint64
+		project        string
+		jsonFlag       bool
+		includeHistory bool
 	)
 
 	cmd := &cobra.Command{
@@ -43,6 +44,9 @@ func searchCmd() *cobra.Command {
 			filters, filterErr := buildSearchFilters("search", memType, memScope, project, tagsFlag)
 			if filterErr != nil {
 				return filterErr
+			}
+			if includeHistory {
+				filters.IncludeInvalidated = true
 			}
 
 			results, err := st.Search(ctx, vec, limit, filters)
@@ -82,5 +86,6 @@ func searchCmd() *cobra.Command {
 	cmd.Flags().Uint64Var(&limit, "limit", 10, "max results")
 	cmd.Flags().StringVar(&project, "project", "", "filter by project")
 	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output results as JSON")
+	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
 	return cmd
 }
