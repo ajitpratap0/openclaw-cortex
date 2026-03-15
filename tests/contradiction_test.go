@@ -66,9 +66,9 @@ func TestContradiction_WorksAt(t *testing.T) {
 
 	found := false
 	for _, h := range hits {
-		if h.MemoryID == pixisMem.ID {
+		if h.CandidateID == pixisMem.ID {
 			found = true
-			t.Logf("flagged contradiction: %s — %s", h.MemoryID, h.Reason)
+			t.Logf("flagged contradiction: %s — %s", h.CandidateID, h.Reason)
 		}
 	}
 	if !found {
@@ -78,8 +78,8 @@ func TestContradiction_WorksAt(t *testing.T) {
 	// Simulate the store pipeline: invalidate contradicted memories.
 	now := time.Now().UTC()
 	for _, h := range hits {
-		if invalidErr := st.InvalidateMemory(context.Background(), h.MemoryID, now); invalidErr != nil {
-			t.Errorf("InvalidateMemory(%s): %v", h.MemoryID, invalidErr)
+		if invalidErr := st.InvalidateMemory(context.Background(), h.CandidateID, now); invalidErr != nil {
+			t.Errorf("InvalidateMemory(%s): %v", h.CandidateID, invalidErr)
 		}
 	}
 
