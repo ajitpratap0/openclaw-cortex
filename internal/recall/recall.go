@@ -97,10 +97,6 @@ var TypePriority = map[models.MemoryType]float64{
 	models.MemoryTypePreference: 0.7,
 }
 
-// graphDefaultSimilarity is the default similarity score assigned to memories
-// retrieved via graph traversal (no vector match available).
-const graphDefaultSimilarity = 0.5
-
 // defaultGraphDepth is the default traversal depth for graph-aware recall.
 const defaultGraphDepth = 2
 
@@ -377,9 +373,9 @@ func (r *Recaller) rrfBlend(vectorResults []models.SearchResult, graphIDs []stri
 	gw := r.graphGraphWeight()
 
 	// Vector list contribution.
-	for rank, sr := range vectorResults {
+	for rank := range vectorResults {
 		rrfScore := 1.0 / float64(rank+1+rrfK)
-		scores[sr.Memory.ID] += rrfScore * vw
+		scores[vectorResults[rank].Memory.ID] += rrfScore * vw
 	}
 
 	// Graph list contribution.

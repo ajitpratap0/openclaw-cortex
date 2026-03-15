@@ -172,7 +172,7 @@ func TestGraphAwareRecall_Depth2IncludesHop2Memories(t *testing.T) {
 	}
 
 	mem1 := models.Memory{ID: "hop1-2", Type: models.MemoryTypeFact, Scope: models.ScopePermanent, Content: "hop1", Confidence: 0.8}
-	mem2 := models.Memory{ID: "hop2-2", Type: models.MemoryTypeFact, Scope: models.ScopePermanent, Content: "hop2 neighbour", Confidence: 0.8}
+	mem2 := models.Memory{ID: "hop2-2", Type: models.MemoryTypeFact, Scope: models.ScopePermanent, Content: "hop2 neighbor", Confidence: 0.8}
 	st := populatedStore(t, []models.Memory{mem1, mem2})
 
 	r := recall.NewRecaller(recall.DefaultWeights(), newGraphRecallLogger())

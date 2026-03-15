@@ -190,10 +190,10 @@ func (d *MemoryContradictionDetector) retrieveCandidates(
 	if err != nil {
 		return nil, nil, fmt.Errorf("vector search: %w", err)
 	}
-	for _, r := range results {
-		if r.Score >= d.cfg.SimilarityThreshold {
-			byID[r.Memory.ID] = r.Memory
-			scores[r.Memory.ID] = r.Score
+	for i := range results {
+		if results[i].Score >= d.cfg.SimilarityThreshold {
+			byID[results[i].Memory.ID] = results[i].Memory
+			scores[results[i].Memory.ID] = results[i].Score
 		}
 	}
 
@@ -207,8 +207,8 @@ func (d *MemoryContradictionDetector) retrieveCandidates(
 	}
 
 	out := make([]models.Memory, 0, len(byID))
-	for _, m := range byID {
-		out = append(out, m)
+	for k := range byID {
+		out = append(out, byID[k])
 	}
 	return out, scores, nil
 }
@@ -224,14 +224,14 @@ func (d *MemoryContradictionDetector) enrichFromGraph(
 	// Retrieve facts linked to the graph for recently accessed memory IDs.
 	// We collect entity IDs from existing vector candidates, then expand via graph.
 	entityIDs := make(map[string]bool)
-	for _, m := range byID {
-		facts, err := d.graphClient.GetMemoryFacts(ctx, m.ID)
+	for mid := range byID {
+		facts, err := d.graphClient.GetMemoryFacts(ctx, byID[mid].ID)
 		if err != nil {
 			continue
 		}
-		for _, f := range facts {
-			entityIDs[f.SourceEntityID] = true
-			entityIDs[f.TargetEntityID] = true
+		for i := range facts {
+			entityIDs[facts[i].SourceEntityID] = true
+			entityIDs[facts[i].TargetEntityID] = true
 		}
 	}
 
@@ -241,8 +241,8 @@ func (d *MemoryContradictionDetector) enrichFromGraph(
 		if err != nil {
 			continue
 		}
-		for _, f := range facts {
-			for _, mid := range f.SourceMemoryIDs {
+		for fi := range facts {
+			for _, mid := range facts[fi].SourceMemoryIDs {
 				if _, already := byID[mid]; already {
 					continue
 				}
@@ -272,9 +272,9 @@ func (d *MemoryContradictionDetector) heuristicFilter(
 	}
 
 	var heuristic []models.Memory
-	for _, cand := range candidates {
-		if d.hasExclusivePredicateConflict(ctx, newContent, cand) {
-			heuristic = append(heuristic, cand)
+	for i := range candidates {
+		if d.hasExclusivePredicateConflict(ctx, newContent, candidates[i]) {
+			heuristic = append(heuristic, candidates[i])
 		}
 	}
 	return heuristic
@@ -294,8 +294,8 @@ func (d *MemoryContradictionDetector) hasExclusivePredicateConflict(
 
 	newLower := strings.ToLower(newContent)
 
-	for _, f := range facts {
-		normRel := strings.ToUpper(f.RelationType)
+	for fi := range facts {
+		normRel := strings.ToUpper(facts[fi].RelationType)
 		if !exclusivePairs[normRel] {
 			continue
 		}
@@ -304,11 +304,11 @@ func (d *MemoryContradictionDetector) hasExclusivePredicateConflict(
 		// Heuristic: if the target entity name appears in the candidate fact
 		// and the new content contains the same predicate keyword but NOT the
 		// same target value, flag it.
-		if d.contentSuggestsConflict(newLower, normRel, f) {
+		if d.contentSuggestsConflict(newLower, normRel, facts[fi]) {
 			d.logger.Debug("contradiction_detector: heuristic hit",
 				"candidate_id", cand.ID,
 				"relation", normRel,
-				"fact", f.Fact)
+				"fact", facts[fi].Fact)
 			return true
 		}
 	}
@@ -395,8 +395,8 @@ func significantWords(s string) []string {
 func (d *MemoryContradictionDetector) keywordHeuristicFilter(newContent string, candidates []models.Memory) []models.Memory {
 	newLower := strings.ToLower(newContent)
 	var out []models.Memory
-	for _, cand := range candidates {
-		candLower := strings.ToLower(cand.Content)
+	for ci := range candidates {
+		candLower := strings.ToLower(candidates[ci].Content)
 		// Check for any exclusive-predicate signal in both contents.
 		for rel := range exclusivePairs {
 			sigs := exclusivePredicateSignals(rel)
@@ -411,7 +411,7 @@ func (d *MemoryContradictionDetector) keywordHeuristicFilter(newContent string, 
 			}
 			if newHasSig && candHasSig {
 				// Both mention the same predicate — potential conflict; send to Stage 3.
-				out = append(out, cand)
+				out = append(out, candidates[ci])
 				break
 			}
 		}
@@ -433,15 +433,15 @@ func (d *MemoryContradictionDetector) llmConfirm(
 ) []ContradictionResult {
 	var confirmed []ContradictionResult
 
-	for _, cand := range heuristic {
-		sim := scores[cand.ID]
+	for hi := range heuristic {
+		sim := scores[heuristic[hi].ID]
 
 		// Auto-confirm if above the high-similarity threshold — skip LLM.
 		if sim >= d.cfg.LLMConfirmThreshold {
 			d.logger.Info("contradiction_detector: auto-confirmed (high similarity)",
-				"candidate_id", cand.ID, "similarity", sim)
+				"candidate_id", heuristic[hi].ID, "similarity", sim)
 			confirmed = append(confirmed, ContradictionResult{
-				CandidateID: cand.ID,
+				CandidateID: heuristic[hi].ID,
 				Reason:      fmt.Sprintf("auto-confirmed: cosine similarity %.3f >= threshold %.3f", sim, d.cfg.LLMConfirmThreshold),
 			})
 			continue
@@ -450,9 +450,9 @@ func (d *MemoryContradictionDetector) llmConfirm(
 		// If no LLM client, skip confirmation but still report based on heuristic alone.
 		if d.llmClient == nil {
 			d.logger.Debug("contradiction_detector: no LLM client, using heuristic result",
-				"candidate_id", cand.ID)
+				"candidate_id", heuristic[hi].ID)
 			confirmed = append(confirmed, ContradictionResult{
-				CandidateID: cand.ID,
+				CandidateID: heuristic[hi].ID,
 				Reason:      "heuristic: exclusive-predicate signal detected (no LLM confirmation)",
 			})
 			continue
@@ -461,19 +461,19 @@ func (d *MemoryContradictionDetector) llmConfirm(
 		// Stage 3 LLM call with timeout budget.
 		timeout := time.Duration(d.cfg.LLMTimeoutMs) * time.Millisecond
 		llmCtx, cancel := context.WithTimeout(ctx, timeout)
-		result := d.callLLM(llmCtx, newContent, cand.Content)
+		result := d.callLLM(llmCtx, newContent, heuristic[hi].Content)
 		cancel()
 
 		if result == nil {
 			d.logger.Debug("contradiction_detector: LLM call skipped or failed",
-				"candidate_id", cand.ID)
+				"candidate_id", heuristic[hi].ID)
 			continue
 		}
 		if result.Contradicts {
 			d.logger.Info("contradiction_detector: LLM confirmed contradiction",
-				"candidate_id", cand.ID, "reason", result.Reason)
+				"candidate_id", heuristic[hi].ID, "reason", result.Reason)
 			confirmed = append(confirmed, ContradictionResult{
-				CandidateID: cand.ID,
+				CandidateID: heuristic[hi].ID,
 				Reason:      result.Reason,
 			})
 		}
