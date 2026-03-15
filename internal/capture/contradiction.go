@@ -75,9 +75,9 @@ func (d *MemoryContradictionDetector) FindContradictions(
 	}
 
 	var candidates []models.SearchResult
-	for _, r := range results {
-		if r.Score >= d.threshold {
-			candidates = append(candidates, r)
+	for i := range results {
+		if results[i].Score >= d.threshold {
+			candidates = append(candidates, results[i])
 		}
 	}
 	if len(candidates) == 0 {
@@ -92,8 +92,8 @@ func (d *MemoryContradictionDetector) FindContradictions(
 	}
 
 	var hits []store.ContradictionHit
-	for _, r := range candidates {
-		candLower := strings.ToLower(r.Memory.Content)
+	for ci := range candidates {
+		candLower := strings.ToLower(candidates[ci].Memory.Content)
 		candSigs := activeSignals(candLower)
 		for pred := range newSigs {
 			if !candSigs[pred] {
@@ -103,7 +103,7 @@ func (d *MemoryContradictionDetector) FindContradictions(
 			// If their significant words diverge, the values differ → contradiction.
 			if contentDiverges(newLower, candLower) {
 				hits = append(hits, store.ContradictionHit{
-					CandidateID: r.Memory.ID,
+					CandidateID: candidates[ci].Memory.ID,
 					Reason:      "exclusive predicate '" + pred + "' conflicts with existing memory",
 				})
 				break
@@ -127,24 +127,40 @@ func activeSignals(contentLower string) map[string]bool {
 	return found
 }
 
-// contentDiverges returns true when fewer than half the significant words of a
-// appear in b — indicating they describe different values for the same predicate.
+// contentDiverges returns true when the two contents share an exclusive-predicate
+// signal phrase but express different objects — i.e., each has at least one
+// significant word that is NOT present in the other, indicating different values.
 func contentDiverges(a, b string) bool {
 	wordsA := significantWords(a)
-	if len(wordsA) == 0 {
+	wordsB := significantWords(b)
+	if len(wordsA) == 0 || len(wordsB) == 0 {
 		return false
 	}
-	bSet := make(map[string]bool, len(significantWords(b)))
-	for _, w := range significantWords(b) {
+	bSet := make(map[string]bool, len(wordsB))
+	for _, w := range wordsB {
 		bSet[w] = true
 	}
-	matches := 0
+	aSet := make(map[string]bool, len(wordsA))
 	for _, w := range wordsA {
-		if bSet[w] {
-			matches++
+		aSet[w] = true
+	}
+	// Check if each side has at least one unique significant word.
+	// This means they share the predicate context but differ in the object value.
+	aHasUnique := false
+	for _, w := range wordsA {
+		if !bSet[w] {
+			aHasUnique = true
+			break
 		}
 	}
-	return matches < (len(wordsA)+1)/2
+	bHasUnique := false
+	for _, w := range wordsB {
+		if !aSet[w] {
+			bHasUnique = true
+			break
+		}
+	}
+	return aHasUnique && bHasUnique
 }
 
 // significantWords returns lowercase words ≥ 4 chars, excluding common stop words.

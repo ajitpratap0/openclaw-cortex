@@ -78,8 +78,8 @@ func TestContradiction_WorksAt(t *testing.T) {
 	// Simulate the store pipeline: invalidate contradicted memories.
 	now := time.Now().UTC()
 	for _, h := range hits {
-		if err := st.InvalidateMemory(context.Background(), h.MemoryID, now); err != nil {
-			t.Errorf("InvalidateMemory(%s): %v", h.MemoryID, err)
+		if invalidErr := st.InvalidateMemory(context.Background(), h.MemoryID, now); invalidErr != nil {
+			t.Errorf("InvalidateMemory(%s): %v", h.MemoryID, invalidErr)
 		}
 	}
 
