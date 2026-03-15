@@ -1,0 +1,420 @@
+---
+title: "CLI Reference"
+description: "Complete reference for all openclaw-cortex CLI commands and flags"
+order: 4
+section: "Reference"
+---
+
+All commands accept global flags: `--config` (config file path) and `--help`.
+
+## capture
+
+Extract memories from a conversation turn using Claude Haiku.
+
+```bash
+openclaw-cortex capture [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--user` | `""` | User message content |
+| `--assistant` | `""` | Assistant response content |
+| `--session-id` | `""` | Session identifier (used for session-scoped memory expiry) |
+| `--scope` | `permanent` | Memory scope: `permanent`, `project`, `session`, `ttl` |
+
+**Example:**
+
+```bash
+openclaw-cortex capture \
+  --user "How should I handle errors in Go?" \
+  --assistant "Always use fmt.Errorf with %w to wrap errors."
+```
+
+<Callout type="info">
+  Requires `ANTHROPIC_API_KEY` or gateway config. User/assistant content is XML-escaped before LLM interpolation to prevent prompt injection.
+</Callout>
+
+## store
+
+Store a single memory directly (no LLM required).
+
+```bash
+openclaw-cortex store [memory text] [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--type` | `fact` | Memory type: `rule`, `fact`, `episode`, `procedure`, `preference` |
+| `--scope` | `permanent` | Memory scope: `permanent`, `project`, `session`, `ttl` |
+| `--tags` | `""` | Comma-separated tags |
+| `--project` | `""` | Project name |
+| `--confidence` | `0.9` | Confidence score 0.0–1.0 |
+| `--ttl` | `0` | Time-to-live in hours (0 = use default) |
+| `--supersedes` | `""` | ID of memory this one replaces (temporal versioning) |
+| `--valid-until` | `""` | Validity duration from now (e.g. `24h`, `7d`) |
+
+**Example:**
+
+```bash
+openclaw-cortex store "Always run tests before merging" \
+  --type rule \
+  --scope permanent \
+  --tags ci,testing \
+  --confidence 0.95
+```
+
+## store-batch
+
+Store multiple memories in a single batch by reading a JSON array from stdin.
+
+```bash
+openclaw-cortex store-batch [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--project` | `""` | Project name applied to all memories in the batch |
+
+**Example:**
+
+```bash
+cat memories.json | openclaw-cortex store-batch --project my-project
+```
+
+The input must be a JSON array of memory objects. Each object supports the same fields as `store`.
+
+## recall
+
+Retrieve memories relevant to a query using multi-factor ranking and graph-aware retrieval.
+
+```bash
+openclaw-cortex recall [query] [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--budget` | `2000` | Maximum tokens for recalled context |
+| `--project` | `""` | Project context for scope boosting |
+| `--type` | `""` | Filter by memory type |
+| `--scope` | `""` | Filter by scope |
+| `--tags` | `""` | Filter by tags (comma-separated) |
+| `--context` | `""` | Output as JSON context object |
+| `--reason` | `false` | Use Claude to re-rank results (requires API key) |
+| `--reason-candidates` | `10` | Number of top candidates to pass to Claude for re-ranking |
+| `--graph-depth` | `2` | Graph traversal depth (1=direct entity facts, 2=neighbor entities) |
+| `--include-history` | `false` | Include superseded/invalidated memories |
+
+**Example:**
+
+```bash
+openclaw-cortex recall "What are the testing requirements?" --budget 2000 --project my-project
+```
+
+## search
+
+Search memories by semantic similarity. Returns raw results without multi-factor re-ranking and does not update access metadata.
+
+```bash
+openclaw-cortex search [query] [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--type` | `""` | Filter by memory type |
+| `--scope` | `""` | Filter by scope |
+| `--tags` | `""` | Filter by tags (comma-separated) |
+| `--project` | `""` | Filter by project |
+| `--json` | `false` | Output results as JSON |
+| `--include-history` | `false` | Include superseded/invalidated memories |
+
+**Example:**
+
+```bash
+openclaw-cortex search "error handling" --json
+```
+
+Use `search` for exploration and debugging. Use `recall` for injecting context into Claude.
+
+## get
+
+Retrieve a single memory by ID.
+
+```bash
+openclaw-cortex get [memory-id] [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--json` | `false` | Output as JSON |
+
+## update
+
+Update a memory with lineage preservation. Creates a new version; the old version stays in the graph as history.
+
+```bash
+openclaw-cortex update <memory-id> [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--content` | `""` | New content for the memory (required) |
+| `--type` | `""` | Memory type |
+| `--tags` | `""` | Comma-separated tags (replaces existing tags) |
+| `--json` | `false` | Output the new memory as JSON |
+
+## forget
+
+Delete a memory by ID.
+
+```bash
+openclaw-cortex forget [memory-id] [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-y` / `--yes` | `false` | Skip confirmation prompt |
+
+Also accessible as a subcommand of `lifecycle`:
+
+```bash
+openclaw-cortex lifecycle forget [memory-id]
+```
+
+## list
+
+List stored memories with optional filters.
+
+```bash
+openclaw-cortex list [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--type` | `""` | Filter by type |
+| `--scope` | `""` | Filter by scope |
+
+## stats
+
+Show memory collection statistics.
+
+```bash
+openclaw-cortex stats [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--json` | `false` | Output stats as JSON |
+
+**Example output:**
+
+```
+Total memories: 142
+  rule:       28
+  fact:       67
+  episode:    31
+  procedure:  11
+  preference: 5
+
+By scope:
+  permanent: 95
+  project:   22
+  session:   18
+  ttl:       7
+```
+
+## health
+
+Check connectivity to all required services (Memgraph, Ollama, Claude LLM).
+
+```bash
+openclaw-cortex health
+```
+
+## hook
+
+Claude Code hook integration subcommands.
+
+### hook pre
+
+Pre-turn hook: read a JSON object from stdin, recall relevant memories, and write the context JSON to stdout. Used by Claude Code's `UserPromptSubmit` event.
+
+```bash
+openclaw-cortex hook pre
+```
+
+### hook post
+
+Post-turn hook: read a JSON object from stdin (user + assistant messages), extract memories via Claude Haiku, and store them. Used by Claude Code's `Stop` event.
+
+```bash
+openclaw-cortex hook post
+```
+
+### hook install
+
+Install Claude Code hook configuration into `.claude/settings.json`.
+
+```bash
+openclaw-cortex hook install [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--global` | `false` | Install into `~/.claude/settings.json` (user-level, all projects) |
+| `--project` | `""` | Embed a project name in the hook config |
+
+**Example:**
+
+```bash
+# Install for current project
+openclaw-cortex hook install
+
+# Install globally
+openclaw-cortex hook install --global
+
+# Install with project name
+openclaw-cortex hook install --project my-project
+```
+
+## index
+
+Walk a directory of markdown files, parse them into sections, embed each section, and store them as memories.
+
+```bash
+openclaw-cortex index [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--path` | (config `memory_dir`) | Directory to index |
+| `--summarize` | `false` | Generate Claude Haiku summary memories for each document section (requires API key) |
+
+**Example:**
+
+```bash
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
+openclaw-cortex index --path ./docs --summarize
+```
+
+## entities
+
+Manage named entities linked to memories.
+
+```bash
+openclaw-cortex entities [subcommand]
+```
+
+### entities list
+
+```bash
+openclaw-cortex entities list [--json]
+```
+
+### entities get
+
+```bash
+openclaw-cortex entities get <entity-id> [--json]
+```
+
+### entities search
+
+```bash
+openclaw-cortex entities search <name> [--json]
+```
+
+## lifecycle
+
+Run all lifecycle operations: TTL expiry, session decay, consolidation, fact retirement, and conflict resolution.
+
+```bash
+openclaw-cortex lifecycle [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | `false` | Preview changes without applying |
+| `--json` | `false` | Output report as JSON |
+
+### consolidate
+
+Alias for `lifecycle` (runs the same lifecycle pipeline):
+
+```bash
+openclaw-cortex consolidate [--dry-run]
+```
+
+## serve
+
+Start the HTTP/JSON API server (default: `:8080`).
+
+```bash
+openclaw-cortex serve
+```
+
+Configure the listen address and optional auth token via environment variables:
+
+```bash
+OPENCLAW_CORTEX_API_LISTEN_ADDR=:9090 openclaw-cortex serve
+OPENCLAW_CORTEX_API_AUTH_TOKEN=my-secret openclaw-cortex serve
+```
+
+## mcp
+
+Start the MCP (Model Context Protocol) server over stdio. Used with Claude Desktop.
+
+```bash
+openclaw-cortex mcp
+```
+
+## export
+
+Export all memories to a JSON or CSV file.
+
+```bash
+openclaw-cortex export [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--format` | `json` | Output format: `json` or `csv` |
+| `-o` / `--output` | `-` (stdout) | Output file path |
+
+**Example:**
+
+```bash
+openclaw-cortex export --format json -o backup.json
+openclaw-cortex export --format csv -o memories.csv
+```
+
+## import
+
+Import memories from a JSON or JSONL file.
+
+```bash
+openclaw-cortex import [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-f` / `--file` | `-` (stdin) | Path to input file |
+| `--format` | `json` | Input format: `json` or `jsonl` |
+
+**Example:**
+
+```bash
+openclaw-cortex import --file backup.json
+cat memories.jsonl | openclaw-cortex import --format jsonl
+```
+
+## migrate
+
+Run schema migrations (for upgrading between versions).
+
+```bash
+openclaw-cortex migrate [flags]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--add-temporal-indexes` | `false` | Backfill `valid_from=created_at` for existing memories |
+| `--dry-run` | `false` | Preview changes without applying |

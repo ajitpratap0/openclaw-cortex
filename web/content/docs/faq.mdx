@@ -1,0 +1,108 @@
+---
+title: "FAQ"
+description: "Frequently asked questions about OpenClaw Cortex"
+order: 10
+section: "FAQ"
+---
+
+## Do I need Memgraph?
+
+Yes. Memgraph is the only supported backend. It provides both vector search and a property graph in a single service. Run it locally with `docker compose up -d` (see [Getting Started](/docs/getting-started)).
+
+## Why Memgraph instead of a separate vector DB?
+
+Memgraph combines a property graph (Cypher queries, entity relationships) with a native vector index in one process. This lets OpenClaw Cortex run graph-aware recall (entity traversal + RRF merge) without operating two separate databases. It speaks the Bolt protocol, so the standard `neo4j-go-driver/v5` client works out of the box.
+
+## Can I use OpenAI embeddings instead of Ollama?
+
+Yes. Set `embedder.provider: openai` in `~/.openclaw-cortex/config.yaml` and provide `OPENAI_API_KEY`. The embedding dimension must match your Memgraph vector index configuration (`embedder.openai_dim`, default: 1536 for `text-embedding-3-small`).
+
+## What is the difference between `recall` and `search`?
+
+| Command | Ranking | Updates access metadata | Token budget |
+|---|---|---|---|
+| `recall` | Multi-factor (similarity + graph RRF + recency + frequency + type + scope) | Yes | Yes |
+| `search` | Raw cosine similarity only | No | No |
+
+Use `recall` for injecting context into Claude. Use `search` for exploration and debugging.
+
+## Does capture work offline?
+
+No. `cortex capture` and the post-turn hook call the Anthropic API (Claude Haiku) for memory extraction. If the API is unavailable, the hook exits cleanly with `{"stored": false}` — Claude is never blocked.
+
+## What happens if Memgraph or Ollama is down?
+
+Both hooks exit with code 0 (graceful degradation):
+- Pre-turn hook returns `{"context": "", "memory_count": 0, "tokens_used": 0}`
+- Post-turn hook returns `{"stored": false}`
+
+Claude continues working without memory assistance until services recover.
+
+## What is temporal versioning?
+
+When a fact is updated or contradicted, OpenClaw Cortex preserves the old version in Memgraph rather than deleting it. The old memory node gets a `valid_to` timestamp, and a new node is created with a `SupersedesID` pointer back to the predecessor. Recall queries return only current versions (`valid_to IS NULL`) by default. Pass `--include-history` to surface historical versions.
+
+## How does the conflict engine work?
+
+On each capture, `ConflictDetector` asks Claude whether the new memory contradicts any existing similar memories. If yes, both are tagged with a shared `ConflictGroupID` and `status="active"`. During `cortex consolidate`, the highest-confidence memory in each group wins and the rest are marked `status="resolved"`.
+
+See [Architecture](/docs/architecture#contradiction-detection) for details.
+
+## What is episodic extraction?
+
+When a conversation turn describes a time-anchored event ("we deployed the new auth service yesterday"), the capturer creates an `episode`-typed memory with `EpisodeStart`/`EpisodeEnd` timestamps and links it to the named entities involved. This allows temporal queries like "what happened to the auth service last week?" to surface relevant episodes.
+
+## What is graph-aware recall?
+
+In addition to vector similarity, the recall path traverses entity relationships in Memgraph up to 2 hops from entities mentioned in the query. The vector and graph results are merged using Reciprocal Rank Fusion (RRF) before multi-factor re-ranking. This surfaces memories that are relevant via shared entities even when their embedding similarity to the query is low.
+
+## What is confidence reinforcement?
+
+When a new capture is semantically similar to an existing memory (0.80–0.92 similarity), instead of storing a near-duplicate, the existing memory's `confidence` is incremented by 0.05 (capped at 1.0) and its `reinforced_count` increases. Frequently-observed facts naturally converge toward maximum confidence.
+
+## What is threshold-gated re-ranking?
+
+When the top-4 recall scores are tightly clustered (spread ≤ 0.15), the ranking is ambiguous and Claude is asked to re-rank them intelligently. This fires on ~10–30% of recalls and is subject to a latency budget (100 ms for hooks, 3 s for CLI). On timeout, the original ranking is used.
+
+## How large can my collection be?
+
+Memgraph keeps the graph in memory and writes periodic snapshots to disk. At typical memory sizes (~5–8 KB each), 100k memories use ~500–800 MB of RAM. Vector search latency remains low at this scale. See [Benchmarks](/docs/benchmarks) for details.
+
+## How do I migrate from an older version?
+
+For v0.8.0, the Memgraph schema is forward-compatible. New fields (`ValidFrom`, `ValidTo`, `EpisodeStart`, etc.) are optional and default to zero values for existing memories. Update the binary and run:
+
+```bash
+openclaw-cortex migrate --add-temporal-indexes
+```
+
+## Can I run this as a shared service for a team?
+
+v0.8.0 is designed for single-user or small-team use with a shared Memgraph instance. Per-user namespace isolation is planned for a future release. In the meantime, use the `project` field to segment memories by team member or project.
+
+## Does it work with Claude Desktop?
+
+Yes, via the MCP server. Run `openclaw-cortex mcp` and configure it in your Claude Desktop `claude_desktop_config.json`. See [MCP Server](/docs/mcp) for setup instructions.
+
+## What is the token budget?
+
+The token budget limits how many tokens the recalled context occupies in Claude's system prompt. Lower-ranked memories are dropped until the total fits. Default: 2000 tokens. Configure per-call:
+
+```bash
+openclaw-cortex recall "query" --budget 4000
+```
+
+## What LLM providers are supported?
+
+Two modes:
+1. **Anthropic API** — set `ANTHROPIC_API_KEY` or `claude.api_key` in config
+2. **OpenClaw gateway** — for Max plan / subscription users; set `claude.gateway_url` and `claude.gateway_token` in config; routes through `http://127.0.0.1:18789/v1/chat/completions`
+
+Both use the same `llm.LLMClient` interface internally so all features work identically.
+
+## Is my data sent anywhere?
+
+- Memory content is sent to Ollama (local, no external call) for embedding
+- Memory extraction (`capture`) sends conversation turns to the Anthropic API (Claude Haiku), or to the OpenClaw gateway if configured
+- Memgraph is self-hosted — your vectors and graph data never leave your infrastructure
+- Re-ranking sends candidate memory content to the configured LLM when triggered

@@ -1,0 +1,42 @@
+---
+title: "v0.6.0: Entity-Relationship Graph Integration"
+date: "2026-03-14"
+tags: ["release", "graph", "entities"]
+excerpt: "Native Neo4j graph layer with bi-temporal facts, 3-stage entity resolution, and hybrid search with RRF fusion."
+author: "Ajit Pratap Singh"
+readingTime: "4 min"
+---
+
+Memory systems for AI agents have a problem: they treat everything as a bag of text fragments. Ask an agent "what do you know about Alice?" and you get the three most semantically similar sentences about Alice — but not the fact that Alice reports to Bob, or that Bob's project was cancelled last month, or that Alice therefore probably needs a new assignment. The relationships are invisible.
+
+That's the gap v0.6.0 closes.
+
+## Why We Built This
+
+The obvious reference implementation was [Graphiti](https://github.com/getzep/graphiti) — Zep's open-source temporal knowledge graph for LLM applications. Graphiti is genuinely impressive work. But it had a hard dependency on OpenAI's embedding and completion APIs, which made it incompatible with our goal of being fully self-hostable with local models via Ollama.
+
+We also wanted tighter control over the extraction pipeline. Cortex already had Claude Haiku handling memory extraction; adding graph capabilities meant extending that same pipeline rather than bolting on a separate system with its own LLM calls, its own retry logic, and its own failure modes.
+
+## What It Does
+
+The v0.6.0 graph layer adds three capabilities that work together:
+
+**Entity extraction.** When a memory is captured, Claude Haiku identifies named entities — people, tools, organizations, concepts — and upserts them into Memgraph as nodes. Entities include a `type` field and a `description` synthesized from context. Crucially, the same entity mentioned across different conversations gets merged, not duplicated, through a three-stage resolution process.
+
+**Fact extraction.** Alongside entity nodes, Haiku extracts relationship facts: `Alice → manages → project-X`, `project-X → uses → gRPC`, `gRPC → deprecated-in → v2`. These become edges in the graph, each carrying a `valid_from` timestamp, a `valid_to` field (null for current facts), and a confidence score.
+
+**3-stage entity resolution.** Before upserting a new entity, Cortex checks: (1) exact name match, (2) vector similarity against existing entity embeddings, (3) LLM-based disambiguation for ambiguous cases. This keeps the graph clean without requiring globally unique identifiers in the input.
+
+## Key Technical Decisions
+
+**Bi-temporal model.** Every fact carries both the *valid time* (when the fact was true in the world) and the *transaction time* (when Cortex learned about it). This lets you ask "what did Cortex know about Alice's manager as of last Tuesday?" — a question that's impossible with a simple key-value store. The valid time defaults to the capture timestamp but can be overridden.
+
+**RRF fusion for hybrid search.** Recall now merges results from three sources: vector similarity search over memory embeddings, vector similarity over entity descriptions, and graph traversal starting from entities mentioned in the query. Reciprocal Rank Fusion combines these ranked lists into a single result set without requiring careful weight tuning — ranks are more robust to scale differences than raw scores.
+
+**Always enabled, zero config.** Unlike some graph features that require opt-in flags, entity and fact extraction runs automatically on every `capture` call. The graph builds up passively as the agent works. There's no separate indexing step, no migration to run.
+
+## What This Unlocks
+
+With v0.6.0, a query like "what's the status of Alice's project?" can now surface memories connected through graph edges, not just memories that happen to mention Alice and status in close proximity. The recall pipeline walks the graph starting from the Alice entity, finds connected project nodes, retrieves facts about those projects, and merges everything with the vector results via RRF before scoring.
+
+The result is a memory system that understands structure, not just text.
