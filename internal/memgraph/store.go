@@ -72,9 +72,11 @@ func (s *MemgraphStore) closeSession(ctx context.Context, session neo4j.SessionW
 	}
 }
 
-// EnsureCollection is a no-op placeholder; schema setup is handled by EnsureSchema (schema.go).
+// EnsureCollection creates all indexes, constraints, and vector indexes in Memgraph.
+// Delegates to GraphAdapter.EnsureSchema which runs each DDL statement individually.
 func (s *MemgraphStore) EnsureCollection(ctx context.Context) error {
-	return nil
+	ga := NewGraphAdapter(s)
+	return ga.EnsureSchema(ctx)
 }
 
 // Upsert inserts or updates a memory node with its embedding vector.
@@ -324,7 +326,7 @@ func (s *MemgraphStore) FindDuplicates(ctx context.Context, vector []float32, th
 			CALL vector_search.search("memory_embedding", 10, $vector)
 			YIELD node, similarity
 			WHERE similarity >= $threshold
-			RETURN node, similarity
+			RETURN node, similarity AS score
 		`, map[string]any{
 			"vector":    float32SliceToAny(vector),
 			"threshold": threshold,
@@ -603,9 +605,9 @@ func (s *MemgraphStore) UpsertEntity(ctx context.Context, entity models.Entity) 
 
 	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		_, txErr := tx.Run(wctx, `
-			MERGE (e:Entity {uuid: $uuid})
+			MERGE (e:Entity {name: $name})
 			ON CREATE SET
-			    e.name         = $name,
+			    e.uuid         = $uuid,
 			    e.type         = $type,
 			    e.aliases      = $aliases,
 			    e.memory_ids   = $memory_ids,
@@ -616,7 +618,6 @@ func (s *MemgraphStore) UpsertEntity(ctx context.Context, entity models.Entity) 
 			    e.created_at   = $created_at,
 			    e.updated_at   = $updated_at
 			ON MATCH SET
-			    e.name         = $name,
 			    e.type         = $type,
 			    e.aliases      = $aliases,
 			    e.memory_ids   = $memory_ids,

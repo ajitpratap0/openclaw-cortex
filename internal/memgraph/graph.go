@@ -65,9 +65,10 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
 		"CREATE INDEX ON :Entity(uuid)",
 		"CREATE INDEX ON :Entity(project)",
 
-		// Text search indexes (label-wide, no field specification needed)
+		// Text search index for entity fulltext (label-wide)
 		"CREATE TEXT INDEX entity_text ON :Entity",
-		"CREATE TEXT INDEX fact_text ON :RELATES_TO",
+		// Note: Memgraph does not support text indexes on relationships.
+		// Fact text search uses property-level CONTAINS matching instead.
 	}
 
 	for i := range queries {
@@ -226,19 +227,20 @@ func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
 	return nil
 }
 
-// SearchFacts performs a text search over RELATES_TO relationships using Memgraph's
-// text_search.search_edges procedure.
+// SearchFacts performs a text search over RELATES_TO relationships using
+// property-level CONTAINS matching (Memgraph does not support text indexes on edges).
 func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, _ []float32, limit int) ([]graph.FactResult, error) {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
 	cypher := `
-		CALL text_search.search_edges("fact_text", $query)
-		YIELD edge, score
-		WITH edge AS r, score, startNode(edge) AS s, endNode(edge) AS t
+		MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
 		WHERE r.expired_at IS NULL
+		  AND (toLower(r.fact) CONTAINS toLower($query)
+		       OR toLower(r.relation_type) CONTAINS toLower($query))
 		RETURN r.uuid AS uuid, r.fact AS fact, s.uuid AS source_entity_id,
-		       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids, score
+		       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids,
+		       1.0 AS score
 		LIMIT $limit
 	`
 

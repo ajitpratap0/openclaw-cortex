@@ -253,7 +253,7 @@ func (r *Recaller) RecallWithGraph(
 
 	graphIDs, err := r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
 	if err != nil {
-		r.logger.Warn("graph recall failed, using vector-only results", "error", err)
+		r.logger.Warn("graph recall failed, falling back to vector-only results", "error", err)
 		return r.Rank(searchResults, project, query)
 	}
 
