@@ -132,15 +132,15 @@ func mustEmbed(t *testing.T, emb embedder.Embedder, text string) []float32 {
 func newMemory(memType models.MemoryType, content string) models.Memory {
 	now := time.Now().UTC()
 	return models.Memory{
-		ID:         uuid.New().String(),
-		Type:       memType,
-		Scope:      models.ScopePermanent,
-		Visibility: models.VisibilityPrivate,
-		Content:    content,
-		Confidence: 0.9,
-		Source:     "integration-test",
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:           uuid.New().String(),
+		Type:         memType,
+		Scope:        models.ScopePermanent,
+		Visibility:   models.VisibilityPrivate,
+		Content:      content,
+		Confidence:   0.9,
+		Source:       "integration-test",
+		CreatedAt:    now,
+		UpdatedAt:    now,
 		LastAccessed: now,
 	}
 }
