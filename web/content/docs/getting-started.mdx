@@ -1,0 +1,88 @@
+---
+title: "Getting Started"
+description: "Install and configure openclaw-cortex"
+order: 1
+section: "Getting Started"
+---
+
+# Getting Started
+
+Welcome to OpenClaw Cortex — a hybrid semantic memory system for AI agents.
+
+## Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+- Go 1.23 or later
+- Docker (for Memgraph)
+- Ollama (for local embeddings)
+
+## Installation
+
+Install the binary using `go install`:
+
+```bash
+go install github.com/ajitpratap0/openclaw-cortex/cmd/openclaw-cortex@latest
+```
+
+Or clone and build from source:
+
+```bash
+git clone https://github.com/ajitpratap0/openclaw-cortex.git
+cd openclaw-cortex
+go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
+```
+
+## Start External Services
+
+Use Docker Compose to start Memgraph:
+
+```bash
+docker compose up -d
+```
+
+Then verify all services are healthy:
+
+```bash
+openclaw-cortex health
+```
+
+## Configuration
+
+Create a config file at `~/.openclaw-cortex/config.yaml`:
+
+```yaml
+memgraph:
+  uri: bolt://localhost:7687
+
+ollama:
+  url: http://localhost:11434
+  model: nomic-embed-text
+
+claude:
+  api_key: your-anthropic-api-key
+```
+
+<Callout type="tip" title="OpenClaw Gateway">
+  If you use the OpenClaw Max plan, set `claude.gateway_url` and `claude.gateway_token` instead of an API key.
+</Callout>
+
+## Your First Memory
+
+Capture a memory from a conversation:
+
+```bash
+openclaw-cortex capture "The project uses Memgraph for graph storage and Ollama for embeddings."
+```
+
+Recall relevant memories for a query:
+
+```bash
+openclaw-cortex recall "What database does the project use?"
+```
+
+## Next Steps
+
+- Read the [Configuration reference](/docs/configuration)
+- Explore the [CLI reference](/docs/cli)
+- Learn about the [recall scoring algorithm](/docs/recall-scoring)
