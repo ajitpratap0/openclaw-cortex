@@ -439,71 +439,11 @@ const memoryCortexPlugin = {
       { name: "memory_store" },
     );
 
-    api.registerTool(
-      {
-        name: "memory_store_batch",
-        label: "Cortex Store Batch",
-        description:
-          "Store multiple memories in a single batch. More efficient than calling memory_store " +
-          "repeatedly — uses a single embedding round-trip. Returns an array of results with " +
-          "status 'created' or 'duplicate' for each memory.",
-        parameters: Type.Object({
-          memories: Type.Array(
-            Type.Object({
-              content: Type.String({ description: "Memory content to store" }),
-              type: Type.Optional(
-                Type.Unsafe<MemoryType>({
-                  type: "string",
-                  enum: ["rule", "fact", "episode", "procedure", "preference"],
-                  description: "Memory type (default: fact)",
-                }),
-              ),
-              scope: Type.Optional(
-                Type.Unsafe<MemoryScope>({
-                  type: "string",
-                  enum: ["permanent", "project", "session", "ttl"],
-                  description: "Memory scope (default: permanent)",
-                }),
-              ),
-              tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for filtering" })),
-            }),
-            { description: "Array of memories to store" },
-          ),
-        }),
-        async execute(_toolCallId: string, params: Record<string, unknown>) {
-          const memories = params.memories as Array<{
-            content: string;
-            type?: MemoryType;
-            scope?: MemoryScope;
-            tags?: string[];
-          }>;
-
-          if (!memories || memories.length === 0) {
-            return {
-              content: [{ type: "text", text: "No memories provided." }],
-              details: { count: 0, results: [] },
-            };
-          }
-
-          const results = await cortex.storeBatch(memories);
-
-          const created = results.filter((r) => r.status === "created").length;
-          const duplicates = results.filter((r) => r.status === "duplicate").length;
-          const errors = results.filter((r) => r.status === "error").length;
-
-          const summary = `Batch store: ${created} created, ${duplicates} duplicates, ${errors} errors (${memories.length} total)`;
-
-          // Return only summary counts in details — NOT the full results array.
-          // OpenClaw's session transcript handler drops tool results with large/nested
-          // arrays in the details object (silent failure, no error logged).
-          return {
-            content: [{ type: "text", text: summary }],
-            details: { count: memories.length, created, duplicates, errors },
-          };
-        },
-      },
-      { name: "memory_store_batch" },
-    );
+    // NOTE: memory_store_batch is disabled — OpenClaw's session layer silently
+    // drops the tool result before it reaches the agent (4/4 failures). The cortex
+    // backend works fine (0.5s for 6 items) but the response never arrives.
+    // Use memory_store (single) until OpenClaw fixes tool result delivery.
+    // The store-batch CLI command still works for direct use.
 
     api.registerTool(
       {
