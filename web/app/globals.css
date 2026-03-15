@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-50 antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-zinc-950;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-zinc-700 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-zinc-500;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(63 63 70) transparent;
+  }
+}
+
+@layer utilities {
+  .glow-indigo {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3),
+      0 0 60px rgba(99, 102, 241, 0.1);
+  }
+
+  .glow-emerald {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3),
+      0 0 60px rgba(16, 185, 129, 0.1);
+  }
+
+  .glow-indigo-sm {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.25),
+      0 0 30px rgba(99, 102, 241, 0.08);
+  }
+
+  .glow-emerald-sm {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.25),
+      0 0 30px rgba(16, 185, 129, 0.08);
+  }
+
+  .gradient-radial-indigo {
+    background: radial-gradient(
+      circle at center,
+      rgba(99, 102, 241, 0.15) 0%,
+      transparent 70%
+    );
+  }
+
+  .gradient-radial-emerald {
+    background: radial-gradient(
+      circle at center,
+      rgba(16, 185, 129, 0.15) 0%,
+      transparent 70%
+    );
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #6366f1 0%, #10b981 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-grid {
+    background-image: linear-gradient(
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px
+      ),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+}

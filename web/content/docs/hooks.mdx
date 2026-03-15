@@ -1,0 +1,225 @@
+---
+title: "Claude Code Hooks"
+description: "Automatic memory injection and capture for every Claude Code conversation via pre/post-turn hooks"
+order: 7
+section: "Integrations"
+---
+
+OpenClaw Cortex integrates with Claude Code via pre/post-turn hooks. The pre-turn hook injects relevant memories into the conversation context before each turn; the post-turn hook captures new memories after each turn.
+
+## How It Works
+
+```
+User message received
+        |
+        v
+[cortex hook pre]  <-- reads stdin JSON, writes stdout JSON
+        |           -- embeds the message, searches Memgraph
+        |           -- graph traversal via entity relationships
+        |           -- ranks with multi-factor scoring (+ RRF)
+        |           -- returns formatted context string
+        v
+Context injected into Claude's system prompt
+        |
+        v
+Claude generates response
+        |
+        v
+[cortex hook post] <-- reads stdin JSON, writes stdout JSON
+        |           -- sends turn to Claude Haiku for extraction
+        |           -- extracts entities and relationship facts
+        |           -- deduplicates against existing memories
+        |           -- stores new memories + entities in Memgraph
+        v
+Response delivered to user
+```
+
+Both hooks exit with code 0 even on error. If Memgraph or Ollama is unavailable, the hooks return empty output so Claude is never blocked. This is **graceful degradation**.
+
+## Configuration
+
+Add the hooks to `.claude/settings.json` in your project directory:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [],
+    "PostToolUse": [],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "openclaw-cortex hook pre"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "openclaw-cortex hook post"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Quick Install
+
+```bash
+openclaw-cortex hook install
+```
+
+This command writes the hook configuration to `.claude/settings.json` in the current directory. It will create the file if it does not exist, or merge the hooks into an existing configuration.
+
+| Flag | Description |
+|---|---|
+| `--global` | Install into `~/.claude/settings.json` (user-level hooks, apply to all projects) |
+| `--project <name>` | Embed a project name in the hook configuration |
+
+**Examples:**
+
+```bash
+# Install for current project
+openclaw-cortex hook install
+
+# Install globally (applies to all Claude Code sessions)
+openclaw-cortex hook install --global
+
+# Install with project scoping
+openclaw-cortex hook install --project ecommerce-api
+```
+
+The command will warn if `openclaw-cortex` is not found in your `PATH`. If the settings file already contains `openclaw-cortex` hooks, the command is a no-op.
+
+## Hook Input/Output Formats
+
+### Pre-Turn Hook
+
+**Input** (stdin JSON):
+
+```json
+{
+  "message": "How should I handle database errors?",
+  "project": "my-project",
+  "token_budget": 2000
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `message` | string | required | The current user message |
+| `project` | string | `""` | Project name for scope boosting and filtering |
+| `token_budget` | int | `2000` | Maximum tokens to use for injected memories |
+
+**Output** (stdout JSON):
+
+```json
+{
+  "context": "--- Relevant Memories ---\n[rule] Always wrap database errors...\n",
+  "memory_count": 3,
+  "tokens_used": 142
+}
+```
+
+The `context` string is injected into Claude's system prompt. When `memory_count` is 0, `context` is an empty string.
+
+### Post-Turn Hook
+
+**Input** (stdin JSON):
+
+```json
+{
+  "user_message": "How should I structure this?",
+  "assistant_message": "Use a layered architecture with clear interface boundaries...",
+  "session_id": "session-abc123",
+  "project": "my-project"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `user_message` | string | The user's message |
+| `assistant_message` | string | Claude's response |
+| `session_id` | string | Session identifier (used for session-scoped memory expiry) |
+| `project` | string | Project name |
+
+**Output** (stdout JSON):
+
+```json
+{
+  "stored": true
+}
+```
+
+`stored: false` means either no memories were extracted, dedup filtered them all, or an error occurred (graceful degradation).
+
+## Environment Variables
+
+The post-turn hook requires an LLM key for memory extraction. If neither is set, the hook exits cleanly with `{"stored": false}` and logs a warning.
+
+```bash
+# Option 1: Anthropic API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Option 2: OpenClaw gateway (Max plan / subscription users)
+# Set claude.gateway_url and claude.gateway_token in ~/.openclaw-cortex/config.yaml
+```
+
+## Graceful Degradation
+
+Both hooks are designed to never block Claude:
+
+- If Memgraph is down: pre-hook returns `{"context": "", "memory_count": 0, "tokens_used": 0}`
+- If Ollama is down: same empty response
+- If no LLM key is configured: post-hook skips capture, returns `{"stored": false}`
+- If JSON decode fails: hook logs the error and returns the zero-value response
+- All hooks exit with code 0 regardless of error
+
+## Security
+
+User and assistant message content is XML-escaped before being interpolated into Claude Haiku prompts. This prevents prompt injection attacks where a user might include sequences like `</user><system>` in their messages.
+
+## Filtering by Project
+
+When `project` is specified in the hook input, memories are filtered to return only memories from that project (plus global memories). This prevents cross-project memory leakage.
+
+```json
+{
+  "message": "Deploy checklist?",
+  "project": "ecommerce-api",
+  "token_budget": 2000
+}
+```
+
+## Multi-Turn Context
+
+By default, `PostTurnHook` extracts memories from a single user+assistant turn. Enabling multi-turn context passes the last N turns to Claude Haiku, allowing it to extract memories that span multiple exchanges.
+
+```yaml
+capture_quality:
+  context_window_turns: 5   # number of prior turns to include (default: 1)
+```
+
+<Callout type="info">
+  Larger context windows increase Claude Haiku token usage per capture. The JSONL transcript is only available during Claude Code hook execution; CLI `capture` command always uses single-turn mode.
+</Callout>
+
+## Adjusting the Token Budget
+
+The default token budget is 2000 tokens. For models with larger context windows, increase it:
+
+```json
+{
+  "token_budget": 4000
+}
+```
+
+The budget is enforced by trimming lower-ranked memories until the total fits. Higher-scored memories are always kept.

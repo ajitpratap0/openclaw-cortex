@@ -1,0 +1,264 @@
+---
+title: "Deployment"
+description: "Self-hosted deployment guide: local development, Docker, Kubernetes, backup, and restore"
+order: 8
+section: "Operations"
+---
+
+## Local Development
+
+### Quick Start
+
+```bash
+# Prerequisites: Go 1.23+, Docker, Ollama
+docker compose up -d             # Start Memgraph
+ollama pull nomic-embed-text     # Pull embedding model
+go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
+```
+
+### Running
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Index memory files
+openclaw-cortex index --path ~/.openclaw/workspace/memory/
+
+# Search
+openclaw-cortex search "deployment best practices"
+
+# Recall with context
+openclaw-cortex recall "How do I handle errors?" --budget 2000
+
+# Health check
+openclaw-cortex health
+```
+
+## Docker
+
+### Build and Run
+
+```bash
+docker build -t openclaw-cortex:latest .
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e OPENCLAW_CORTEX_MEMGRAPH_URI=bolt://host.docker.internal:7687 \
+  openclaw-cortex:latest search "query"
+```
+
+### Docker Compose (Full Stack)
+
+```bash
+docker compose up -d   # Starts Memgraph with persistent volume
+docker compose down    # Stops Memgraph
+```
+
+The provided `docker-compose.yml` runs Memgraph with edge property support enabled:
+
+```yaml
+services:
+  memgraph:
+    image: memgraph/memgraph:latest
+    ports:
+      - "7687:7687"   # Bolt (used by openclaw-cortex)
+      - "7444:7444"   # HTTP Lab UI
+    command: ["--storage-properties-on-edges=true"]
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    restart: unless-stopped
+
+volumes:
+  memgraph_data:
+```
+
+<Callout type="warning" title="Edge properties flag required">
+  The `--storage-properties-on-edges=true` flag is required so that relationship facts can store predicate and confidence metadata on graph edges. Without it, fact extraction will fail silently.
+</Callout>
+
+Data persists in the `memgraph_data` Docker volume.
+
+## Kubernetes
+
+### Memgraph StatefulSet
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: memgraph
+  namespace: cortex
+spec:
+  selector:
+    matchLabels:
+      app: memgraph
+  serviceName: memgraph
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: memgraph
+    spec:
+      containers:
+      - name: memgraph
+        image: memgraph/memgraph:latest
+        args: ["--storage-properties-on-edges=true"]
+        ports:
+        - containerPort: 7687
+          name: bolt
+        - containerPort: 7444
+          name: http
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/memgraph
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memgraph
+  namespace: cortex
+spec:
+  selector:
+    app: memgraph
+  ports:
+  - name: bolt
+    port: 7687
+    targetPort: 7687
+  - name: http
+    port: 7444
+    targetPort: 7444
+  clusterIP: None
+```
+
+### Cortex as a CronJob
+
+For periodic lifecycle management:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cortex-consolidate
+  namespace: openclaw-cortex
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cortex
+            image: openclaw-cortex:latest
+            args: ["consolidate"]
+            env:
+            - name: OPENCLAW_CORTEX_MEMGRAPH_URI
+              value: bolt://memgraph.cortex.svc.cluster.local:7687
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cortex-secrets
+                  key: anthropic-api-key
+          restartPolicy: OnFailure
+```
+
+## Configuration Reference
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | — | Required for capture (or use gateway) |
+| `OPENCLAW_CORTEX_MEMGRAPH_URI` | `bolt://localhost:7687` | Memgraph Bolt URI |
+| `OPENCLAW_CORTEX_MEMGRAPH_USERNAME` | `""` | Memgraph username (if auth enabled) |
+| `OPENCLAW_CORTEX_MEMGRAPH_PASSWORD` | `""` | Memgraph password (if auth enabled) |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
+
+### Config File
+
+Place at `~/.openclaw-cortex/config.yaml`:
+
+```yaml
+memgraph:
+  uri: bolt://localhost:7687
+  username: ""
+  password: ""
+
+ollama:
+  base_url: http://localhost:11434
+  model: nomic-embed-text
+
+memory:
+  dedup_threshold: 0.92
+  default_ttl_hours: 720
+
+claude:
+  # Option 1: direct Anthropic API
+  api_key: sk-ant-...
+  # Option 2: OpenClaw gateway (Max plan / subscription users)
+  # gateway_url: http://127.0.0.1:18789/v1/chat/completions
+  # gateway_token: <your-gateway-token>
+```
+
+## Health Checks
+
+```bash
+# Full health check (Memgraph + Ollama + LLM)
+openclaw-cortex health
+
+# Verify Ollama model is available
+ollama list | grep nomic-embed-text
+
+# Verify Memgraph connectivity via stats
+openclaw-cortex stats
+```
+
+## Backup and Restore
+
+### Memgraph Snapshots
+
+Memgraph writes periodic snapshots to `/var/lib/memgraph/snapshots/`. To back up:
+
+```bash
+# Copy the snapshot directory from the running container
+docker cp memgraph:/var/lib/memgraph/snapshots ./memgraph-backup
+
+# Or with Docker volume backup
+docker run --rm \
+  -v memgraph_data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/memgraph-backup.tar.gz /data
+```
+
+### Restore
+
+```bash
+# Restore from volume backup
+docker run --rm \
+  -v memgraph_data:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/memgraph-backup.tar.gz -C /
+
+# Then restart Memgraph
+docker compose up -d
+```
+
+### Export/Import
+
+You can also export memories to a portable JSON file:
+
+```bash
+# Export all memories
+openclaw-cortex export --format json -o memories-backup.json
+
+# Import on a new instance
+openclaw-cortex import --file memories-backup.json
+```
+
+This captures memory content and metadata but not the raw vector embeddings (those are recomputed on import by re-embedding each memory).

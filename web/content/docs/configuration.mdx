@@ -1,0 +1,183 @@
+---
+title: "Configuration"
+description: "Full configuration reference for OpenClaw Cortex: config file, environment variables, and recall weight tuning"
+order: 3
+section: "Configuration"
+---
+
+Configuration is loaded from `~/.openclaw-cortex/config.yaml` with environment variable overrides prefixed `OPENCLAW_CORTEX_`.
+
+## Config File Location
+
+```
+~/.openclaw-cortex/config.yaml
+```
+
+Create this file to customize any of the defaults below. Settings you omit use their built-in defaults.
+
+## Full Config Reference
+
+```yaml
+memgraph:
+  uri: bolt://localhost:7687       # OPENCLAW_CORTEX_MEMGRAPH_URI
+  username: ""                     # OPENCLAW_CORTEX_MEMGRAPH_USERNAME
+  password: ""                     # OPENCLAW_CORTEX_MEMGRAPH_PASSWORD
+
+ollama:
+  base_url: http://localhost:11434 # OPENCLAW_CORTEX_OLLAMA_BASE_URL
+  model: nomic-embed-text
+
+claude:
+  api_key: ""                      # or ANTHROPIC_API_KEY env var
+  # LLM gateway (OpenClaw Max plan / subscription users):
+  gateway_url: ""                  # http://127.0.0.1:18789/v1/chat/completions
+  gateway_token: ""
+
+memory:
+  dedup_threshold: 0.92            # cosine similarity threshold for deduplication
+  default_ttl_hours: 720
+
+recall:
+  weights:
+    similarity:    0.35
+    recency:       0.15
+    frequency:     0.10
+    type_boost:    0.10
+    scope_boost:   0.08
+    confidence:    0.10
+    reinforcement: 0.07
+    tag_affinity:  0.05
+```
+
+<Callout type="warning" title="Weights must sum to 1.0">
+  Recall weights must sum to `1.0` (±0.01). If you provide an invalid set of weights, the system falls back to the defaults with a warning in stderr.
+</Callout>
+
+## Memgraph Settings
+
+| Field | Default | Env var | Description |
+|---|---|---|---|
+| `memgraph.uri` | `bolt://localhost:7687` | `OPENCLAW_CORTEX_MEMGRAPH_URI` | Bolt connection URI |
+| `memgraph.username` | `""` | `OPENCLAW_CORTEX_MEMGRAPH_USERNAME` | Memgraph username (if auth enabled) |
+| `memgraph.password` | `""` | `OPENCLAW_CORTEX_MEMGRAPH_PASSWORD` | Memgraph password (if auth enabled) |
+
+<Callout type="info" title="Edge properties">
+  Memgraph must be started with `--storage-properties-on-edges=true` for relationship fact storage. The provided `docker-compose.yml` includes this flag automatically.
+</Callout>
+
+## Ollama Settings
+
+| Field | Default | Env var | Description |
+|---|---|---|---|
+| `ollama.base_url` | `http://localhost:11434` | `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | Ollama HTTP endpoint |
+| `ollama.model` | `nomic-embed-text` | — | Embedding model name (768 dimensions) |
+
+## LLM Authentication
+
+Choose one of these two authentication modes:
+
+### Option 1: Anthropic API key
+
+```yaml
+claude:
+  api_key: sk-ant-...
+```
+
+Or via environment variable:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Option 2: OpenClaw gateway (Max plan / subscription)
+
+```yaml
+claude:
+  gateway_url: http://127.0.0.1:18789/v1/chat/completions
+  gateway_token: your-gateway-token
+```
+
+The gateway routes all LLM calls through the OpenClaw gateway's OpenAI-compatible endpoint. Both modes use the same `llm.LLMClient` interface internally, so all features work identically.
+
+<Callout type="info" title="LLM required only for capture">
+  The Anthropic API key (or gateway config) is only required for the `capture` command and the post-turn hook. The `store`, `recall`, and `search` commands do not call any LLM.
+</Callout>
+
+## Memory Settings
+
+| Field | Default | Description |
+|---|---|---|
+| `memory.dedup_threshold` | `0.92` | Cosine similarity threshold above which two memories are considered duplicates. Range: 0.0–1.0 |
+| `memory.default_ttl_hours` | `720` | Default TTL for `scope=ttl` memories (30 days). Memories older than this are deleted by `lifecycle` |
+
+## Recall Weight Tuning
+
+The eight recall scoring weights control how memories are ranked. All values must be in 0.0–1.0 and sum to 1.0 (±0.01).
+
+| Weight | Default | What it controls |
+|---|---|---|
+| `recall.weights.similarity` | `0.35` | Cosine similarity from vector search — the primary signal |
+| `recall.weights.recency` | `0.15` | Exponential decay based on time since last access (7-day half-life) |
+| `recall.weights.frequency` | `0.10` | Log-scaled access count |
+| `recall.weights.type_boost` | `0.10` | Multiplier from memory type (rule=1.5x, procedure=1.3x, fact=1.0x, episode=0.8x, preference=0.7x) |
+| `recall.weights.scope_boost` | `0.08` | Boost for project-scoped memories when project matches |
+| `recall.weights.confidence` | `0.10` | Memory confidence score (0.0–1.0) |
+| `recall.weights.reinforcement` | `0.07` | Log-scaled reinforcement count |
+| `recall.weights.tag_affinity` | `0.05` | Fraction of memory tags that match query words |
+
+### Tuning examples
+
+Prioritize rules and procedures in an automated agent:
+
+```yaml
+recall:
+  weights:
+    similarity:    0.30
+    recency:       0.10
+    frequency:     0.08
+    type_boost:    0.20
+    scope_boost:   0.08
+    confidence:    0.12
+    reinforcement: 0.07
+    tag_affinity:  0.05
+```
+
+Prioritize recently accessed memories (e.g., for short-lived sessions):
+
+```yaml
+recall:
+  weights:
+    similarity:    0.35
+    recency:       0.25
+    frequency:     0.05
+    type_boost:    0.10
+    scope_boost:   0.05
+    confidence:    0.10
+    reinforcement: 0.05
+    tag_affinity:  0.05
+```
+
+## Environment Variables
+
+All config fields can be set via environment variables. The naming convention is `OPENCLAW_CORTEX_` followed by the YAML path in uppercase with underscores:
+
+| Variable | Equivalent config path |
+|---|---|
+| `OPENCLAW_CORTEX_MEMGRAPH_URI` | `memgraph.uri` |
+| `OPENCLAW_CORTEX_MEMGRAPH_USERNAME` | `memgraph.username` |
+| `OPENCLAW_CORTEX_MEMGRAPH_PASSWORD` | `memgraph.password` |
+| `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `ollama.base_url` |
+| `ANTHROPIC_API_KEY` | `claude.api_key` |
+
+Environment variables take precedence over config file values.
+
+## capture_quality Settings
+
+For multi-turn context capture (advanced):
+
+```yaml
+capture_quality:
+  context_window_turns: 5   # number of prior turns to include (default: 1)
+```
+
+When `context_window_turns > 1`, the post-turn hook passes the last N conversation turns to Claude Haiku for richer memory extraction. Larger values increase API token usage per capture.

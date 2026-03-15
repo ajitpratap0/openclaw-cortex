@@ -1,0 +1,61 @@
+---
+title: "v0.7.0: The Memgraph Migration"
+date: "2026-03-15"
+tags: ["release", "memgraph", "architecture"]
+excerpt: "Replaced Qdrant + Neo4j with a single Memgraph instance. One container, one driver, zero complexity."
+author: "Ajit Pratap Singh"
+readingTime: "5 min"
+---
+
+After v0.6.0 landed entity-relationship graphs, the infrastructure picture looked like this: Qdrant for vector search, Neo4j for the knowledge graph, Ollama for embeddings, and Claude for LLM calls. Four services. Four health checks. Four failure modes. Two separate client packages to maintain.
+
+v0.7.0 collapses that to three services by replacing both Qdrant and Neo4j with a single [Memgraph](https://memgraph.com/) instance.
+
+## Why Two Databases Was the Wrong Call
+
+The Qdrant + Neo4j split was an architecture decision made before entity-relationship support existed. Qdrant was already in place for vector search; when we added the graph layer in v0.6.0, Neo4j was the obvious choice — mature, well-documented, and Graphiti-compatible.
+
+But having two storage backends created a correctness problem that grew worse over time. Every write had to succeed in both stores, or the system was inconsistent. Memory deduplication required checking Qdrant for similarity *and* Neo4j for entity overlap *and* reconciling the results. Recall merged three data sources across two drivers with different connection semantics and different error types.
+
+The operational cost was real too. `docker compose up` pulled two large images. Integration tests needed both services healthy. A Qdrant OOM didn't affect the graph, but it made every memory retrieval return zero results — a failure mode that was silent from Neo4j's perspective.
+
+## Why Memgraph
+
+Memgraph is a graph database that stores its data in-memory (with persistence), speaks the Bolt protocol, and supports both Cypher queries *and* vector search via a built-in MAGE module. It's binary-compatible with the Neo4j Go driver, which meant our Cypher queries needed minimal changes.
+
+The critical capability is `CALL mg.vector_search.search(...)` — native vector similarity search running inside the same transaction as graph traversals. No cross-service joins. No partial failures from one backend being down while the other is healthy. One connection pool, one set of credentials, one health endpoint.
+
+Memgraph also ships a single Docker image under 1 GB, compared to Neo4j's 600 MB + Qdrant's 200 MB with separate startup sequences and separate volume mounts.
+
+## What Changed
+
+The migration touched three layers:
+
+**Driver.** We replaced `neo4j-go-driver` and the Qdrant REST client with a single `neo4j-go-driver` connection pointed at Memgraph's Bolt port. The driver interface is identical — `neo4j.NewDriverWithContext`, sessions, transactions — so the application code barely changed.
+
+**Schema.** Memgraph uses Cypher constraints and indexes, same as Neo4j, but with some dialect differences. `CREATE CONSTRAINT ON (n:Memory) ASSERT n.id IS UNIQUE` syntax differs slightly. More importantly, Memgraph requires DDL to run outside of explicit transactions — our initial migration attempted to create indexes inside a transaction, which failed silently and left the schema uninitialized. The fix was to run all DDL in auto-commit sessions.
+
+**Vector search.** Qdrant's API (`/collections/{name}/points/search`) became `CALL mg.vector_search.search("Memory", "embedding", $vector, $k)`. The MAGE module returns `(node, score)` tuples directly as Cypher rows, which integrates naturally into larger queries: you can vector-search *and* traverse the graph in a single Cypher statement.
+
+**Test infrastructure.** The `MockMemgraphClient` interface replaced both the `MockQdrantClient` and `MockNeo4jClient`. Tests that previously needed two fake backends now use one.
+
+## The Numbers
+
+The diff: **-490 lines** of application code, **2 fewer containers** in `docker-compose.yml`, **1 fewer dependency** in `go.mod`. Cold startup time dropped by roughly 8 seconds on a laptop (Qdrant was slow to initialize its HNSW index). The integration test suite runs in 40% less wall time because it no longer waits for two services to become healthy.
+
+## Challenges
+
+**Cypher dialect.** Memgraph tracks Cypher closely but not perfectly. The biggest difference we hit: Memgraph doesn't support `MERGE ... ON CREATE SET ... ON MATCH SET ...` in the same statement when the SET clause modifies list properties. We rewrote those queries as explicit `MATCH`/`CREATE` branches.
+
+**Auto-commit for DDL.** As mentioned above, `CREATE INDEX` and `CREATE CONSTRAINT` must run outside transactions. The Go driver's session-level `ExecuteWrite` wraps everything in a transaction by default. We added a separate `initSchema` function that uses `session.Run` directly, bypassing the transaction wrapper.
+
+**Vector index initialization.** Memgraph's vector indexes are created with `CALL mg.vector_search.create_index(...)`, not with standard Cypher. This call is idempotent but must happen before the first vector search — our schema initialization order matters.
+
+## The End State
+
+```
+docker compose up -d   # starts memgraph + ollama (+ optionally jaeger)
+openclaw-cortex health # checks all three in under 200ms
+```
+
+One graph database. One protocol. One client package. The architecture is simpler to reason about, simpler to operate, and — because Memgraph runs everything in memory — faster for the graph traversal patterns that matter most in recall.

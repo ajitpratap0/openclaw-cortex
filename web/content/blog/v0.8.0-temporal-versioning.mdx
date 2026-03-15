@@ -1,0 +1,58 @@
+---
+title: "v0.8.0: Temporal Versioning & Graph-Aware Recall"
+date: "2026-03-15"
+tags: ["release", "temporal", "graph", "recall"]
+excerpt: "Memories now have versions. Superseded facts preserved as history. Graph-aware recall with RRF fusion."
+author: "Ajit Pratap Singh"
+readingTime: "5 min"
+---
+
+The world changes. Facts that were true last week may be false today. A user's preferred framework shifts. A project gets cancelled. A team member moves to a new role. Memory systems that can't represent change are lying to agents by omission — presenting stale facts with the same confidence as current ones.
+
+v0.8.0 adds temporal versioning, contradiction detection, and graph-aware recall. These aren't independent features; they're four phases of the same insight: memory needs time.
+
+## Phase 1: Temporal Versioning
+
+Every memory now carries `valid_from` and `valid_to` timestamps. A memory with `valid_to = null` is currently valid. When new information supersedes an existing memory — say, "Alice uses TypeScript" replaces "Alice uses JavaScript" — the old memory isn't deleted. Its `valid_to` is set to the current timestamp, and a new memory is created with `valid_from` now and a `supersedes` edge pointing to the old one.
+
+This is the bi-temporal model: we track both when the fact was true (valid time) and when we learned about it (transaction time). The distinction matters for debugging. If an agent made a bad decision last Tuesday, you can reconstruct exactly what Cortex knew at that moment.
+
+The recall scoring formula applies a **0.3× multiplier** to superseded memories. They're not invisible — they're historically relevant — but they lose priority against current facts. Agents can still query the version history explicitly if they need to audit past states.
+
+## Phase 2: Episodic Extraction
+
+Conversations have temporal structure that flat memories lose. The sequence "user asked about deployment → agent explained Docker setup → user confirmed it worked" is an *episode* — a coherent narrative arc with a beginning, middle, and outcome. Storing those three moments as independent memories loses the arc.
+
+v0.8.0 introduces Episode nodes in the graph. When multiple related memories are captured in the same session, Cortex uses Claude Haiku to detect episode boundaries and create an Episode node that links to all participating memories. The Episode captures the session context, the participants, and a one-sentence summary.
+
+This has a concrete effect on recall: searching for "how did we solve the deployment problem?" can now traverse from the Episode node to retrieve all the memories in that narrative context, rather than returning only the most semantically similar individual fragment.
+
+## Phase 3: Contradiction Detection
+
+Without contradiction detection, a memory system accumulates conflicting facts silently. "Alice prefers dark mode" and "Alice prefers light mode" can coexist indefinitely, with the agent alternating between them based on which happens to rank higher.
+
+v0.8.0 detects contradictions at capture time. When a new memory is being stored, Claude Haiku compares it against recent memories in the same scope and project. If the new fact directly contradicts an existing one, both memories are added to a **conflict group** — a Memgraph node that links the conflicting facts and records the conflict timestamp.
+
+Recall scoring applies a **0.8× multiplier** to memories that are part of an active conflict group. The agent still receives both facts but with a reduced score, and the presence of the conflict is surfaced in the recall metadata. Agents built on Cortex can inspect the `conflicts` field and prompt for clarification rather than silently picking a winner.
+
+Conflict resolution happens through one of three paths: a newer memory explicitly supersedes the conflicting pair (resolving the group), a user provides an explicit resolution via the API, or the conflict group ages out via the TTL lifecycle manager.
+
+## Phase 4: Graph-Aware Recall
+
+Previous versions of Cortex performed vector similarity search against memory embeddings and combined the results with graph traversal. v0.8.0 makes this combination more principled using **Reciprocal Rank Fusion (RRF)**.
+
+RRF takes N ranked lists and produces a single ranking by summing `1 / (k + rank_i)` for each item across all lists, where `k` is a smoothing constant (we use 60, the standard default). The formula is remarkably robust: you don't need to normalize scores across sources, and a strong signal in any single list can elevate an item even if it's absent from others.
+
+The three lists that feed into RRF in v0.8.0:
+
+1. **Vector similarity over memories** — semantic match against the query embedding
+2. **Entity-graph traversal** — memories reachable within 2 hops from entities mentioned in the query
+3. **Episodic context** — memories that belong to episodes related to recent conversation turns
+
+After RRF fusion, the combined list feeds into the existing 8-factor scoring formula. Graph-aware recall adds structure-awareness on top of, not instead of, the semantic and recency signals.
+
+## The Combined Effect
+
+These four phases interact in ways that are greater than the sum of their parts. Temporal versioning means contradiction detection has clean version history to work with. Episodes give graph traversal richer starting points. RRF fusion ensures that structurally-connected memories surface even when they're not the closest semantic match.
+
+The result is a memory system that doesn't just store facts — it understands when they were true, how they relate to each other, and how they fit into the narrative arc of an agent's conversations.
