@@ -72,12 +72,12 @@ type Store interface {
 
 // SearchFilters allows filtering search results.
 type SearchFilters struct {
-	Type           *models.MemoryType       `json:"type,omitempty"`
-	Scope          *models.MemoryScope      `json:"scope,omitempty"`
-	Visibility     *models.MemoryVisibility `json:"visibility,omitempty"`
-	Project        *string                  `json:"project,omitempty"`
-	Tags           []string                 `json:"tags,omitempty"`
-	Source         *string                  `json:"source,omitempty"`
-	ConflictStatus      *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
-	IncludeInvalidated  bool                     `json:"include_invalidated,omitempty"` // include invalidated/superseded memories
+	Type               *models.MemoryType       `json:"type,omitempty"`
+	Scope              *models.MemoryScope      `json:"scope,omitempty"`
+	Visibility         *models.MemoryVisibility `json:"visibility,omitempty"`
+	Project            *string                  `json:"project,omitempty"`
+	Tags               []string                 `json:"tags,omitempty"`
+	Source             *string                  `json:"source,omitempty"`
+	ConflictStatus     *models.ConflictStatus   `json:"conflict_status,omitempty"`     // filter by conflict status ("active", "resolved", "")
+	IncludeInvalidated bool                     `json:"include_invalidated,omitempty"` // include invalidated/superseded memories
 }
