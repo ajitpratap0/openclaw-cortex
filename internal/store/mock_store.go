@@ -53,6 +53,25 @@ func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []flo
 		}
 		memory.Metadata = meta
 	}
+	// Auto-invalidate superseded memory.
+	if memory.SupersedesID != "" {
+		if sm, ok := m.memories[memory.SupersedesID]; ok {
+			now := time.Now().UTC()
+			sm.memory.ValidTo = &now
+			sm.memory.IsCurrentVersion = false
+		}
+	}
+
+	// Set valid_from if not already set.
+	if memory.ValidFrom.IsZero() {
+		if !memory.CreatedAt.IsZero() {
+			memory.ValidFrom = memory.CreatedAt
+		} else {
+			memory.ValidFrom = time.Now().UTC()
+		}
+	}
+	memory.IsCurrentVersion = memory.ValidTo == nil
+
 	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
@@ -125,6 +144,7 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 		}
 		mem.Metadata = meta
 	}
+	mem.IsCurrentVersion = mem.ValidTo == nil
 	return &mem, nil
 }
 
@@ -526,6 +546,29 @@ func (m *MockStore) Close() error {
 	return nil
 }
 
+// InvalidateMemory sets valid_to on a memory without deleting it.
+func (m *MockStore) InvalidateMemory(_ context.Context, id string, validTo time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sm, ok := m.memories[id]
+	if !ok {
+		return ErrNotFound
+	}
+	sm.memory.ValidTo = &validTo
+	sm.memory.IsCurrentVersion = false
+	return nil
+}
+
+// GetHistory returns all versions of a memory chain (follows SupersedesID).
+func (m *MockStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
+	return m.GetChain(ctx, id)
+}
+
+// MigrateTemporalFields is a no-op in the mock store.
+func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
+	return nil
+}
+
 // --- helpers ---
 
 func matchesFilters(mem models.Memory, f *SearchFilters) bool {
@@ -536,7 +579,8 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 		}
 	}
 	if f == nil {
-		return true
+		// Default temporal filter: exclude invalidated memories.
+		return mem.ValidTo == nil
 	}
 	if f.Type != nil && mem.Type != *f.Type {
 		return false
@@ -568,5 +612,20 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	if f.ConflictStatus != nil && mem.ConflictStatus != *f.ConflictStatus {
 		return false
 	}
+
+	// Temporal filtering.
+	if f.AsOf != nil {
+		if !mem.ValidFrom.IsZero() && mem.ValidFrom.After(*f.AsOf) {
+			return false
+		}
+		if mem.ValidTo != nil && !mem.ValidTo.After(*f.AsOf) {
+			return false
+		}
+	} else if !f.IncludeInvalidated {
+		if mem.ValidTo != nil {
+			return false
+		}
+	}
+
 	return true
 }
