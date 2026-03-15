@@ -4,7 +4,7 @@ This guide gets you from zero to a working memory system in about 5 minutes.
 
 ## Prerequisites
 
-- Docker (for Qdrant)
+- Docker (for Memgraph)
 - [Ollama](https://ollama.com/) installed and running
 - An Anthropic API key (for `capture`; not required for `store`/`recall`/`search`)
 
@@ -29,16 +29,16 @@ go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
 export PATH="$PWD/bin:$PATH"
 ```
 
-## Step 2: Start Qdrant
+## Step 2: Start Memgraph
 
 ```bash
 # Using the provided docker-compose.yml
 docker compose up -d
 ```
 
-Qdrant will be available at:
-- HTTP: `http://localhost:6333`
-- gRPC: `localhost:6334` (used by openclaw-cortex)
+Memgraph will be available at:
+- Bolt: `bolt://localhost:7687` (used by openclaw-cortex)
+- HTTP (Lab UI): `http://localhost:7444`
 
 ## Step 3: Pull the embedding model
 
@@ -79,7 +79,7 @@ openclaw-cortex capture \
   --assistant "Always return errors explicitly. Use fmt.Errorf with %w to wrap them for unwrapping. Never use panic for expected error conditions."
 ```
 
-This sends the conversation turn to Claude Haiku, which extracts structured memories and stores them automatically.
+This sends the conversation turn to Claude Haiku, which extracts structured memories, named entities, and relationship facts, then stores them in Memgraph automatically.
 
 ## Step 7: Wire up Claude Code hooks
 
@@ -88,20 +88,38 @@ To get automatic memory injection in every Claude Code conversation, add the hoo
 ```json
 {
   "hooks": {
-    "PreTurn": [{
-      "hooks": [{
-        "type": "command",
-        "command": "echo '{\"message\": \"{{HUMAN_TURN}}\", \"project\": \"my-project\", \"token_budget\": 2000}' | openclaw-cortex hook pre"
-      }]
-    }],
-    "PostTurn": [{
-      "hooks": [{
-        "type": "command",
-        "command": "echo '{\"user_message\": \"{{HUMAN_TURN}}\", \"assistant_message\": \"{{ASSISTANT_TURN}}\", \"session_id\": \"{{SESSION_ID}}\", \"project\": \"my-project\"}' | openclaw-cortex hook post"
-      }]
-    }]
+    "PreToolUse": [],
+    "PostToolUse": [],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "openclaw-cortex hook pre"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "openclaw-cortex hook post"
+          }
+        ]
+      }
+    ]
   }
 }
+```
+
+Or use the installer:
+
+```bash
+openclaw-cortex hook install --project my-project
 ```
 
 See [Claude Code Hooks](hooks.md) for full details and options.
@@ -109,6 +127,9 @@ See [Claude Code Hooks](hooks.md) for full details and options.
 ## Verify everything works
 
 ```bash
+# Health check (verifies Memgraph, Ollama, Claude LLM)
+openclaw-cortex health
+
 # Check stats
 openclaw-cortex stats
 
@@ -121,12 +142,13 @@ openclaw-cortex list --limit 10
 
 ## Configuration
 
-The default configuration works out of the box if Qdrant and Ollama are running locally. To customize, create `~/.openclaw-cortex/config.yaml`:
+The default configuration works out of the box if Memgraph and Ollama are running locally. To customize, create `~/.openclaw-cortex/config.yaml`:
 
 ```yaml
-qdrant:
-  host: localhost
-  grpc_port: 6334
+memgraph:
+  uri: bolt://localhost:7687
+  username: ""
+  password: ""
 
 ollama:
   base_url: http://localhost:11434
@@ -140,13 +162,26 @@ memory:
 Or use environment variables:
 
 ```bash
-export OPENCLAW_CORTEX_QDRANT_HOST=my-qdrant-host
+export OPENCLAW_CORTEX_MEMGRAPH_URI=bolt://my-memgraph-host:7687
 export OPENCLAW_CORTEX_OLLAMA_BASE_URL=http://my-ollama:11434
+```
+
+### LLM Authentication (choose one)
+
+```bash
+# Option 1: Anthropic API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Option 2: OpenClaw gateway (Max plan / subscription users)
+# Set in ~/.openclaw-cortex/config.yaml:
+# claude:
+#   gateway_url: http://127.0.0.1:18789/v1/chat/completions
+#   gateway_token: <your-gateway-token>
 ```
 
 ## Next Steps
 
-- [Architecture](ARCHITECTURE.md) — understand how recall scoring works
+- [Architecture](ARCHITECTURE.md) — understand how recall scoring and the knowledge graph work
 - [Claude Code Hooks](hooks.md) — automatic memory for every conversation
 - [HTTP API](api.md) — integrate with other tools
 - [MCP Server](mcp.md) — use from Claude Desktop

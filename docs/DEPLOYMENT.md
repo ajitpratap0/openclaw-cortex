@@ -5,8 +5,8 @@
 ### Quick Start
 
 ```bash
-# Prerequisites: Go 1.25+, Docker, Ollama, Task
-task docker:up              # Start Qdrant
+# Prerequisites: Go 1.23+, Docker, Ollama, Task
+task docker:up              # Start Memgraph
 ollama pull nomic-embed-text # Pull embedding model
 task build                   # Build binary
 ```
@@ -24,6 +24,9 @@ openclaw-cortex search "deployment best practices"
 
 # Interactive usage
 openclaw-cortex recall "How do I handle errors?" --budget 2000
+
+# Health check
+openclaw-cortex health
 ```
 
 ## Docker
@@ -34,36 +37,98 @@ openclaw-cortex recall "How do I handle errors?" --budget 2000
 task docker:build
 docker run --rm \
   -e ANTHROPIC_API_KEY=sk-ant-... \
-  -e OPENCLAW_CORTEX_QDRANT_HOST=host.docker.internal \
+  -e OPENCLAW_CORTEX_MEMGRAPH_URI=bolt://host.docker.internal:7687 \
   openclaw-cortex:latest search "query"
 ```
 
 ### Docker Compose (Full Stack)
 
 ```bash
-task docker:up   # Starts Qdrant with persistent volume
-task docker:down # Stops Qdrant
+task docker:up   # Starts Memgraph with persistent volume
+task docker:down # Stops Memgraph
 ```
 
-Qdrant exposes:
-- HTTP API: `localhost:6333`
-- gRPC API: `localhost:6334`
+The provided `docker-compose.yml` runs Memgraph with edge property support enabled:
 
-Data persists in the `qdrant_data` Docker volume.
+```yaml
+services:
+  memgraph:
+    image: memgraph/memgraph:latest
+    ports:
+      - "7687:7687"   # Bolt (used by openclaw-cortex)
+      - "7444:7444"   # HTTP Lab UI
+    command: ["--storage-properties-on-edges=true"]
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    restart: unless-stopped
+
+volumes:
+  memgraph_data:
+```
+
+The `--storage-properties-on-edges=true` flag is required so that relationship facts can store predicate and confidence metadata on graph edges.
+
+Data persists in the `memgraph_data` Docker volume.
 
 ## Kubernetes
 
-### Qdrant StatefulSet
+### Memgraph StatefulSet
 
-```bash
-kubectl apply -f k8s/qdrant.yaml
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: memgraph
+  namespace: cortex
+spec:
+  selector:
+    matchLabels:
+      app: memgraph
+  serviceName: memgraph
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: memgraph
+    spec:
+      containers:
+      - name: memgraph
+        image: memgraph/memgraph:latest
+        args: ["--storage-properties-on-edges=true"]
+        ports:
+        - containerPort: 7687
+          name: bolt
+        - containerPort: 7444
+          name: http
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/memgraph
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memgraph
+  namespace: cortex
+spec:
+  selector:
+    app: memgraph
+  ports:
+  - name: bolt
+    port: 7687
+    targetPort: 7687
+  - name: http
+    port: 7444
+    targetPort: 7444
+  clusterIP: None
 ```
-
-This creates:
-- Namespace `cortex`
-- StatefulSet with 1 replica
-- PVC for persistent storage
-- ClusterIP services for HTTP (6333) and gRPC (6334)
 
 ### Cortex as a Sidecar/CronJob
 
@@ -86,8 +151,8 @@ spec:
             image: openclaw-cortex:latest
             args: ["consolidate"]
             env:
-            - name: OPENCLAW_CORTEX_QDRANT_HOST
-              value: qdrant.cortex.svc.cluster.local
+            - name: OPENCLAW_CORTEX_MEMGRAPH_URI
+              value: bolt://memgraph.cortex.svc.cluster.local:7687
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -102,22 +167,47 @@ spec:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | — | Required for capture |
-| `OPENCLAW_CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
-| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
-| `OPENCLAW_CORTEX_QDRANT_HTTP_PORT` | `6333` | Qdrant HTTP port |
+| `ANTHROPIC_API_KEY` | — | Required for capture (or use gateway) |
+| `OPENCLAW_CORTEX_MEMGRAPH_URI` | `bolt://localhost:7687` | Memgraph Bolt URI |
+| `OPENCLAW_CORTEX_MEMGRAPH_USERNAME` | `""` | Memgraph username (if auth enabled) |
+| `OPENCLAW_CORTEX_MEMGRAPH_PASSWORD` | `""` | Memgraph password (if auth enabled) |
 | `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
 | `OPENCLAW_CORTEX_MEMORY_DIR` | `~/.openclaw/workspace/memory/` | Memory files path |
 
 ### Config File
 
-Place at `~/.openclaw-cortex/config.yaml`. See [README](https://github.com/ajitpratap0/openclaw-cortex/blob/main/README.md#configuration) for full schema.
+Place at `~/.openclaw-cortex/config.yaml`:
+
+```yaml
+memgraph:
+  uri: bolt://localhost:7687
+  username: ""
+  password: ""
+
+ollama:
+  base_url: http://localhost:11434
+  model: nomic-embed-text
+
+memory:
+  dedup_threshold: 0.92
+  default_ttl_hours: 720
+
+claude:
+  # Option 1: direct Anthropic API
+  api_key: sk-ant-...
+  # Option 2: OpenClaw gateway (Max plan / subscription users)
+  # gateway_url: http://127.0.0.1:18789/v1/chat/completions
+  # gateway_token: <your-gateway-token>
+```
 
 ## Health Checks
 
 ```bash
-# Verify Qdrant is reachable
-curl http://localhost:6333/healthz
+# Full health check (Memgraph + Ollama + LLM)
+openclaw-cortex health
+
+# Verify Memgraph is reachable
+# (Memgraph exposes a Bolt ping; the health command covers this)
 
 # Verify Ollama model is available
 ollama list | grep nomic-embed-text
@@ -128,19 +218,36 @@ openclaw-cortex stats
 
 ## Backup & Restore
 
-### Qdrant Snapshots
+### Memgraph Snapshots
+
+Memgraph writes periodic snapshots to `/var/lib/memgraph/snapshots/`. To back up:
 
 ```bash
-# Create snapshot
-curl -X POST http://localhost:6333/collections/cortex_memories/snapshots
+# Copy the snapshot directory from the running container
+docker cp memgraph:/var/lib/memgraph/snapshots ./memgraph-backup
 
-# List snapshots
-curl http://localhost:6333/collections/cortex_memories/snapshots
+# Or with Docker volume backup
+docker run --rm \
+  -v memgraph_data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/memgraph-backup.tar.gz /data
+```
 
-# Restore: download snapshot and use Qdrant restore API
+### Restore
+
+```bash
+# Restore from volume backup
+docker run --rm \
+  -v memgraph_data:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/memgraph-backup.tar.gz -C /
+
+# Then restart Memgraph
+docker compose up -d
 ```
 
 ### Memory Files
+
 Memory files are plain markdown — back up via git or filesystem copy:
 ```bash
 cd ~/.openclaw/workspace/memory && git add -A && git commit -m "backup"

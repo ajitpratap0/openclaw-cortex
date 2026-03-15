@@ -4,9 +4,9 @@ Thanks for your interest in contributing to OpenClaw Cortex! Here's how to get s
 
 ## Prerequisites
 
-- [Go 1.25+](https://go.dev/dl/)
+- [Go 1.23+](https://go.dev/dl/)
 - [Task](https://taskfile.dev/) (replaces Make)
-- [Docker](https://www.docker.com/) (for Qdrant)
+- [Docker](https://www.docker.com/) (for Memgraph)
 - [Ollama](https://ollama.ai/) with `nomic-embed-text` model
 - [golangci-lint](https://golangci-lint.run/)
 
@@ -17,7 +17,7 @@ Thanks for your interest in contributing to OpenClaw Cortex! Here's how to get s
 git clone https://github.com/ajitpratap0/openclaw-cortex.git
 cd openclaw-cortex
 
-# Start Qdrant
+# Start Memgraph (graph + vector store)
 task docker:up
 
 # Pull embedding model
@@ -61,8 +61,8 @@ Run `task` to see all available commands:
 | `task test:cover` | Generate coverage report |
 | `task lint` | Run golangci-lint |
 | `task fmt` | Format code (gofmt + goimports) |
-| `task docker:up` | Start Qdrant |
-| `task docker:down` | Stop Qdrant |
+| `task docker:up` | Start Memgraph |
+| `task docker:down` | Stop Memgraph |
 | `task clean` | Remove build artifacts |
 
 ## Project Structure
@@ -74,26 +74,27 @@ cortex/
 │   ├── config/          # Viper-based configuration
 │   ├── models/          # Memory types, data structures
 │   ├── embedder/        # Ollama HTTP embedding client
-│   ├── store/           # Qdrant gRPC store + mock
+│   ├── memgraph/        # Memgraph Bolt client + mock
+│   ├── llm/             # LLMClient interface + Anthropic + Gateway implementations
 │   ├── indexer/         # Markdown scanner + chunker
-│   ├── capture/         # Claude Haiku memory extraction
+│   ├── capture/         # Claude Haiku memory + entity extraction
 │   ├── classifier/      # Heuristic memory classification
-│   ├── recall/          # Multi-factor ranked recall
+│   ├── recall/          # Multi-factor ranked recall + RRF
 │   ├── lifecycle/       # TTL, decay, consolidation
 │   └── hooks/           # OpenClaw hook integration
 ├── pkg/tokenizer/       # Token estimation + budgeting
 ├── skill/               # OpenClaw skill definition
-├── k8s/                 # Kubernetes manifests
 ├── Taskfile.yml         # Build, test, lint targets
 ├── Dockerfile           # Multi-stage production build
-└── docker-compose.yml   # Local Qdrant
+└── docker-compose.yml   # Local Memgraph
 ```
 
 ## Testing
 
 - All tests use table-driven patterns with mocked dependencies
-- Store tests use `mock_store.go` (in-memory Qdrant replacement)
+- Memgraph tests use `MockMemgraphClient` from `internal/memgraph/mock_client.go` (in-memory replacement — no live Memgraph needed for unit tests)
 - Run with race detection: `task test`
+- Short tests only (no external services): `go test -short -count=1 ./...`
 - Coverage report: `task test:cover` → opens `coverage.html`
 - Tests live in `tests/` (black-box package), not co-located with source packages
 
@@ -102,6 +103,9 @@ cortex/
 - Follow standard Go conventions
 - Use `slog` for structured logging
 - Keep interfaces minimal (defined in consumer packages)
+- Always wrap errors: `fmt.Errorf("context: %w", err)` — never bare `err` returns
+- Always propagate `context.Context` as the first argument to functions that call Memgraph, Ollama, or Claude
+- XML-escape user/assistant content before interpolating into Claude prompts (see `internal/capture/capture.go`)
 - golangci-lint config in `.golangci.yml`
 
 ## Good First Issues

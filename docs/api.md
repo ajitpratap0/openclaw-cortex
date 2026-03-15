@@ -278,7 +278,7 @@ Common status codes:
 | `400` | Bad request — missing required fields or invalid values |
 | `401` | Unauthorized — missing or invalid Bearer token |
 | `404` | Not found — memory ID does not exist |
-| `500` | Internal server error — Qdrant or Ollama unavailable |
+| `500` | Internal server error — Memgraph or Ollama unavailable |
 
 ## Request Size Limit
 

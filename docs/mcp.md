@@ -25,7 +25,7 @@ Add the following to your Claude Desktop configuration file:
       "args": ["mcp"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-...",
-        "OPENCLAW_CORTEX_QDRANT_HOST": "localhost"
+        "OPENCLAW_CORTEX_MEMGRAPH_URI": "bolt://localhost:7687"
       }
     }
   }
@@ -38,7 +38,7 @@ After adding this configuration, restart Claude Desktop. You should see "opencla
 
 ### `remember`
 
-Store a memory in the vector store.
+Store a memory in Memgraph.
 
 **Parameters**:
 
@@ -78,7 +78,7 @@ Claude will call `remember` with:
 
 ### `recall`
 
-Retrieve memories relevant to a message using semantic search and multi-factor ranking.
+Retrieve memories relevant to a message using semantic search, graph traversal, and multi-factor ranking.
 
 **Parameters**:
 
@@ -204,10 +204,10 @@ Search for any memories about authentication implementation.
 
 ## Requirements
 
-Qdrant and Ollama must be running before starting the MCP server. The `remember` tool does not require `ANTHROPIC_API_KEY` — only the CLI `capture` command uses the Anthropic API.
+Memgraph and Ollama must be running before starting the MCP server. The `remember` tool does not require `ANTHROPIC_API_KEY` — only the CLI `capture` command uses the Anthropic API.
 
 ```bash
-docker compose up -d           # start Qdrant
+docker compose up -d           # start Memgraph
 ollama pull nomic-embed-text   # ensure embedding model is available
 openclaw-cortex mcp            # start MCP server
 ```
@@ -216,6 +216,6 @@ openclaw-cortex mcp            # start MCP server
 
 **"MCP server not appearing in Claude Desktop"**: Restart Claude Desktop after editing the config file. Check that `openclaw-cortex` is in your `PATH`.
 
-**"Error: connection refused"**: Ensure Qdrant is running (`docker compose up -d`) and Ollama is running (`ollama serve`).
+**"Error: connection refused"**: Ensure Memgraph is running (`docker compose up -d`) and Ollama is running (`ollama serve`). Memgraph listens on Bolt port 7687.
 
-**"Tool call failed"**: Check that `OPENCLAW_CORTEX_QDRANT_HOST` and `OPENCLAW_CORTEX_OLLAMA_BASE_URL` point to the right hosts if you are not running services locally.
+**"Tool call failed"**: Check that `OPENCLAW_CORTEX_MEMGRAPH_URI` and `OPENCLAW_CORTEX_OLLAMA_BASE_URL` point to the right hosts if you are not running services locally.
