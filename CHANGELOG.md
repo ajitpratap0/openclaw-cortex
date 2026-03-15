@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-03-15
+
+### Fixed
+- Memgraph Cypher dialect: `WITH` required between `YIELD` and `WHERE` in procedure calls — was causing FindDuplicates to silently fail, leading to unlimited memory duplication
+- Memgraph DDL must run in auto-commit transactions (not explicit transactions)
+- Vector index metric name: `cos` not `cosine` for Memgraph
+- Docker image tag: `memgraph/memgraph:latest` (2.21 tag doesn't exist)
+
+### Added
+- 18 Memgraph integration tests covering vector search, dedup, CRUD, entities, and graph operations
+
 ## [0.7.0] - 2026-03-15
 
 ### Changed
