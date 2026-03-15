@@ -62,6 +62,9 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
 		"CREATE INDEX ON :Memory(project)",
 		"CREATE INDEX ON :Memory(source)",
 		"CREATE INDEX ON :Memory(uuid)",
+		// Temporal versioning indexes
+		"CREATE INDEX ON :Memory(valid_from)",
+		"CREATE INDEX ON :Memory(valid_to)",
 		"CREATE INDEX ON :Entity(uuid)",
 		"CREATE INDEX ON :Entity(project)",
 
@@ -476,11 +479,211 @@ func (g *GraphAdapter) GetMemoryFacts(ctx context.Context, memoryID string) ([]m
 	return facts, nil
 }
 
-// RecallByGraph returns memory IDs relevant to a query via fact text search and extraction.
+// defaultGraphDepth is the default traversal depth for graph-aware recall.
+const defaultGraphDepth = 2
+
+// RecallByGraph returns memory IDs relevant to a query via entity-aware graph traversal.
+//
+// It delegates to RecallByGraphWithDepth with the default depth (2-hop).
+// The function respects the context deadline — callers should wrap ctx with a tight
+// timeout (≤ 120 ms) to stay within the 200 ms total recall latency budget.
 func (g *GraphAdapter) RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error) {
+	return g.RecallByGraphWithDepth(ctx, query, embedding, limit, defaultGraphDepth)
+}
+
+// RecallByGraphWithDepth implements configurable-depth graph-aware recall.
+//
+// Algorithm (Phase 4 – Graph-Aware Recall):
+//  1. Entity discovery: find Entity nodes whose name matches query terms via text search.
+//  2. 1-hop traversal: for each discovered entity, follow RELATES_TO edges (both directions)
+//     and collect source_memory_ids from adjacent fact relationships.
+//  3. 2-hop traversal (depth >= 2): for each neighbor entity found in step 2,
+//     repeat the 1-hop traversal to collect transitively connected memory IDs.
+//
+// Memories found at 1-hop score 1.0; 2-hop memories score 0.5.
+// Returns memory IDs sorted by graph distance score (descending).
+func (g *GraphAdapter) RecallByGraphWithDepth(ctx context.Context, query string, embedding []float32, limit int, depth int) ([]string, error) {
+	if depth < 1 {
+		depth = 1
+	}
+
+	// Step 1: find entities matching the query (text search, up to 10 candidates).
+	entityCandidates, err := g.SearchEntities(ctx, query, embedding, "", 10)
+	if err != nil {
+		// Degrade gracefully: fall back to fact-text search if entity search fails.
+		g.store.logger.Warn("graph recall: entity search failed, falling back to fact text search", "error", err)
+		return g.recallByFactSearch(ctx, query, embedding, limit)
+	}
+
+	if len(entityCandidates) == 0 {
+		// No entity hits — fall back to fact text search.
+		return g.recallByFactSearch(ctx, query, embedding, limit)
+	}
+
+	// Collect entity IDs from candidates.
+	entityIDs := make([]string, 0, len(entityCandidates))
+	for i := range entityCandidates {
+		entityIDs = append(entityIDs, entityCandidates[i].ID)
+	}
+
+	type scoredID struct {
+		id    string
+		score float64
+	}
+	seen := make(map[string]float64)
+
+	// Step 2: 1-hop traversal — Entity → RELATES_TO → fact → source_memory_ids.
+	hop1MemIDs, hop1NeighbourIDs, err := g.traverseEntityFacts(ctx, entityIDs)
+	if err != nil {
+		g.store.logger.Warn("graph recall: 1-hop traversal failed", "error", err)
+		return g.recallByFactSearch(ctx, query, embedding, limit)
+	}
+
+	// Score 1-hop memories at 1.0 (closest to query entities).
+	for _, mid := range hop1MemIDs {
+		if _, exists := seen[mid]; !exists {
+			seen[mid] = 1.0
+		}
+	}
+
+	// Step 3: 2-hop traversal — neighbor entities → their facts → memory IDs.
+	if depth >= 2 && len(hop1NeighbourIDs) > 0 {
+		// Exclude already-visited entity IDs to avoid cycles.
+		visitedEntityIDs := make(map[string]struct{}, len(entityIDs))
+		for _, eid := range entityIDs {
+			visitedEntityIDs[eid] = struct{}{}
+		}
+		var hop2EntityIDs []string
+		for _, nid := range hop1NeighbourIDs {
+			if _, visited := visitedEntityIDs[nid]; !visited {
+				hop2EntityIDs = append(hop2EntityIDs, nid)
+				visitedEntityIDs[nid] = struct{}{}
+			}
+		}
+
+		if len(hop2EntityIDs) > 0 {
+			hop2MemIDs, _, hop2Err := g.traverseEntityFacts(ctx, hop2EntityIDs)
+			if hop2Err != nil {
+				// Non-fatal: 2-hop failure just means we return 1-hop results only.
+				g.store.logger.Warn("graph recall: 2-hop traversal failed", "error", hop2Err)
+			} else {
+				// Score 2-hop memories at 0.5 (half weight of direct neighbors).
+				for _, mid := range hop2MemIDs {
+					if _, exists := seen[mid]; !exists {
+						seen[mid] = 0.5
+					}
+				}
+			}
+		}
+	}
+
+	// Sort by graph distance score (descending), then apply limit.
+	ranked := make([]scoredID, 0, len(seen))
+	for id, score := range seen {
+		ranked = append(ranked, scoredID{id: id, score: score})
+	}
+	// Simple insertion sort (result set is small — typically < 100).
+	for i := 1; i < len(ranked); i++ {
+		for j := i; j > 0 && ranked[j].score > ranked[j-1].score; j-- {
+			ranked[j], ranked[j-1] = ranked[j-1], ranked[j]
+		}
+	}
+
+	result := make([]string, 0, len(ranked))
+	for _, s := range ranked {
+		if limit > 0 && len(result) >= limit {
+			break
+		}
+		result = append(result, s.id)
+	}
+	return result, nil
+}
+
+// traverseEntityFacts fetches all active RELATES_TO facts for the given entity IDs
+// in a single Cypher query and returns:
+//   - the union of all source_memory_ids from those facts
+//   - the IDs of all neighbor entities (for 2-hop traversal)
+func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []string) (memoryIDs []string, neighborEntityIDs []string, err error) {
+	if len(entityIDs) == 0 {
+		return nil, nil, nil
+	}
+
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	// Traverse both outgoing and incoming RELATES_TO edges from seed entities.
+	// expired_at IS NULL filters out invalidated (soft-deleted) facts.
+	cypher := `
+		UNWIND $entity_ids AS eid
+		MATCH (e:Entity {uuid: eid})-[r:RELATES_TO]-(neighbor:Entity)
+		WHERE r.expired_at IS NULL
+		RETURN r.source_memory_ids AS memory_ids,
+		       neighbor.uuid      AS neighbor_id
+	`
+
+	type row struct {
+		memoryIDs  []string
+		neighborID string
+	}
+
+	result, runErr := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		records, txErr := tx.Run(ctx, cypher, map[string]any{
+			"entity_ids": entityIDs,
+		})
+		if txErr != nil {
+			return nil, txErr
+		}
+
+		var rows []row
+		for records.Next(ctx) {
+			rec := records.Record()
+			rawMIDs, _, _ := neo4j.GetRecordValue[[]any](rec, "memory_ids")
+			nid, _, _ := neo4j.GetRecordValue[string](rec, "neighbor_id")
+
+			var mids []string
+			for _, v := range rawMIDs {
+				if s, ok := v.(string); ok {
+					mids = append(mids, s)
+				}
+			}
+			rows = append(rows, row{memoryIDs: mids, neighborID: nid})
+		}
+		if recErr := records.Err(); recErr != nil {
+			return nil, recErr
+		}
+		return rows, nil
+	})
+	if runErr != nil {
+		return nil, nil, fmt.Errorf("graph recall traversal: %w", runErr)
+	}
+
+	rows, _ := result.([]row)
+	seenMem := make(map[string]struct{})
+	seenNeighbour := make(map[string]struct{})
+
+	for _, r := range rows {
+		for _, mid := range r.memoryIDs {
+			if _, ok := seenMem[mid]; !ok {
+				seenMem[mid] = struct{}{}
+				memoryIDs = append(memoryIDs, mid)
+			}
+		}
+		if r.neighborID != "" {
+			if _, ok := seenNeighbour[r.neighborID]; !ok {
+				seenNeighbour[r.neighborID] = struct{}{}
+				neighborEntityIDs = append(neighborEntityIDs, r.neighborID)
+			}
+		}
+	}
+	return memoryIDs, neighborEntityIDs, nil
+}
+
+// recallByFactSearch is the fallback when entity search yields no results.
+// It performs fact text search and collects source_memory_ids (original behavior).
+func (g *GraphAdapter) recallByFactSearch(ctx context.Context, query string, embedding []float32, limit int) ([]string, error) {
 	facts, err := g.SearchFacts(ctx, query, embedding, limit)
 	if err != nil {
-		return nil, fmt.Errorf("memgraph recall by graph: %w", err)
+		return nil, fmt.Errorf("memgraph recall by graph (fact fallback): %w", err)
 	}
 
 	seen := make(map[string]bool)

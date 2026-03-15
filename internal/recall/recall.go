@@ -97,9 +97,19 @@ var TypePriority = map[models.MemoryType]float64{
 	models.MemoryTypePreference: 0.7,
 }
 
-// graphDefaultSimilarity is the default similarity score assigned to memories
-// retrieved via graph traversal (no vector match available).
-const graphDefaultSimilarity = 0.5
+// defaultGraphDepth is the default traversal depth for graph-aware recall.
+const defaultGraphDepth = 2
+
+// defaultVectorWeight and defaultGraphWeight control the RRF blend when merging
+// vector search and graph traversal results.
+// vector_score * defaultVectorWeight + graph_score * defaultGraphWeight
+const (
+	defaultVectorWeight = 0.6
+	defaultGraphWeight  = 0.4
+)
+
+// rrfK is the constant for Reciprocal Rank Fusion (Cormack et al. 2009).
+const rrfK = 60
 
 // Recaller performs multi-factor ranking of search results.
 type Recaller struct {
@@ -108,16 +118,59 @@ type Recaller struct {
 	graphClient   graph.Client
 	store         store.Store
 	graphBudgetMs int
+	graphDepth    int
+	vectorWeight  float64
+	graphWeight   float64
 }
 
 // SetGraphClient attaches an optional graph client and backing store to the
 // recaller. budgetMs is the maximum time in milliseconds allowed for the graph
-// recall call; if the call exceeds the budget it is canceled and only Qdrant
+// recall call; if the call exceeds the budget it is canceled and only vector
 // results are used.
 func (r *Recaller) SetGraphClient(gc graph.Client, st store.Store, budgetMs int) {
 	r.graphClient = gc
 	r.store = st
 	r.graphBudgetMs = budgetMs
+}
+
+// SetGraphDepth configures the traversal depth for RecallByGraph (default: 2).
+func (r *Recaller) SetGraphDepth(depth int) {
+	if depth >= 1 {
+		r.graphDepth = depth
+	}
+}
+
+// SetGraphWeights overrides the default vector/graph blend weights.
+// Both values must be non-negative; they are normalised internally.
+func (r *Recaller) SetGraphWeights(vectorWeight, graphWeight float64) {
+	if vectorWeight >= 0 && graphWeight >= 0 {
+		r.vectorWeight = vectorWeight
+		r.graphWeight = graphWeight
+	}
+}
+
+// graphDepthOrDefault returns graphDepth if set, otherwise the package default.
+func (r *Recaller) graphDepthOrDefault() int {
+	if r.graphDepth > 0 {
+		return r.graphDepth
+	}
+	return defaultGraphDepth
+}
+
+// graphVectorWeight returns the effective vector weight.
+func (r *Recaller) graphVectorWeight() float64 {
+	if r.vectorWeight > 0 {
+		return r.vectorWeight
+	}
+	return defaultVectorWeight
+}
+
+// graphGraphWeight returns the effective graph weight.
+func (r *Recaller) graphGraphWeight() float64 {
+	if r.graphWeight > 0 {
+		return r.graphWeight
+	}
+	return defaultGraphWeight
 }
 
 // NewRecaller creates a new recaller with the given weights.
@@ -221,11 +274,18 @@ func (r *Recaller) ShouldRerank(results []models.RecallResult, threshold float64
 	return spread <= threshold
 }
 
-// RecallWithGraph merges graph-sourced memory IDs with searchResults, deduplicates,
-// and runs Rank on the combined set.
+// RecallWithGraph merges graph-traversal results with vector search results using
+// Reciprocal Rank Fusion (RRF), then applies multi-factor ranking.
+//
+// Merge formula (per spec §6.2):
+//
+//	blended_score = vector_rrf * vectorWeight + graph_rrf * graphWeight
+//
+// Default weights: vector=0.6, graph=0.4 (configurable via SetGraphWeights).
+// Default traversal depth: 2 (configurable via SetGraphDepth).
 //
 // If GraphClient is nil the function is equivalent to calling Rank(searchResults, project, query).
-// If the graph call exceeds the latency budget, the function falls back to Qdrant-only results.
+// If the graph call exceeds the latency budget, the function falls back to vector-only results.
 func (r *Recaller) RecallWithGraph(
 	ctx context.Context,
 	query string,
@@ -237,12 +297,6 @@ func (r *Recaller) RecallWithGraph(
 		return r.Rank(searchResults, project, query)
 	}
 
-	// Build a set of IDs already present in searchResults.
-	existing := make(map[string]struct{}, len(searchResults))
-	for i := range searchResults {
-		existing[searchResults[i].Memory.ID] = struct{}{}
-	}
-
 	// Call graph with a deadline derived from the latency budget.
 	budgetMs := r.graphBudgetMs
 	if budgetMs <= 0 {
@@ -251,16 +305,42 @@ func (r *Recaller) RecallWithGraph(
 	gCtx, cancel := context.WithTimeout(ctx, time.Duration(budgetMs)*time.Millisecond)
 	defer cancel()
 
-	graphIDs, err := r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
+	// Support configurable depth via type assertion to GraphAdapterWithDepth.
+	var graphIDs []string
+	var err error
+	type depthRecaller interface {
+		RecallByGraphWithDepth(ctx context.Context, query string, embedding []float32, limit int, depth int) ([]string, error)
+	}
+	if dr, ok := r.graphClient.(depthRecaller); ok {
+		graphIDs, err = dr.RecallByGraphWithDepth(gCtx, query, embedding, 50, r.graphDepthOrDefault())
+	} else {
+		graphIDs, err = r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
+	}
 	if err != nil {
 		r.logger.Warn("graph recall failed, falling back to vector-only results", "error", err)
 		return r.Rank(searchResults, project, query)
 	}
 
-	// Fetch memories for graph IDs not already present in searchResults.
-	merged := make([]models.SearchResult, len(searchResults))
-	copy(merged, searchResults)
+	// RRF merge: compute blended scores from vector rank + graph rank.
+	// Map: memoryID → blended RRF score.
+	blended := r.rrfBlend(searchResults, graphIDs)
 
+	// Build unified search result set with blended scores.
+	// Start with vector results (already have memory objects).
+	existing := make(map[string]struct{}, len(searchResults))
+	merged := make([]models.SearchResult, 0, len(blended))
+
+	for i := range searchResults {
+		id := searchResults[i].Memory.ID
+		score := blended[id]
+		merged = append(merged, models.SearchResult{
+			Memory: searchResults[i].Memory,
+			Score:  score,
+		})
+		existing[id] = struct{}{}
+	}
+
+	// Add graph-only memories (not in vector results).
 	for _, id := range graphIDs {
 		if _, ok := existing[id]; ok {
 			continue
@@ -272,12 +352,39 @@ func (r *Recaller) RecallWithGraph(
 		}
 		merged = append(merged, models.SearchResult{
 			Memory: *mem,
-			Score:  graphDefaultSimilarity,
+			Score:  blended[id],
 		})
 		existing[id] = struct{}{}
 	}
 
 	return r.Rank(merged, project, query)
+}
+
+// rrfBlend computes a blended Reciprocal Rank Fusion score for each memory ID
+// from the vector result list and the graph traversal ID list.
+//
+// Formula: blended = (1/(k+vectorRank)) * vectorWeight + (1/(k+graphRank)) * graphWeight
+//
+// IDs that appear only in one list receive a score of 0 from the absent list.
+func (r *Recaller) rrfBlend(vectorResults []models.SearchResult, graphIDs []string) map[string]float64 {
+	scores := make(map[string]float64, len(vectorResults)+len(graphIDs))
+
+	vw := r.graphVectorWeight()
+	gw := r.graphGraphWeight()
+
+	// Vector list contribution.
+	for rank := range vectorResults {
+		rrfScore := 1.0 / float64(rank+1+rrfK)
+		scores[vectorResults[rank].Memory.ID] += rrfScore * vw
+	}
+
+	// Graph list contribution.
+	for rank, id := range graphIDs {
+		rrfScore := 1.0 / float64(rank+1+rrfK)
+		scores[id] += rrfScore * gw
+	}
+
+	return scores
 }
 
 // recencyScore uses exponential decay. Half-life of 7 days. Returns [0,1].

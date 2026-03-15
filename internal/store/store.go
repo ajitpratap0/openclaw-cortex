@@ -67,14 +67,32 @@ type Store interface {
 	// and increments ReinforcedCount. Used when a near-duplicate is captured.
 	UpdateReinforcement(ctx context.Context, id string, confidenceBoost float64) error
 
-	// InvalidateMemory sets ValidTo on a memory without deleting it (temporal versioning).
-	InvalidateMemory(ctx context.Context, id string, invalidAt time.Time) error
+	// InvalidateMemory sets valid_to on a memory without deleting it.
+	// Used when a superseding memory is stored (temporal versioning).
+	InvalidateMemory(ctx context.Context, id string, validTo time.Time) error
 
-	// GetHistory returns the full version chain for a memory, newest first.
+	// GetHistory returns all versions of a memory chain, including invalidated ones.
+	// Uses SupersedesID chain traversal. Newest version first.
 	GetHistory(ctx context.Context, id string) ([]models.Memory, error)
+
+	// MigrateTemporalFields backfills valid_from = created_at for all memories
+	// that do not yet have valid_from set. Idempotent.
+	MigrateTemporalFields(ctx context.Context) error
 
 	// Close cleans up resources.
 	Close() error
+}
+
+// ContradictionHit describes a memory that contradicts a new one being stored.
+type ContradictionHit struct {
+	CandidateID string
+	Reason      string
+}
+
+// ContradictionDetector is the interface the store uses to detect contradictions.
+// Implemented by capture.MemoryContradictionDetector.
+type ContradictionDetector interface {
+	FindContradictions(ctx context.Context, content string, embedding []float32) ([]ContradictionHit, error)
 }
 
 // SearchFilters allows filtering search results.
@@ -87,9 +105,11 @@ type SearchFilters struct {
 	Source         *string                  `json:"source,omitempty"`
 	ConflictStatus *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
 
-	// Temporal versioning filters (Phase 1).
-	// IncludeInvalidated includes memories with ValidTo set (default: false).
+	// IncludeInvalidated includes memories with valid_to set (historical versions).
+	// Default: false (only return currently-valid memories).
 	IncludeInvalidated bool `json:"include_invalidated,omitempty"`
-	// AsOf filters to memories valid at the given point in time.
+
+	// AsOf returns memories valid at a specific point in time.
+	// valid_from <= AsOf AND (valid_to IS NULL OR valid_to > AsOf)
 	AsOf *time.Time `json:"as_of,omitempty"`
 }

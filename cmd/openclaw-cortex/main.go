@@ -59,6 +59,7 @@ func main() {
 		serveCmd(),
 		hookCmd(),
 		mcpCmd(),
+		migrateCmd(),
 	)
 
 	rootCmd.SetContext(ctx)

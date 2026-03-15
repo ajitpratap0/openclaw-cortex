@@ -127,6 +127,18 @@ type Memory struct {
 	SupersedesID string         `json:"supersedes_id,omitempty"` // ID of memory this replaces
 	ValidUntil   time.Time      `json:"valid_until,omitempty"`   // zero = never expires
 
+	// ValidFrom is when this memory version became the current truth.
+	// Set to CreatedAt on first write. Immutable after initial store.
+	ValidFrom time.Time `json:"valid_from,omitempty"`
+
+	// ValidTo is set when this memory is superseded by a newer version or contradicted.
+	// Zero/nil = currently valid.
+	ValidTo *time.Time `json:"valid_to,omitempty"`
+
+	// IsCurrentVersion is derived (not stored): ValidTo == nil.
+	// Used for display only.
+	IsCurrentVersion bool `json:"is_current_version,omitempty"`
+
 	// ConflictGroupID links memories that contradict each other.
 	// All memories in a conflict group share the same non-empty UUID.
 	ConflictGroupID string `json:"conflict_group_id,omitempty"`
