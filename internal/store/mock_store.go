@@ -61,6 +61,7 @@ func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []flo
 			sm.memory.IsCurrentVersion = false
 		}
 	}
+
 	// Set valid_from if not already set.
 	if memory.ValidFrom.IsZero() {
 		if !memory.CreatedAt.IsZero() {
@@ -70,6 +71,7 @@ func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []flo
 		}
 	}
 	memory.IsCurrentVersion = memory.ValidTo == nil
+
 	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
@@ -142,6 +144,7 @@ func (m *MockStore) Get(_ context.Context, id string) (*models.Memory, error) {
 		}
 		mem.Metadata = meta
 	}
+	mem.IsCurrentVersion = mem.ValidTo == nil
 	return &mem, nil
 }
 
@@ -539,6 +542,10 @@ func (m *MockStore) GetChain(ctx context.Context, id string) ([]models.Memory, e
 }
 
 // Close is a no-op for the mock store.
+func (m *MockStore) Close() error {
+	return nil
+}
+
 // InvalidateMemory sets valid_to on a memory without deleting it.
 func (m *MockStore) InvalidateMemory(_ context.Context, id string, validTo time.Time) error {
 	m.mu.Lock()
@@ -557,19 +564,8 @@ func (m *MockStore) GetHistory(ctx context.Context, id string) ([]models.Memory,
 	return m.GetChain(ctx, id)
 }
 
-// MigrateTemporalFields backfills valid_from = created_at for memories without valid_from. No-op in mock.
+// MigrateTemporalFields is a no-op in the mock store.
 func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, sm := range m.memories {
-		if sm.memory.ValidFrom.IsZero() {
-			sm.memory.ValidFrom = sm.memory.CreatedAt
-		}
-	}
-	return nil
-}
-
-func (m *MockStore) Close() error {
 	return nil
 }
 
@@ -583,7 +579,8 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 		}
 	}
 	if f == nil {
-		return true
+		// Default temporal filter: exclude invalidated memories.
+		return mem.ValidTo == nil
 	}
 	if f.Type != nil && mem.Type != *f.Type {
 		return false
@@ -615,20 +612,20 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	if f.ConflictStatus != nil && mem.ConflictStatus != *f.ConflictStatus {
 		return false
 	}
+
 	// Temporal filtering.
 	if f.AsOf != nil {
-		asOf := *f.AsOf
-		if !mem.ValidFrom.IsZero() && mem.ValidFrom.After(asOf) {
+		if !mem.ValidFrom.IsZero() && mem.ValidFrom.After(*f.AsOf) {
 			return false
 		}
-		if mem.ValidTo != nil && !mem.ValidTo.After(asOf) {
+		if mem.ValidTo != nil && !mem.ValidTo.After(*f.AsOf) {
 			return false
 		}
 	} else if !f.IncludeInvalidated {
-		// Default: exclude invalidated memories.
 		if mem.ValidTo != nil {
 			return false
 		}
 	}
+
 	return true
 }

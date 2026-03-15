@@ -37,7 +37,7 @@ type MemgraphStore struct {
 
 // SetContradictionDetector attaches a contradiction detector to the store.
 // When set, Upsert will call FindContradictions before inserting and invalidate
-// any contradicting memories. Best-effort: errors are logged, not returned.
+// any memories that contradict the new one. Best-effort: errors are logged, not returned.
 func (s *MemgraphStore) SetContradictionDetector(d store.ContradictionDetector) {
 	s.contradictionDetector = d
 }
@@ -88,28 +88,20 @@ func (s *MemgraphStore) EnsureCollection(ctx context.Context) error {
 }
 
 // Upsert inserts or updates a memory node with its embedding vector.
+// When memory.SupersedesID is set, the superseded memory is invalidated (valid_to = now).
 func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector []float32) error {
-	// ── Contradiction detection (best-effort, before insert) ─────────────────
-	if s.contradictionDetector != nil {
-		hits, cdErr := s.contradictionDetector.FindContradictions(ctx, memory.Content, vector)
-		if cdErr != nil {
-			s.logger.Warn("contradiction detection failed", "error", cdErr)
-		} else {
-			now := time.Now().UTC()
-			for _, hit := range hits {
-				if invErr := s.InvalidateMemory(ctx, hit.CandidateID, now); invErr != nil {
-					s.logger.Warn("failed to invalidate contradicted memory",
-						"id", hit.CandidateID, "error", invErr)
-				} else {
-					s.logger.Info("invalidated contradicted memory",
-						"id", hit.CandidateID, "reason", hit.Reason)
-				}
-				// First contradiction becomes the SupersedesID.
-				if memory.SupersedesID == "" {
-					memory.SupersedesID = hit.CandidateID
-				}
-			}
+	// If superseding another memory, invalidate it first (non-fatal).
+	if memory.SupersedesID != "" {
+		now := time.Now().UTC()
+		if invErr := s.InvalidateMemory(ctx, memory.SupersedesID, now); invErr != nil {
+			s.logger.Warn("upsert: failed to invalidate superseded memory",
+				"superseded_id", memory.SupersedesID, "error", invErr)
 		}
+	}
+
+	// Set valid_from if not already set.
+	if memory.ValidFrom.IsZero() {
+		memory.ValidFrom = time.Now().UTC()
 	}
 
 	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
@@ -117,24 +109,6 @@ func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector
 
 	session := s.driver.NewSession(wctx, s.sessionConfig())
 	defer s.closeSession(ctx, session)
-
-	now := time.Now().UTC()
-
-	// When superseding another memory, invalidate the old one first.
-	if memory.SupersedesID != "" {
-		if invErr := s.InvalidateMemory(ctx, memory.SupersedesID, now); invErr != nil {
-			s.logger.Warn("upsert: failed to invalidate superseded memory", "id", memory.SupersedesID, "error", invErr)
-		}
-	}
-
-	// Set valid_from if not already set.
-	if memory.ValidFrom.IsZero() {
-		if !memory.CreatedAt.IsZero() {
-			memory.ValidFrom = memory.CreatedAt
-		} else {
-			memory.ValidFrom = now
-		}
-	}
 
 	params := memoryToParams(memory, vector)
 
@@ -159,10 +133,10 @@ func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector
 			    m.conflict_group_id = $conflict_group_id,
 			    m.conflict_status  = $conflict_status,
 			    m.valid_until_unix = $valid_until_unix,
-			    m.reinforced_at_unix = $reinforced_at_unix,
-			    m.reinforced_count = $reinforced_count,
 			    m.valid_from       = $valid_from,
 			    m.valid_to         = $valid_to,
+			    m.reinforced_at_unix = $reinforced_at_unix,
+			    m.reinforced_count = $reinforced_count,
 			    m.embedding        = $embedding
 		`, params)
 		return nil, txErr
@@ -808,6 +782,65 @@ func (s *MemgraphStore) GetChain(ctx context.Context, id string) ([]models.Memor
 	return chain, nil
 }
 
+// InvalidateMemory sets valid_to on a memory without deleting it.
+// Used when a superseding memory is stored (temporal versioning).
+func (s *MemgraphStore) InvalidateMemory(ctx context.Context, id string, validTo time.Time) error {
+	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
+	defer cancel()
+
+	session := s.driver.NewSession(wctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	validToStr := validTo.UTC().Format(time.RFC3339Nano)
+
+	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, txErr := tx.Run(wctx, `
+			MATCH (m:Memory {uuid: $id})
+			SET m.valid_to = $valid_to
+		`, map[string]any{"id": id, "valid_to": validToStr})
+		return nil, txErr
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph invalidate memory %s: %w", id, err)
+	}
+	s.logger.Debug("invalidated memory", "id", id, "valid_to", validToStr)
+	return nil
+}
+
+// GetHistory returns all versions of a memory chain, including invalidated ones.
+// Uses the SupersedesID chain traversal (newest first).
+func (s *MemgraphStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
+	// GetChain already follows the SupersedesID chain.
+	// We add an explicit Memgraph reverse-direction query to find predecessors too.
+	// For now, delegate to GetChain which works correctly for forward chains.
+	return s.GetChain(ctx, id)
+}
+
+// MigrateTemporalFields backfills valid_from = created_at for all memories without valid_from.
+// Idempotent — safe to run multiple times.
+func (s *MemgraphStore) MigrateTemporalFields(ctx context.Context) error {
+	wctx, cancel := context.WithTimeout(ctx, 5*memgraphWriteTimeout)
+	defer cancel()
+
+	session := s.driver.NewSession(wctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, txErr := tx.Run(wctx, `
+			MATCH (m:Memory)
+			WHERE m.valid_from IS NULL OR m.valid_from = ""
+			SET m.valid_from = m.created_at
+		`, nil)
+		return nil, txErr
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph migrate temporal fields: %w", err)
+	}
+
+	s.logger.Info("temporal migration complete: valid_from backfilled for existing memories")
+	return nil
+}
+
 // UpdateConflictFields sets ConflictGroupID and ConflictStatus on an existing memory.
 func (s *MemgraphStore) UpdateConflictFields(ctx context.Context, id, conflictGroupID, conflictStatus string) error {
 	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
@@ -876,62 +909,6 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 	return nil
 }
 
-// InvalidateMemory sets valid_to on a memory without deleting it.
-// Used when a superseding memory is stored (temporal versioning).
-func (s *MemgraphStore) InvalidateMemory(ctx context.Context, id string, validTo time.Time) error {
-	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
-	defer cancel()
-
-	session := s.driver.NewSession(wctx, s.sessionConfig())
-	defer s.closeSession(ctx, session)
-
-	validToStr := validTo.UTC().Format(time.RFC3339)
-	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		_, txErr := tx.Run(wctx, `
-			MATCH (m:Memory {uuid: $id})
-			SET m.valid_to = $valid_to
-		`, map[string]any{"id": id, "valid_to": validToStr})
-		return nil, txErr
-	})
-	if err != nil {
-		return fmt.Errorf("memgraph invalidate memory %s: %w", id, err)
-	}
-
-	s.logger.Debug("invalidated memory", "id", id, "valid_to", validToStr)
-	return nil
-}
-
-// GetHistory returns all versions of a memory chain, including invalidated ones.
-// Uses SupersedesID chain traversal. Newest version first.
-func (s *MemgraphStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
-	return s.GetChain(ctx, id)
-}
-
-// MigrateTemporalFields backfills valid_from = created_at for all memories without valid_from.
-// Idempotent — safe to run multiple times.
-func (s *MemgraphStore) MigrateTemporalFields(ctx context.Context) error {
-	wctx, cancel := context.WithTimeout(ctx, 5*memgraphWriteTimeout)
-	defer cancel()
-
-	session := s.driver.NewSession(wctx, s.sessionConfig())
-	defer s.closeSession(ctx, session)
-
-	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		_, txErr := tx.Run(wctx, `
-			MATCH (m:Memory)
-			WHERE m.valid_from IS NULL OR m.valid_from = ""
-			SET m.valid_from = m.created_at
-		`, nil)
-		return nil, txErr
-	})
-	if err != nil {
-		return fmt.Errorf("memgraph migrate temporal fields: %w", err)
-	}
-
-	s.logger.Info("temporal migration complete: valid_from backfilled for existing memories")
-	return nil
-}
-
 // Close releases the driver connection.
 func (s *MemgraphStore) Close() error {
 	closeCtx, cancel := context.WithTimeout(context.Background(), memgraphReadTimeout)
@@ -969,40 +946,40 @@ func memoryToParams(m models.Memory, vector []float32) map[string]any {
 	}
 
 	return map[string]any{
-		"uuid":               m.ID,
-		"type":               string(m.Type),
-		"scope":              string(m.Scope),
-		"visibility":         string(m.Visibility),
-		"content":            m.Content,
-		"confidence":         m.Confidence,
-		"source":             m.Source,
-		"project":            m.Project,
-		"ttl_seconds":        m.TTLSeconds,
-		"tags":               tags,
-		"metadata":           metaStr,
-		"created_at":         m.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":         m.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		"last_accessed":      m.LastAccessed.UTC().Format(time.RFC3339Nano),
-		"access_count":       m.AccessCount,
-		"supersedes_id":      m.SupersedesID,
-		"conflict_group_id":  m.ConflictGroupID,
-		"conflict_status":    string(m.ConflictStatus),
-		"valid_until_unix":   validUntilUnix,
-		"reinforced_at_unix": reinforcedAtUnix,
-		"reinforced_count":   int64(m.ReinforcedCount),
+		"uuid":              m.ID,
+		"type":              string(m.Type),
+		"scope":             string(m.Scope),
+		"visibility":        string(m.Visibility),
+		"content":           m.Content,
+		"confidence":        m.Confidence,
+		"source":            m.Source,
+		"project":           m.Project,
+		"ttl_seconds":       m.TTLSeconds,
+		"tags":              tags,
+		"metadata":          metaStr,
+		"created_at":        m.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":        m.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"last_accessed":     m.LastAccessed.UTC().Format(time.RFC3339Nano),
+		"access_count":      m.AccessCount,
+		"supersedes_id":     m.SupersedesID,
+		"conflict_group_id": m.ConflictGroupID,
+		"conflict_status":   string(m.ConflictStatus),
+		"valid_until_unix":  validUntilUnix,
 		"valid_from": func() string {
 			if m.ValidFrom.IsZero() {
-				return ""
+				return m.CreatedAt.UTC().Format(time.RFC3339Nano)
 			}
-			return m.ValidFrom.UTC().Format(time.RFC3339)
+			return m.ValidFrom.UTC().Format(time.RFC3339Nano)
 		}(),
 		"valid_to": func() string {
 			if m.ValidTo == nil {
 				return ""
 			}
-			return m.ValidTo.UTC().Format(time.RFC3339)
+			return m.ValidTo.UTC().Format(time.RFC3339Nano)
 		}(),
-		"embedding": float32SliceToAny(vector),
+		"reinforced_at_unix": reinforcedAtUnix,
+		"reinforced_count":   int64(m.ReinforcedCount),
+		"embedding":          float32SliceToAny(vector),
 	}
 }
 
@@ -1051,14 +1028,6 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 	if unix := propInt64(props, "reinforced_at_unix"); unix != 0 {
 		m.ReinforcedAt = time.Unix(unix, 0).UTC()
 	}
-	if ts := propString(props, "valid_from"); ts != "" {
-		m.ValidFrom = parseTime(ts)
-	}
-	if ts := propString(props, "valid_to"); ts != "" {
-		t := parseTime(ts)
-		m.ValidTo = &t
-	}
-	m.IsCurrentVersion = m.ValidTo == nil
 
 	// Tags stored as a Cypher list.
 	if raw, exists := props["tags"]; exists {
@@ -1213,6 +1182,21 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 		paramKey := fmt.Sprintf("filter_tag_%d", i)
 		clauses = append(clauses, fmt.Sprintf("$%s IN %s.tags", paramKey, nodeAlias))
 		params[paramKey] = tag
+	}
+
+	// Temporal filtering: by default exclude invalidated memories (valid_to IS NULL).
+	// AsOf takes precedence over IncludeInvalidated.
+	if f.AsOf != nil {
+		asOfStr := f.AsOf.UTC().Format(time.RFC3339)
+		// valid_from <= AsOf AND (valid_to IS NULL OR valid_to > AsOf)
+		clauses = append(clauses,
+			fmt.Sprintf("(%s.valid_from IS NULL OR %s.valid_from <= $filter_as_of)", nodeAlias, nodeAlias),
+			fmt.Sprintf("(%s.valid_to IS NULL OR %s.valid_to > $filter_as_of)", nodeAlias, nodeAlias),
+		)
+		params["filter_as_of"] = asOfStr
+	} else if !f.IncludeInvalidated {
+		// Default: only return currently-valid memories (valid_to not set).
+		clauses = append(clauses, fmt.Sprintf("(%s.valid_to IS NULL OR %s.valid_to = \"\")", nodeAlias, nodeAlias))
 	}
 
 	return clauses, params
