@@ -138,11 +138,13 @@ func (s *MemgraphStore) Search(ctx context.Context, vector []float32, limit uint
 		whereStr = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
+	// Memgraph requires WITH between YIELD and WHERE — cannot use WHERE directly after YIELD.
 	query := fmt.Sprintf(`
 		CALL vector_search.search("memory_embedding", $limit, $query_vector)
 		YIELD node, similarity
+		WITH node, similarity AS score
 		%s
-		RETURN node, similarity AS score
+		RETURN node, score
 	`, whereStr)
 
 	params := map[string]any{
@@ -325,8 +327,9 @@ func (s *MemgraphStore) FindDuplicates(ctx context.Context, vector []float32, th
 		res, txErr := tx.Run(rctx, `
 			CALL vector_search.search("memory_embedding", 10, $vector)
 			YIELD node, similarity
-			WHERE similarity >= $threshold
-			RETURN node, similarity AS score
+			WITH node, similarity AS score
+			WHERE score >= $threshold
+			RETURN node, score
 		`, map[string]any{
 			"vector":    float32SliceToAny(vector),
 			"threshold": threshold,
