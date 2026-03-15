@@ -24,6 +24,8 @@ func recallCmd() *cobra.Command {
 		tagsFlag         string
 		reason           bool
 		reasonCandidates int
+		graphDepth       int
+		includeHistory   bool
 	)
 
 	cmd := &cobra.Command{
@@ -51,6 +53,9 @@ func recallCmd() *cobra.Command {
 			if filterErr != nil {
 				return filterErr
 			}
+			if includeHistory {
+				filters.IncludeInvalidated = true
+			}
 
 			// Fetch more results than needed for re-ranking
 			searchLimit := uint64(50)
@@ -65,6 +70,7 @@ func recallCmd() *cobra.Command {
 			// Wire graph client for graph-augmented recall — MemgraphStore implements graph.Client.
 			gc := memgraph.NewGraphAdapter(st)
 			recaller.SetGraphClient(gc, st, cfg.Recall.GraphBudgetCLIMs)
+			recaller.SetGraphDepth(graphDepth)
 
 			ranked := recaller.RecallWithGraph(ctx, query, vec, results, project)
 
@@ -133,5 +139,7 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&tagsFlag, "tags", "", "filter by tags (comma-separated)")
 	cmd.Flags().BoolVar(&reason, "reason", false, "use Claude to re-rank results by genuine relevance (requires ANTHROPIC_API_KEY)")
 	cmd.Flags().IntVar(&reasonCandidates, "reason-candidates", 10, "number of top candidates to pass to Claude for re-ranking")
+	cmd.Flags().IntVar(&graphDepth, "graph-depth", 2, "graph traversal depth for graph-aware recall (1=direct entity facts only, 2=also traverse neighbour entities)")
+	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
 	return cmd
 }
