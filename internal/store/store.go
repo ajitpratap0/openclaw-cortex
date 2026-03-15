@@ -78,5 +78,6 @@ type SearchFilters struct {
 	Project        *string                  `json:"project,omitempty"`
 	Tags           []string                 `json:"tags,omitempty"`
 	Source         *string                  `json:"source,omitempty"`
-	ConflictStatus *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
+	ConflictStatus      *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
+	IncludeInvalidated  bool                     `json:"include_invalidated,omitempty"` // include invalidated/superseded memories
 }
