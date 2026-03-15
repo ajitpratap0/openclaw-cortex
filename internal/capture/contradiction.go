@@ -532,3 +532,12 @@ func InvalidateContradictions(ctx context.Context, st store.Store, results []Con
 		}
 	}
 }
+
+// DetectContradictions is a convenience wrapper for simple heuristic-only contradiction detection.
+// It creates a MemoryContradictionDetector with defaults and runs FindContradictions.
+func DetectContradictions(ctx context.Context, st store.Store, _ interface{}, newMemory models.Memory, newEmbedding []float32) ([]ContradictionResult, error) {
+	cfg := DefaultContradictionConfig()
+	logger := slog.Default()
+	d := NewContradictionDetector(st, nil, nil, nil, "", cfg, logger)
+	return d.FindContradictions(ctx, newMemory.Content, newEmbedding)
+}
