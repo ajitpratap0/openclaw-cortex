@@ -162,7 +162,11 @@ func (s *MemgraphStore) Search(ctx context.Context, vector []float32, limit uint
 		return nil, fmt.Errorf("memgraph search: %w", err)
 	}
 
-	return results.([]models.SearchResult), nil
+	sr, ok := results.([]models.SearchResult)
+	if !ok {
+		return nil, fmt.Errorf("memgraph search: unexpected result type %T", results)
+	}
+	return sr, nil
 }
 
 // Get retrieves a single memory by ID.
@@ -195,7 +199,11 @@ func (s *MemgraphStore) Get(ctx context.Context, id string) (*models.Memory, err
 		return nil, fmt.Errorf("%w: %s", store.ErrNotFound, id)
 	}
 
-	return result.(*models.Memory), nil
+	mem, ok := result.(*models.Memory)
+	if !ok {
+		return nil, fmt.Errorf("memgraph get: unexpected result type %T", result)
+	}
+	return mem, nil
 }
 
 // Delete removes a memory by ID. Returns store.ErrNotFound if nothing was deleted.
@@ -226,7 +234,11 @@ func (s *MemgraphStore) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("memgraph delete %s: %w", id, err)
 	}
 
-	if !deleted.(bool) {
+	deletedBool, ok := deleted.(bool)
+	if !ok {
+		return fmt.Errorf("memgraph delete: unexpected result type %T", deleted)
+	}
+	if !deletedBool {
 		return fmt.Errorf("%w: %s", store.ErrNotFound, id)
 	}
 
@@ -285,7 +297,10 @@ func (s *MemgraphStore) List(ctx context.Context, filters *store.SearchFilters, 
 		return nil, "", fmt.Errorf("memgraph list: %w", err)
 	}
 
-	memories := raw.([]models.Memory)
+	memories, ok := raw.([]models.Memory)
+	if !ok {
+		return nil, "", fmt.Errorf("memgraph list: unexpected result type %T", raw)
+	}
 
 	var nextCursor string
 	if uint64(len(memories)) == limit {
@@ -323,7 +338,11 @@ func (s *MemgraphStore) FindDuplicates(ctx context.Context, vector []float32, th
 		return nil, fmt.Errorf("memgraph find duplicates: %w", err)
 	}
 
-	return results.([]models.SearchResult), nil
+	sr, ok := results.([]models.SearchResult)
+	if !ok {
+		return nil, fmt.Errorf("memgraph find duplicates: unexpected result type %T", results)
+	}
+	return sr, nil
 }
 
 // UpdateAccessMetadata increments access count and updates last_accessed time.
@@ -382,7 +401,11 @@ func (s *MemgraphStore) Stats(ctx context.Context) (*models.CollectionStats, err
 	if err != nil {
 		return nil, fmt.Errorf("memgraph stats total count: %w", err)
 	}
-	stats.TotalMemories = totalResult.(int64)
+	total, ok := totalResult.(int64)
+	if !ok {
+		return nil, fmt.Errorf("memgraph stats total count: unexpected result type %T", totalResult)
+	}
+	stats.TotalMemories = total
 
 	// Count by type.
 	for _, mt := range models.ValidMemoryTypes {
@@ -432,7 +455,11 @@ func (s *MemgraphStore) countByField(ctx context.Context, session neo4j.SessionW
 	if err != nil {
 		return 0, err
 	}
-	return result.(int64), nil
+	cnt, ok := result.(int64)
+	if !ok {
+		return 0, fmt.Errorf("memgraph countByField: unexpected result type %T", result)
+	}
+	return cnt, nil
 }
 
 // populateHealthMetrics scans all memories to compute temporal range, top accessed,
@@ -467,7 +494,11 @@ func (s *MemgraphStore) populateHealthMetrics(ctx context.Context, session neo4j
 			s.logger.Warn("memgraph stats: scrolling for health metrics", "error", err)
 			return
 		}
-		page := raw.([]models.Memory)
+		page, ok := raw.([]models.Memory)
+		if !ok {
+			s.logger.Warn("memgraph stats: unexpected result type scrolling for health metrics", "type", fmt.Sprintf("%T", raw))
+			return
+		}
 		if len(page) == 0 {
 			break
 		}
@@ -635,7 +666,11 @@ func (s *MemgraphStore) GetEntity(ctx context.Context, id string) (*models.Entit
 		return nil, fmt.Errorf("%w: %s", store.ErrNotFound, id)
 	}
 
-	return result.(*models.Entity), nil
+	ent, ok := result.(*models.Entity)
+	if !ok {
+		return nil, fmt.Errorf("memgraph get entity: unexpected result type %T", result)
+	}
+	return ent, nil
 }
 
 // SearchEntities finds entities whose name contains the given string (case-insensitive).
@@ -661,7 +696,11 @@ func (s *MemgraphStore) SearchEntities(ctx context.Context, name string) ([]mode
 		return nil, fmt.Errorf("memgraph search entities: %w", err)
 	}
 
-	return raw.([]models.Entity), nil
+	entities, ok := raw.([]models.Entity)
+	if !ok {
+		return nil, fmt.Errorf("memgraph search entities: unexpected result type %T", raw)
+	}
+	return entities, nil
 }
 
 // LinkMemoryToEntity appends a memory ID to an entity's memory_ids list (idempotent).
