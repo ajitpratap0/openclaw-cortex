@@ -14,21 +14,35 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 )
 
-// newFakeOllamaServer returns an httptest.Server that responds to /api/embeddings
-// with a deterministic embedding of length dim.
+// newFakeOllamaServer returns an httptest.Server that responds to both
+// /api/embeddings (single) and /api/embed (batch) with deterministic embeddings.
 func newFakeOllamaServer(t *testing.T, dim int) *httptest.Server {
 	t.Helper()
+	makeEmbedding := func() []float64 {
+		emb := make([]float64, dim)
+		for i := range emb {
+			emb[i] = float64(i) * 0.01
+		}
+		return emb
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/embeddings" {
-			http.NotFound(w, r)
-			return
-		}
-		embedding := make([]float64, dim)
-		for i := range embedding {
-			embedding[i] = float64(i) * 0.01
-		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"embedding": embedding})
+		switch r.URL.Path {
+		case "/api/embeddings":
+			_ = json.NewEncoder(w).Encode(map[string]any{"embedding": makeEmbedding()})
+		case "/api/embed":
+			var req struct {
+				Input []string `json:"input"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			embeddings := make([][]float64, len(req.Input))
+			for i := range embeddings {
+				embeddings[i] = makeEmbedding()
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"embeddings": embeddings})
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	return srv
