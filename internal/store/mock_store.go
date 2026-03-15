@@ -73,9 +73,14 @@ func (m *MockStore) Search(_ context.Context, vector []float32, limit uint64, fi
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	includeInvalidated := filters != nil && filters.IncludeInvalidated
 	var results []models.SearchResult
 	for _, sm := range m.memories {
 		if !matchesFilters(sm.memory, filters) {
+			continue
+		}
+		// Skip invalidated memories by default (temporal versioning).
+		if !includeInvalidated && sm.memory.ValidTo != nil && !sm.memory.ValidTo.IsZero() {
 			continue
 		}
 		score := vecmath.CosineSimilarity(vector, sm.vector)
@@ -155,9 +160,15 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	includeInvalidated := filters != nil && (filters.IncludeInvalidated || filters.AsOf != nil)
 	var all []models.Memory
 	for _, sm := range m.memories {
 		if !matchesFilters(sm.memory, filters) {
+			continue
+		}
+		// Skip invalidated memories by default (temporal versioning).
+		// Include them if IncludeInvalidated=true or AsOf is set (point-in-time query).
+		if !includeInvalidated && sm.memory.ValidTo != nil && !sm.memory.ValidTo.IsZero() {
 			continue
 		}
 		mem := sm.memory
