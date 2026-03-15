@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
@@ -66,6 +67,12 @@ type Store interface {
 	// and increments ReinforcedCount. Used when a near-duplicate is captured.
 	UpdateReinforcement(ctx context.Context, id string, confidenceBoost float64) error
 
+	// InvalidateMemory sets ValidTo on a memory without deleting it (temporal versioning).
+	InvalidateMemory(ctx context.Context, id string, invalidAt time.Time) error
+
+	// GetHistory returns the full version chain for a memory, newest first.
+	GetHistory(ctx context.Context, id string) ([]models.Memory, error)
+
 	// Close cleans up resources.
 	Close() error
 }
@@ -79,4 +86,10 @@ type SearchFilters struct {
 	Tags           []string                 `json:"tags,omitempty"`
 	Source         *string                  `json:"source,omitempty"`
 	ConflictStatus *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
+
+	// Temporal versioning filters (Phase 1).
+	// IncludeInvalidated includes memories with ValidTo set (default: false).
+	IncludeInvalidated bool `json:"include_invalidated,omitempty"`
+	// AsOf filters to memories valid at the given point in time.
+	AsOf *time.Time `json:"as_of,omitempty"`
 }

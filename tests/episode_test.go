@@ -27,6 +27,9 @@ func TestEpisodeModel(t *testing.T) {
 
 	assert.NotEmpty(t, ep.UUID)
 	assert.Equal(t, "session-abc", ep.SessionID)
+	assert.Equal(t, "What is the capital of France?", ep.UserMsg)
+	assert.Equal(t, "Paris is the capital of France.", ep.AssistantMsg)
+	assert.False(t, ep.CapturedAt.IsZero())
 	assert.Equal(t, 2, len(ep.MemoryIDs))
 	assert.Equal(t, 1, len(ep.FactIDs))
 }

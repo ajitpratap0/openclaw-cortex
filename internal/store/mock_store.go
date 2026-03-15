@@ -37,6 +37,7 @@ func (m *MockStore) EnsureCollection(_ context.Context) error {
 }
 
 // Upsert inserts or updates a memory in the mock store.
+// If memory.SupersedesID is set, the superseded memory is auto-invalidated.
 func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -53,6 +54,16 @@ func (m *MockStore) Upsert(_ context.Context, memory models.Memory, vector []flo
 		}
 		memory.Metadata = meta
 	}
+	// Auto-invalidate the superseded memory if referenced.
+	if memory.SupersedesID != "" {
+		if prev, ok := m.memories[memory.SupersedesID]; ok && prev.memory.ValidTo == nil {
+			now := time.Now().UTC()
+			prev.memory.ValidTo = &now
+			prev.memory.IsCurrentVersion = false
+		}
+	}
+	// New memory starts as current version.
+	memory.IsCurrentVersion = true
 	m.memories[memory.ID] = &storedMemory{memory: memory, vector: vector}
 	return nil
 }
@@ -521,6 +532,26 @@ func (m *MockStore) GetChain(ctx context.Context, id string) ([]models.Memory, e
 	return chain, nil
 }
 
+// InvalidateMemory sets ValidTo on a memory without deleting it.
+func (m *MockStore) InvalidateMemory(_ context.Context, id string, invalidAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sm, ok := m.memories[id]
+	if !ok {
+		return fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
+	t := invalidAt.UTC()
+	sm.memory.ValidTo = &t
+	sm.memory.IsCurrentVersion = false
+	return nil
+}
+
+// GetHistory returns the full version chain for a memory, newest first.
+// It follows SupersedesID links to build the chain.
+func (m *MockStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
+	return m.GetChain(ctx, id)
+}
+
 // Close is a no-op for the mock store.
 func (m *MockStore) Close() error {
 	return nil
@@ -567,6 +598,21 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	}
 	if f.ConflictStatus != nil && mem.ConflictStatus != *f.ConflictStatus {
 		return false
+	}
+	// Temporal versioning: by default exclude invalidated (ValidTo != nil) memories.
+	if f.AsOf != nil {
+		// Point-in-time filter: memory must have started before AsOf and not ended before AsOf.
+		if !mem.ValidFrom.IsZero() && mem.ValidFrom.After(*f.AsOf) {
+			return false
+		}
+		if mem.ValidTo != nil && !mem.ValidTo.After(*f.AsOf) {
+			return false
+		}
+	} else if !f.IncludeInvalidated {
+		// Default: exclude invalidated memories.
+		if mem.ValidTo != nil {
+			return false
+		}
 	}
 	return true
 }

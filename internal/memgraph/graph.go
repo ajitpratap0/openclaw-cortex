@@ -498,6 +498,89 @@ func (g *GraphAdapter) RecallByGraph(ctx context.Context, query string, embeddin
 }
 
 // Healthy returns true if the Memgraph database is reachable.
+// CreateEpisode stores an Episode node in Memgraph.
+func (g *GraphAdapter) CreateEpisode(ctx context.Context, episode models.Episode) error {
+	session := g.store.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer func() { _ = session.Close(ctx) }()
+
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		cypher := `
+MERGE (e:Episode {uuid: $uuid})
+SET e.session_id = $session_id,
+    e.user_msg   = $user_msg,
+    e.assistant_msg = $assistant_msg,
+    e.captured_at   = $captured_at,
+    e.memory_ids    = $memory_ids,
+    e.fact_ids      = $fact_ids
+`
+		params := map[string]any{
+			"uuid":          episode.UUID,
+			"session_id":    episode.SessionID,
+			"user_msg":      episode.UserMsg,
+			"assistant_msg": episode.AssistantMsg,
+			"captured_at":   episode.CapturedAt.Unix(),
+			"memory_ids":    episode.MemoryIDs,
+			"fact_ids":      episode.FactIDs,
+		}
+		_, err := tx.Run(ctx, cypher, params)
+		return nil, err
+	})
+	return err
+}
+
+// GetEpisodesForMemory returns all Episode nodes whose memory_ids contain the given memoryID.
+func (g *GraphAdapter) GetEpisodesForMemory(ctx context.Context, memoryID string) ([]models.Episode, error) {
+	session := g.store.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer func() { _ = session.Close(ctx) }()
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		cypher := `MATCH (e:Episode) WHERE $memoryID IN e.memory_ids RETURN e`
+		records, err := tx.Run(ctx, cypher, map[string]any{"memoryID": memoryID})
+		if err != nil {
+			return nil, err
+		}
+		var episodes []models.Episode
+		for records.Next(ctx) {
+			rec := records.Record()
+			node, ok := rec.Values[0].(neo4j.Node)
+			if !ok {
+				continue
+			}
+			ep := models.Episode{
+				UUID:      getString(node.Props, "uuid"),
+				SessionID: getString(node.Props, "session_id"),
+			}
+			if ids, ok := node.Props["memory_ids"].([]any); ok {
+				for _, id := range ids {
+					if s, ok := id.(string); ok {
+						ep.MemoryIDs = append(ep.MemoryIDs, s)
+					}
+				}
+			}
+			if ids, ok := node.Props["fact_ids"].([]any); ok {
+				for _, id := range ids {
+					if s, ok := id.(string); ok {
+						ep.FactIDs = append(ep.FactIDs, s)
+					}
+				}
+			}
+			episodes = append(episodes, ep)
+		}
+		return episodes, records.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+	eps, ok := result.([]models.Episode)
+	if !ok {
+		return nil, nil
+	}
+	return eps, nil
+}
+
 func (g *GraphAdapter) Healthy(ctx context.Context) bool {
 	err := g.store.driver.VerifyConnectivity(ctx)
 	if err != nil {
@@ -583,6 +666,16 @@ func recordToFact(record *neo4j.Record) models.Fact {
 	}
 
 	return fact
+}
+
+// getString extracts a string from a map, returning "" if missing or wrong type.
+func getString(m map[string]any, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 // getStringSlice extracts a []string from a Bolt record field.

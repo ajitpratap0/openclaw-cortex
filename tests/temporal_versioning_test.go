@@ -111,7 +111,7 @@ func TestTemporalFilteringDefaultExcludesInvalidated(t *testing.T) {
 	memories, _, err := st.List(ctx, nil, 100, "")
 	require.NoError(t, err)
 
-	var ids []string
+	ids := make([]string, 0, len(memories))
 	for _, m := range memories {
 		ids = append(ids, m.ID)
 	}
@@ -147,7 +147,7 @@ func TestIncludeInvalidatedFlag(t *testing.T) {
 	memories, _, err := st.List(ctx, filters, 100, "")
 	require.NoError(t, err)
 
-	var ids []string
+	ids := make([]string, 0, len(memories))
 	for _, m := range memories {
 		ids = append(ids, m.ID)
 	}
@@ -227,7 +227,7 @@ func TestAsOfFilter(t *testing.T) {
 	memories, _, err := st.List(ctx, filters, 100, "")
 	require.NoError(t, err)
 
-	var ids []string
+	ids := make([]string, 0, len(memories))
 	for _, m := range memories {
 		ids = append(ids, m.ID)
 	}
@@ -239,7 +239,7 @@ func TestAsOfFilter(t *testing.T) {
 	memories2, _, err := st.List(ctx, filters2, 100, "")
 	require.NoError(t, err)
 
-	var ids2 []string
+	ids2 := make([]string, 0, len(memories2))
 	for _, m := range memories2 {
 		ids2 = append(ids2, m.ID)
 	}
