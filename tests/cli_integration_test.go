@@ -37,14 +37,6 @@ func runCLI(args ...string) (string, error) {
 	return string(out), runErr
 }
 
-// runCLIStdout executes the binary and returns only stdout, discarding stderr.
-// Use this for JSON output tests where log lines on stderr would break parsing.
-func runCLIStdout(args ...string) (string, error) {
-	cmd := exec.Command(cliBinPath, args...)
-	out, runErr := cmd.Output()
-	return string(out), runErr
-}
-
 // ── help-text tests (safe in short mode) ──────────────────────────────────────
 
 // TestCLI_Search_Help_ScopeFlag verifies that `search --help` documents the
@@ -111,7 +103,7 @@ func TestCLI_Search_JSON_ValidOutput(t *testing.T) {
 		t.Skip("binary not built")
 	}
 
-	out, err := runCLIStdout("search", "test query", "--json")
+	out, err := runCLI("search", "test query", "--json")
 	if err != nil {
 		// Qdrant or Ollama unavailable — skip gracefully.
 		t.Skipf("search command failed (live services unavailable): %v\noutput: %s", err, out)
@@ -154,7 +146,7 @@ func TestCLI_Recall_JSON_ValidOutput(t *testing.T) {
 		t.Skip("binary not built")
 	}
 
-	out, err := runCLIStdout("recall", "test query", "--context", "json")
+	out, err := runCLI("recall", "test query", "--context", "json")
 	if err != nil {
 		t.Skipf("recall command failed (live services unavailable): %v\noutput: %s", err, out)
 	}
@@ -174,7 +166,7 @@ func TestCLI_Search_JSON_OutputShape(t *testing.T) {
 		t.Skip("binary not built")
 	}
 
-	out, err := runCLIStdout("search", "test query", "--json")
+	out, err := runCLI("search", "test query", "--json")
 	if err != nil {
 		t.Skipf("search command failed (live services unavailable): %v\noutput: %s", err, out)
 	}
@@ -206,7 +198,7 @@ func TestCLI_Recall_JSON_OutputShape(t *testing.T) {
 		t.Skip("binary not built")
 	}
 
-	out, err := runCLIStdout("recall", "test query", "--context", "json")
+	out, err := runCLI("recall", "test query", "--context", "json")
 	if err != nil {
 		t.Skipf("recall command failed (live services unavailable): %v\noutput: %s", err, out)
 	}
