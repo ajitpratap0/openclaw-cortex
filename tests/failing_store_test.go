@@ -99,12 +99,6 @@ func (f *failingUpsertStore) MigrateTemporalFields(ctx context.Context) error {
 func (f *failingUpsertStore) Close() error {
 	return f.inner.Close()
 }
-func (f *failingUpsertStore) InvalidateMemory(ctx context.Context, id string, invalidAt time.Time) error {
-	return f.inner.InvalidateMemory(ctx, id, invalidAt)
-}
-func (f *failingUpsertStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
-	return f.inner.GetHistory(ctx, id)
-}
 
 // TestPostTurnHook_UpsertError_SkipsMemory verifies that when store.Upsert fails,
 // that memory is skipped but execution continues without error.
