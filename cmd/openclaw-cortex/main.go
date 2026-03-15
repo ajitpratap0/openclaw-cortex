@@ -16,7 +16,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 )
 
-var version = "0.7.1"
+var version = "0.7.2"
 
 var cfg *config.Config
 

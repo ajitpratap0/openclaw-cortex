@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-03-15
+
+### Fixed
+- Ollama EmbedBatch: replaced N sequential HTTP calls with single `/api/embed` batch call (36x faster — 6 items in 0.5s vs 18s)
+- Fixes `memory_store_batch` timeout in OpenClaw plugin
+
 ## [0.7.1] - 2026-03-15
 
 ### Fixed

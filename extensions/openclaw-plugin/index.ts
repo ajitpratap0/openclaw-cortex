@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 
 // Plugin version — bump this when making changes to the plugin.
 // The binary also has its own version (set via ldflags at build time).
-const PLUGIN_VERSION = "0.7.1";
+const PLUGIN_VERSION = "0.7.2";
 
 // ============================================================================
 // Types
