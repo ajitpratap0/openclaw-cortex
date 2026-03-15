@@ -150,10 +150,6 @@ func captureCmd() *cobra.Command {
 						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedMems[i].id); linkErr != nil {
 							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
 						}
-						// Also upsert entity to Memgraph for relationship traversal.
-						if graphErr := gc.UpsertEntity(ctx, entities[j]); graphErr != nil {
-							logger.Warn("upsert entity to memgraph failed", "entity", entities[j].Name, "error", graphErr)
-						}
 						allEntityNames = append(allEntityNames, entities[j].Name)
 						entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
 					}
