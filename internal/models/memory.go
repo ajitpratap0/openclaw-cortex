@@ -145,14 +145,6 @@ type Memory struct {
 
 	// ConflictStatus tracks resolution: "" (no conflict), "active" (unresolved), "resolved".
 	ConflictStatus ConflictStatus `json:"conflict_status,omitempty"`
-
-	// Temporal versioning fields (Phase 1).
-	// ValidFrom marks when this memory became valid.
-	ValidFrom time.Time `json:"valid_from,omitempty"`
-	// ValidTo marks when this memory was invalidated (nil = still current).
-	ValidTo *time.Time `json:"valid_to,omitempty"`
-	// IsCurrentVersion is true when ValidTo is nil (this is the live version).
-	IsCurrentVersion bool `json:"is_current_version"`
 }
 
 // SearchResult wraps a Memory with its similarity score.
