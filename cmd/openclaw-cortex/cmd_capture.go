@@ -12,6 +12,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	graphpkg "github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
@@ -43,7 +44,7 @@ func captureCmd() *cobra.Command {
 			}
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("capture: connecting to store: %w", err)
 			}
@@ -125,17 +126,8 @@ func captureCmd() *cobra.Command {
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
 			}
 
-			// Initialize optional graph client (used for entity + fact writes to Neo4j).
-			var gc graphpkg.Client
-			if cfg.Graph.Enabled {
-				var gcErr error
-				gc, gcErr = newGraphClient(ctx, logger)
-				if gcErr != nil {
-					logger.Warn("graph client init failed, graph features disabled", "error", gcErr)
-				} else if gc != nil {
-					defer func() { _ = gc.Close() }()
-				}
-			}
+			// The MemgraphStore implements graph.Client — use it directly for entity + fact writes.
+			gc := memgraph.NewGraphAdapter(st)
 
 			// Entity extraction (graceful — skipped if no LLM or on error).
 			// entityNameToID maps lowercased entity names to their UUIDs so that
@@ -152,17 +144,15 @@ func captureCmd() *cobra.Command {
 					}
 					for j := range entities {
 						if upsertErr := st.UpsertEntity(ctx, entities[j]); upsertErr != nil {
-							logger.Warn("upsert entity to qdrant failed", "entity", entities[j].Name, "error", upsertErr)
+							logger.Warn("upsert entity to store failed", "entity", entities[j].Name, "error", upsertErr)
 							continue
 						}
 						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedMems[i].id); linkErr != nil {
 							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
 						}
-						// Also upsert entity to Neo4j graph for relationship traversal.
-						if gc != nil {
-							if graphErr := gc.UpsertEntity(ctx, entities[j]); graphErr != nil {
-								logger.Warn("upsert entity to neo4j failed", "entity", entities[j].Name, "error", graphErr)
-							}
+						// Also upsert entity to Memgraph for relationship traversal.
+						if graphErr := gc.UpsertEntity(ctx, entities[j]); graphErr != nil {
+							logger.Warn("upsert entity to memgraph failed", "entity", entities[j].Name, "error", graphErr)
 						}
 						allEntityNames = append(allEntityNames, entities[j].Name)
 						entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
@@ -170,10 +160,10 @@ func captureCmd() *cobra.Command {
 				}
 			}
 
-			// Fact extraction + graph write (graceful — skipped if graph disabled or on error).
+			// Fact extraction + graph write (graceful — skipped on error).
 			// The FactExtractor returns entity names in SourceEntityID/TargetEntityID;
-			// we resolve them to UUIDs via entityNameToID before upserting to Neo4j.
-			if gc != nil && llmClient != nil && len(allEntityNames) > 0 {
+			// we resolve them to UUIDs via entityNameToID before upserting to Memgraph.
+			if llmClient != nil && len(allEntityNames) > 0 {
 				factExtractor := graphpkg.NewFactExtractor(llmClient, cfg.Claude.Model, logger)
 				for i := range storedMems {
 					facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)

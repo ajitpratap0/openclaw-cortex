@@ -25,35 +25,35 @@ golangci-lint run ./...
 # Format
 gofmt -w . && goimports -w .
 
-# Local services (Qdrant required, Neo4j optional for graph features)
+# Local services (Memgraph required)
 docker compose up -d
-# Health check (verifies Qdrant, Ollama, Claude LLM, Neo4j)
+# Health check (verifies Memgraph, Ollama, Claude LLM)
 openclaw-cortex health
 ```
 
 ## Architecture
 
-OpenClaw Cortex is a hybrid semantic memory system for AI agents. It stores memories in Qdrant (vector DB over gRPC) and retrieves them using multi-factor ranking. An optional Neo4j entity-relationship graph provides bi-temporal fact storage and graph-augmented recall. All external services (Qdrant, Ollama, Claude/Gateway, Neo4j) are wired together only in `cmd/`; `internal/` packages accept interfaces.
+OpenClaw Cortex is a hybrid semantic memory system for AI agents. It stores memories and entity-relationship facts in Memgraph (graph DB with vector search) and retrieves them using multi-factor ranking. All external services (Memgraph, Ollama, Claude/Gateway) are wired together only in `cmd/`; `internal/` packages accept interfaces.
 
 **Layered call flow for a `recall` command:**
 ```
 cmd/cmd_recall.go
-  → recall.Recaller          (internal/recall/)   — multi-factor scoring + optional graph merge
-  → graph.Client             (internal/graph/)    — Neo4j graph recall (optional, latency-budgeted)
-  → embedder.Embedder        (internal/embedder/) — Ollama HTTP, 768-dim nomic-embed-text
-  → store.Store              (internal/store/)    — Qdrant gRPC CRUD + vector search
+  → recall.Recaller          (internal/recall/)      — multi-factor scoring + graph merge
+  → memgraph.Client          (internal/memgraph/)    — Memgraph graph recall (latency-budgeted)
+  → embedder.Embedder        (internal/embedder/)    — Ollama HTTP, 768-dim nomic-embed-text
+  → memgraph.Client          (internal/memgraph/)    — vector search + graph traversal
   → tokenizer.FormatMemoriesWithBudget (pkg/tokenizer/) — trim to token budget
 ```
 
 **Capture flow** (`cmd capture`):
 ```
 cmd/cmd_capture.go
-  → capture.Capturer         (internal/capture/)  — Claude Haiku extracts JSON memories
-  → capture.EntityExtractor  (internal/capture/)  — Claude Haiku extracts entities
-  → graph.FactExtractor      (internal/graph/)    — Claude Haiku extracts relationship facts
-  → classifier.Classifier    (internal/classifier/) — heuristic keyword scoring → MemoryType
-  → store.Store              — dedup via cosine similarity, then upsert
-  → graph.Client             — entity/fact upsert to Neo4j (optional)
+  → capture.Capturer         (internal/capture/)     — Claude Haiku extracts JSON memories
+  → capture.EntityExtractor  (internal/capture/)     — Claude Haiku extracts entities
+  → memgraph.FactExtractor   (internal/memgraph/)    — Claude Haiku extracts relationship facts
+  → classifier.Classifier    (internal/classifier/)  — heuristic keyword scoring → MemoryType
+  → memgraph.Client          (internal/memgraph/)    — dedup via cosine similarity, then upsert
+  → memgraph.Client          (internal/memgraph/)    — entity/fact upsert (always enabled)
 ```
 
 **Lifecycle flow** (`cmd consolidate`):
@@ -80,12 +80,11 @@ The factory `llm.NewClient(cfg.Claude)` picks the right implementation based on 
 
 | Interface | File | Implementations |
 |-----------|------|-----------------|
-| `store.Store` | `internal/store/store.go` | `QdrantStore` (gRPC), `MockStore` (tests) |
+| `memgraph.Client` | `internal/memgraph/client.go` | `MemgraphClient` (Bolt), `MockMemgraphClient` (tests) |
 | `embedder.Embedder` | `internal/embedder/embedder.go` | `OllamaEmbedder` (HTTP) |
 | `classifier.Classifier` | `internal/classifier/classifier.go` | `HeuristicClassifier` |
 | `capture.Capturer` | `internal/capture/capture.go` | `ClaudeCapturer` |
 | `llm.LLMClient` | `internal/llm/client.go` | `AnthropicClient`, `GatewayClient` |
-| `graph.Client` | `internal/graph/client.go` | `Neo4jClient`, `MockGraphClient` |
 
 ### Core Data Model (`internal/models/memory.go`)
 
@@ -133,8 +132,8 @@ Required to merge:
 ## Conventions
 
 - **Error wrapping**: always `fmt.Errorf("context: %w", err)` — never bare `err` returns from internal functions.
-- **Context propagation**: every function that touches Qdrant, Ollama, or Claude accepts `ctx context.Context` as the first argument.
-- **Tests live in `tests/`**: all test files are in the top-level `tests/` package (black-box testing), not co-located with the package under test. Use `MockStore` from `internal/store/mock_store.go` to avoid requiring live Qdrant.
+- **Context propagation**: every function that touches Memgraph, Ollama, or Claude accepts `ctx context.Context` as the first argument.
+- **Tests live in `tests/`**: all test files are in the top-level `tests/` package (black-box testing), not co-located with the package under test. Use `MockMemgraphClient` from `internal/memgraph/mock_client.go` to avoid requiring live Memgraph.
 - **Prompt injection prevention**: user/assistant content is XML-escaped in `internal/capture/capture.go` before interpolation into the Claude prompt. Maintain this for any new LLM-calling code.
 - **Linter**: golangci-lint v2 with `linters.settings` (not top-level `settings`) and `linters.exclusions.rules` (not `issues.exclude-rules`). Test files are excluded from `errcheck` and `unparam`.
 
@@ -142,17 +141,16 @@ Required to merge:
 
 | Service | Default address | Purpose |
 |---------|----------------|---------|
-| Qdrant | `localhost:6334` (gRPC) | Vector storage and search |
+| Memgraph | `bolt://localhost:7687` | Vector storage, graph traversal, entity-relationship storage |
 | Ollama | `http://localhost:11434` | Embeddings (`nomic-embed-text`, 768-dim) |
 | Claude LLM | Anthropic API or OpenClaw gateway | Memory extraction, entity/fact extraction, resolution |
-| Neo4j | `bolt://localhost:7687` | Entity-relationship graph (optional, `graph.enabled`) |
 
 ### LLM Authentication (choose one)
 
 1. **API key**: Set `ANTHROPIC_API_KEY` env var or `claude.api_key` in config
 2. **OpenClaw gateway** (for Max plan users): Set `claude.gateway_url` and `claude.gateway_token` in config — routes through `http://127.0.0.1:18789/v1/chat/completions`
 
-Config is loaded from `~/.openclaw-cortex/config.yaml` with env var overrides prefixed `OPENCLAW_CORTEX_` (e.g., `OPENCLAW_CORTEX_QDRANT_HOST`).
+Config is loaded from `~/.openclaw-cortex/config.yaml` with env var overrides prefixed `OPENCLAW_CORTEX_` (e.g., `OPENCLAW_CORTEX_MEMGRAPH_URI`).
 
 ### Versioning
 

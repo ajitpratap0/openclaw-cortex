@@ -5,14 +5,11 @@ import (
 	"testing"
 )
 
-// validConfig returns a fully-valid Config for mutation testing.
+// validCfg returns a fully-valid Config for mutation testing.
 func validCfg() *Config {
 	return &Config{
-		Qdrant: QdrantConfig{
-			Host:       "localhost",
-			GRPCPort:   6334,
-			HTTPPort:   6333,
-			Collection: "test_col",
+		Memgraph: MemgraphConfig{
+			URI: "bolt://localhost:7687",
 		},
 		Ollama: OllamaConfig{
 			BaseURL: "http://localhost:11434",
@@ -77,19 +74,11 @@ func TestUAT_Validate_VectorDimensionZero(t *testing.T) {
 	}
 }
 
-func TestUAT_Validate_EmptyHost(t *testing.T) {
+func TestUAT_Validate_EmptyMemgraphURI(t *testing.T) {
 	cfg := validCfg()
-	cfg.Qdrant.Host = ""
+	cfg.Memgraph.URI = ""
 	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected error for empty qdrant.host")
-	}
-}
-
-func TestUAT_Validate_EmptyCollection(t *testing.T) {
-	cfg := validCfg()
-	cfg.Qdrant.Collection = ""
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected error for empty qdrant.collection")
+		t.Fatal("expected error for empty memgraph.uri")
 	}
 }
 

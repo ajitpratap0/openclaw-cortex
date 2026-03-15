@@ -23,7 +23,7 @@ func indexCmd() *cobra.Command {
 			ctx := cmd.Context()
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("index: connecting to store: %w", err)
 			}

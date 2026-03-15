@@ -31,30 +31,21 @@ type CaptureQualityConfig struct {
 
 // Config holds all configuration for cortex.
 type Config struct {
-	Qdrant         QdrantConfig         `mapstructure:"qdrant"`
-	Ollama         OllamaConfig         `mapstructure:"ollama"`
-	Claude         ClaudeConfig         `mapstructure:"claude"`
-	Memory         MemoryConfig         `mapstructure:"memory"`
-	Logging        LoggingConfig        `mapstructure:"logging"`
-	API            APIConfig            `mapstructure:"api"`
-	Embedder       EmbedderConfig       `mapstructure:"embedder"`
-	Recall         RecallConfig         `mapstructure:"recall"`
-	CaptureQuality CaptureQualityConfig `mapstructure:"capture_quality"`
-	Graph          GraphConfig          `mapstructure:"graph"`
+	Memgraph         MemgraphConfig         `mapstructure:"memgraph"`
+	Ollama           OllamaConfig           `mapstructure:"ollama"`
+	Claude           ClaudeConfig           `mapstructure:"claude"`
+	Memory           MemoryConfig           `mapstructure:"memory"`
+	Logging          LoggingConfig          `mapstructure:"logging"`
+	API              APIConfig              `mapstructure:"api"`
+	Embedder         EmbedderConfig         `mapstructure:"embedder"`
+	Recall           RecallConfig           `mapstructure:"recall"`
+	CaptureQuality   CaptureQualityConfig   `mapstructure:"capture_quality"`
+	EntityResolution EntityResolutionConfig `mapstructure:"entity_resolution"`
+	FactExtraction   FactExtractionConfig   `mapstructure:"fact_extraction"`
 }
 
-// GraphConfig holds entity-relationship graph settings.
-type GraphConfig struct {
-	Enabled           bool                   `mapstructure:"enabled"`
-	Neo4j             Neo4jConfig            `mapstructure:"neo4j"`
-	EntityResolution  EntityResolutionConfig `mapstructure:"entity_resolution"`
-	FactExtraction    FactExtractionConfig   `mapstructure:"fact_extraction"`
-	RecallBudgetMs    int                    `mapstructure:"recall_budget_ms"`
-	RecallBudgetCLIMs int                    `mapstructure:"recall_budget_cli_ms"`
-}
-
-// Neo4jConfig holds Neo4j graph database connection settings.
-type Neo4jConfig struct {
+// MemgraphConfig holds Memgraph database connection settings.
+type MemgraphConfig struct {
 	URI      string `mapstructure:"uri"`
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
@@ -77,6 +68,8 @@ type RecallConfig struct {
 	RerankScoreSpreadThreshold float64             `mapstructure:"rerank_score_spread_threshold"`
 	RerankLatencyBudgetHooksMs int                 `mapstructure:"rerank_latency_budget_hooks_ms"`
 	RerankLatencyBudgetCLIMs   int                 `mapstructure:"rerank_latency_budget_cli_ms"`
+	GraphBudgetMs              int                 `mapstructure:"graph_budget_ms"`
+	GraphBudgetCLIMs           int                 `mapstructure:"graph_budget_cli_ms"`
 	Weights                    RecallWeightsConfig `mapstructure:"weights"`
 }
 
@@ -98,15 +91,6 @@ type APIConfig struct {
 	AuthToken  string `mapstructure:"auth_token"`
 }
 
-// QdrantConfig holds Qdrant vector database connection settings.
-type QdrantConfig struct {
-	Host       string `mapstructure:"host"`
-	GRPCPort   int    `mapstructure:"grpc_port"`
-	HTTPPort   int    `mapstructure:"http_port"`
-	Collection string `mapstructure:"collection"`
-	UseTLS     bool   `mapstructure:"use_tls"`
-}
-
 // OllamaConfig holds Ollama embedding service settings.
 type OllamaConfig struct {
 	BaseURL string `mapstructure:"base_url"`
@@ -125,7 +109,7 @@ type EmbedderConfig struct {
 	OpenAIModel string `mapstructure:"openai_model"`
 
 	// OpenAIDim is the number of dimensions requested from the OpenAI API.
-	// Defaults to 768 to maintain compatibility with existing Qdrant collections.
+	// Defaults to 768 to maintain compatibility with existing collections.
 	OpenAIDim int `mapstructure:"openai_dimensions"`
 }
 
@@ -180,11 +164,10 @@ func Load() (*Config, error) {
 	v := viper.New()
 
 	// Defaults
-	v.SetDefault("qdrant.host", "localhost")
-	v.SetDefault("qdrant.grpc_port", 6334)
-	v.SetDefault("qdrant.http_port", 6333)
-	v.SetDefault("qdrant.collection", "cortex_memories")
-	v.SetDefault("qdrant.use_tls", false)
+	v.SetDefault("memgraph.uri", "bolt://localhost:7687")
+	v.SetDefault("memgraph.username", "")
+	v.SetDefault("memgraph.password", "")
+	v.SetDefault("memgraph.database", "")
 
 	v.SetDefault("ollama.base_url", "http://localhost:11434")
 	v.SetDefault("ollama.model", "nomic-embed-text")
@@ -212,6 +195,8 @@ func Load() (*Config, error) {
 	v.SetDefault("recall.rerank_score_spread_threshold", 0.15)
 	v.SetDefault("recall.rerank_latency_budget_hooks_ms", 100)
 	v.SetDefault("recall.rerank_latency_budget_cli_ms", 3000)
+	v.SetDefault("recall.graph_budget_ms", 50)
+	v.SetDefault("recall.graph_budget_cli_ms", 500)
 
 	v.SetDefault("recall.weights.similarity", 0.35)
 	v.SetDefault("recall.weights.recency", 0.15)
@@ -222,16 +207,9 @@ func Load() (*Config, error) {
 	v.SetDefault("recall.weights.reinforcement", 0.07)
 	v.SetDefault("recall.weights.tag_affinity", 0.05)
 
-	v.SetDefault("graph.enabled", false)
-	v.SetDefault("graph.neo4j.uri", "bolt://localhost:7687")
-	v.SetDefault("graph.neo4j.username", "neo4j")
-	v.SetDefault("graph.neo4j.password", "")
-	v.SetDefault("graph.neo4j.database", "neo4j")
-	v.SetDefault("graph.entity_resolution.similarity_threshold", 0.95)
-	v.SetDefault("graph.entity_resolution.max_candidates", 10)
-	v.SetDefault("graph.fact_extraction.enabled", true)
-	v.SetDefault("graph.recall_budget_ms", 50)
-	v.SetDefault("graph.recall_budget_cli_ms", 500)
+	v.SetDefault("entity_resolution.similarity_threshold", 0.95)
+	v.SetDefault("entity_resolution.max_candidates", 10)
+	v.SetDefault("fact_extraction.enabled", true)
 
 	v.SetDefault("capture_quality.context_window_turns", 3)
 	v.SetDefault("capture_quality.reinforcement_threshold", 0.80)
@@ -252,8 +230,10 @@ func Load() (*Config, error) {
 
 	// Map specific env vars
 	_ = v.BindEnv("claude.api_key", "ANTHROPIC_API_KEY")
-	_ = v.BindEnv("qdrant.host", "OPENCLAW_CORTEX_QDRANT_HOST")
-	_ = v.BindEnv("qdrant.grpc_port", "OPENCLAW_CORTEX_QDRANT_GRPC_PORT")
+	_ = v.BindEnv("memgraph.uri", "OPENCLAW_CORTEX_MEMGRAPH_URI")
+	_ = v.BindEnv("memgraph.username", "OPENCLAW_CORTEX_MEMGRAPH_USERNAME")
+	_ = v.BindEnv("memgraph.password", "OPENCLAW_CORTEX_MEMGRAPH_PASSWORD")
+	_ = v.BindEnv("memgraph.database", "OPENCLAW_CORTEX_MEMGRAPH_DATABASE")
 	_ = v.BindEnv("ollama.base_url", "OPENCLAW_CORTEX_OLLAMA_BASE_URL")
 	_ = v.BindEnv("api.listen_addr", "OPENCLAW_CORTEX_API_LISTEN_ADDR")
 	_ = v.BindEnv("api.auth_token", "OPENCLAW_CORTEX_API_AUTH_TOKEN")
@@ -285,14 +265,11 @@ func Load() (*Config, error) {
 
 // Validate checks that required configuration fields are set and consistent.
 func (c *Config) Validate() error {
-	if c.Qdrant.Host == "" {
-		return fmt.Errorf("qdrant.host must not be empty")
+	if c.Memgraph.URI == "" {
+		return fmt.Errorf("memgraph.uri must not be empty")
 	}
 	if c.Ollama.BaseURL == "" {
 		return fmt.Errorf("ollama.base_url must not be empty")
-	}
-	if c.Qdrant.Collection == "" {
-		return fmt.Errorf("qdrant.collection must not be empty")
 	}
 	if c.Memory.ChunkSize <= 0 {
 		return fmt.Errorf("memory.chunk_size must be greater than 0")

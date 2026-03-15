@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
@@ -35,7 +36,7 @@ func recallCmd() *cobra.Command {
 			query := args[0]
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("recall: connecting to store: %w", err)
 			}
@@ -61,14 +62,9 @@ func recallCmd() *cobra.Command {
 			// Re-rank with multi-factor scoring using config-loaded weights.
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
-			// Wire optional graph client for graph-augmented recall.
-			gc, gcErr := newGraphClient(ctx, logger)
-			if gcErr != nil {
-				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
-			} else if gc != nil {
-				defer func() { _ = gc.Close() }()
-				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetCLIMs)
-			}
+			// Wire graph client for graph-augmented recall — MemgraphStore implements graph.Client.
+			gc := memgraph.NewGraphAdapter(st)
+			recaller.SetGraphClient(gc, st, cfg.Recall.GraphBudgetCLIMs)
 
 			ranked := recaller.RecallWithGraph(ctx, query, vec, results, project)
 

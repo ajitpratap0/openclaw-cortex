@@ -20,7 +20,7 @@ func statsCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("stats: connecting to store: %w", err)
 			}

@@ -13,11 +13,10 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
-	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
-	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 )
 
-var version = "0.6.0"
+var version = "0.7.0"
 
 var cfg *config.Config
 
@@ -100,39 +99,8 @@ func newEmbedder(logger *slog.Logger) embedder.Embedder {
 	)
 }
 
-func newStore(logger *slog.Logger) (store.Store, error) {
-	return store.NewQdrantStore(
-		cfg.Qdrant.Host,
-		cfg.Qdrant.GRPCPort,
-		cfg.Qdrant.Collection,
-		cfg.Memory.VectorDimension,
-		cfg.Qdrant.UseTLS,
-		logger,
-	)
-}
-
-// newGraphClient creates a graph.Client if graph integration is enabled.
-// Returns (nil, nil) when disabled — callers must nil-check.
-func newGraphClient(ctx context.Context, logger *slog.Logger) (graph.Client, error) {
-	if !cfg.Graph.Enabled {
-		return nil, nil
-	}
-	client, clientErr := graph.NewNeo4jClient(
-		ctx,
-		cfg.Graph.Neo4j.URI,
-		cfg.Graph.Neo4j.Username,
-		cfg.Graph.Neo4j.Password,
-		cfg.Graph.Neo4j.Database,
-		logger,
-	)
-	if clientErr != nil {
-		return nil, fmt.Errorf("graph client: %w", clientErr)
-	}
-	if schemaErr := client.EnsureSchema(ctx); schemaErr != nil {
-		_ = client.Close()
-		return nil, fmt.Errorf("graph schema: %w", schemaErr)
-	}
-	return client, nil
+func newMemgraphStore(ctx context.Context, logger *slog.Logger) (*memgraph.MemgraphStore, error) {
+	return memgraph.New(ctx, cfg.Memgraph.URI, cfg.Memgraph.Username, cfg.Memgraph.Password, cfg.Memgraph.Database, logger)
 }
 
 func truncate(s string, maxLen int) string {

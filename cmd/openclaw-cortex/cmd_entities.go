@@ -36,7 +36,7 @@ func entitiesListCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("entities list: connecting to store: %w", err)
 			}
@@ -85,7 +85,7 @@ func entitiesGetCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("entities get: connecting to store: %w", err)
 			}
@@ -134,7 +134,7 @@ func entitiesSearchCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("entities search: connecting to store: %w", err)
 			}

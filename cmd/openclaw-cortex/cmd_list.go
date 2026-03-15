@@ -23,7 +23,7 @@ func listCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("list: connecting to store: %w", err)
 			}

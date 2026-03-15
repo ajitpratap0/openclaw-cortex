@@ -11,14 +11,12 @@ import (
 
 func TestConfigDefaults(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
-	t.Setenv("OPENCLAW_CORTEX_QDRANT_HOST", "")
+	t.Setenv("OPENCLAW_CORTEX_MEMGRAPH_URI", "")
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, "localhost", cfg.Qdrant.Host)
-	assert.Equal(t, 6334, cfg.Qdrant.GRPCPort)
-	assert.Equal(t, "cortex_memories", cfg.Qdrant.Collection)
+	assert.Equal(t, "bolt://localhost:7687", cfg.Memgraph.URI)
 	assert.Equal(t, "http://localhost:11434", cfg.Ollama.BaseURL)
 	assert.Equal(t, "nomic-embed-text", cfg.Ollama.Model)
 	assert.Equal(t, float64(0.92), cfg.Memory.DedupThreshold)
@@ -27,20 +25,20 @@ func TestConfigDefaults(t *testing.T) {
 }
 
 func TestConfigEnvOverride(t *testing.T) {
-	t.Setenv("OPENCLAW_CORTEX_QDRANT_HOST", "myqdrant.example.com")
+	t.Setenv("OPENCLAW_CORTEX_MEMGRAPH_URI", "bolt://myhost:7687")
 	t.Setenv("ANTHROPIC_API_KEY", "test-key-12345")
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, "myqdrant.example.com", cfg.Qdrant.Host)
+	assert.Equal(t, "bolt://myhost:7687", cfg.Memgraph.URI)
 	assert.Equal(t, "test-key-12345", cfg.Claude.APIKey)
 }
 
 func TestConfigValidationChunkOverlap(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       10,
 			ChunkOverlap:    15,
@@ -65,8 +63,8 @@ func TestConfigClaudeStringMasksKey(t *testing.T) {
 
 func TestConfigValidationDedupThreshold(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -81,8 +79,8 @@ func TestConfigValidationDedupThreshold(t *testing.T) {
 
 func TestConfigValidationMissingHost(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: ""},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -92,29 +90,13 @@ func TestConfigValidationMissingHost(t *testing.T) {
 	}
 	err := cfg.Validate()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "qdrant.host")
-}
-
-func TestConfigValidationMissingCollection(t *testing.T) {
-	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: ""},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
-		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
-		},
-	}
-	err := cfg.Validate()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "qdrant.collection")
+	assert.Contains(t, err.Error(), "memgraph.uri")
 }
 
 func TestConfigValidationMissingOllamaURL(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: ""},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: ""},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -129,8 +111,8 @@ func TestConfigValidationMissingOllamaURL(t *testing.T) {
 
 func TestConfigValidationChunkSizeZero(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       0,
 			ChunkOverlap:    0,
@@ -145,8 +127,8 @@ func TestConfigValidationChunkSizeZero(t *testing.T) {
 
 func TestConfigValidationVectorDimensionZero(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -161,8 +143,8 @@ func TestConfigValidationVectorDimensionZero(t *testing.T) {
 
 func TestConfigValidationNegativeTTL(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -178,8 +160,8 @@ func TestConfigValidationNegativeTTL(t *testing.T) {
 
 func TestConfigValidationNegativeChunkOverlap(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    -1,
@@ -194,8 +176,8 @@ func TestConfigValidationNegativeChunkOverlap(t *testing.T) {
 
 func TestConfigValidationValid(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "cortex_memories"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,
@@ -220,8 +202,8 @@ func TestConfigClaudeStringShortKey(t *testing.T) {
 
 func validBaseConfig() config.Config {
 	return config.Config{
-		Qdrant: config.QdrantConfig{Host: "localhost", Collection: "test"},
-		Ollama: config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
 			ChunkSize:       512,
 			ChunkOverlap:    64,

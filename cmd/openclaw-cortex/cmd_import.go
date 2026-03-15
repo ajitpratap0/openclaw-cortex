@@ -91,7 +91,7 @@ Use - as the file path to read from stdin.`,
 
 			// Connect to services.
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("import: connecting to store: %w", err)
 			}

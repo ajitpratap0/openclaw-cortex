@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-15
+
+### Changed
+- **BREAKING**: Replaced Qdrant + Neo4j with single Memgraph instance
+- Single container for vector search + graph traversal (was two containers)
+- Graph features always enabled (removed `graph.enabled` flag)
+- Config simplified: `memgraph.uri` replaces `qdrant.*` and `graph.neo4j.*`
+- Entity storage unified in Memgraph (was duplicated in Qdrant + Neo4j)
+
+### Removed
+- Qdrant dependency (`qdrant/go-client` removed from go.mod)
+- `internal/store/qdrant.go` — replaced by `internal/memgraph/`
+- `internal/graph/neo4j.go` — replaced by `internal/memgraph/`
+- `QdrantConfig`, `Neo4jConfig`, `GraphConfig` from config
+- `graph.enabled` configuration flag
+
 ## [0.6.0] - 2026-03-15
 
 ### Added
@@ -110,7 +126,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Comprehensive test suite with mocked Qdrant
 - golangci-lint configuration
 
-[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.3.0...v0.4.0

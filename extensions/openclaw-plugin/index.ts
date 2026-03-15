@@ -1,7 +1,7 @@
 /**
  * OpenClaw Memory (Cortex) Plugin
  *
- * Long-term semantic memory backed by openclaw-cortex (Qdrant vector DB).
+ * Long-term semantic memory backed by openclaw-cortex (Memgraph graph DB with vector search).
  * Provides multi-factor ranked recall (similarity + recency + frequency +
  * type boost + scope boost), Claude-powered capture, deduplication, and
  * lifecycle management.
@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 
 // Plugin version — bump this when making changes to the plugin.
 // The binary also has its own version (set via ldflags at build time).
-const PLUGIN_VERSION = "0.6.0";
+const PLUGIN_VERSION = "0.7.0";
 
 // ============================================================================
 // Types
@@ -298,7 +298,7 @@ type OpenClawPluginApi = any;
 const memoryCortexPlugin = {
   id: "memory-cortex",
   name: "Memory (Cortex)",
-  description: "Qdrant-backed semantic memory with multi-factor ranking",
+  description: "Memgraph-backed semantic memory with multi-factor ranking",
   kind: "memory" as const,
 
   register(api: OpenClawPluginApi) {
@@ -819,9 +819,9 @@ const memoryCortexPlugin = {
 
         const healthy = await cortex.health();
         if (healthy) {
-          api.logger.info("memory-cortex: connected to Qdrant + Ollama");
+          api.logger.info("memory-cortex: connected to Memgraph + Ollama");
         } else {
-          api.logger.warn("memory-cortex: backend unhealthy — ensure Qdrant and Ollama are running");
+          api.logger.warn("memory-cortex: backend unhealthy — ensure Memgraph and Ollama are running");
         }
       },
       stop() {

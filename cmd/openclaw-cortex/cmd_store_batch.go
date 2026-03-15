@@ -94,7 +94,7 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 			}
 
 			emb := newEmbedder(logger)
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				return fmt.Errorf("store-batch: connecting to store: %w", storeErr)
 			}

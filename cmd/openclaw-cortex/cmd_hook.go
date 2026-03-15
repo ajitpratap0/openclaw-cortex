@@ -17,6 +17,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
@@ -96,10 +97,10 @@ func hookPreCmd() *cobra.Command {
 			}
 
 			emb := newEmbedder(logger)
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				logger.Error("hook pre: connecting to store", "error", storeErr)
-				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), continuing without memory context\n", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Memgraph: %v), continuing without memory context\n", storeErr)
 				writePreOutput(hookPreOutput{})
 				return nil
 			}
@@ -114,13 +115,9 @@ func hookPreCmd() *cobra.Command {
 
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
-			gc, gcErr := newGraphClient(ctx, logger)
-			if gcErr != nil {
-				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
-			} else if gc != nil {
-				defer func() { _ = gc.Close() }()
-				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetMs)
-			}
+			// Wire graph client — MemgraphStore implements graph.Client.
+			gc := memgraph.NewGraphAdapter(st)
+			recaller.SetGraphClient(gc, st, cfg.Recall.GraphBudgetMs)
 
 			preTurnHook := hooks.NewPreTurnHook(emb, st, recaller, logger)
 
@@ -206,10 +203,10 @@ func hookPostCmd() *cobra.Command {
 			}
 
 			emb := newEmbedder(logger)
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				logger.Error("hook post: connecting to store", "error", storeErr)
-				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Qdrant: %v), skipping memory capture\n", storeErr)
+				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: services unavailable (Memgraph: %v), skipping memory capture\n", storeErr)
 				writePostOutput(hookPostOutput{Stored: false})
 				return nil
 			}
