@@ -178,7 +178,9 @@ class CortexClient {
         env: this.env,
         input,
       });
-      return JSON.parse(stdout.trim()) as Array<{ id: string | null; status: string }>;
+      const out = stdout.trim();
+      if (!out) return memories.map(() => ({ id: null, status: "error" }));
+      return JSON.parse(out) as Array<{ id: string | null; status: string }>;
     } catch {
       return memories.map(() => ({ id: null, status: "error" }));
     }
@@ -491,9 +493,12 @@ const memoryCortexPlugin = {
 
           const summary = `Batch store: ${created} created, ${duplicates} duplicates, ${errors} errors (${memories.length} total)`;
 
+          // Return only summary counts in details — NOT the full results array.
+          // OpenClaw's session transcript handler drops tool results with large/nested
+          // arrays in the details object (silent failure, no error logged).
           return {
             content: [{ type: "text", text: summary }],
-            details: { count: memories.length, created, duplicates, errors, results },
+            details: { count: memories.length, created, duplicates, errors },
           };
         },
       },
