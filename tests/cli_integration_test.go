@@ -37,16 +37,12 @@ func runCLI(args ...string) (string, error) {
 	return string(out), runErr
 }
 
-// runCLIStdout executes the binary and returns only stdout. Use this for tests
-// that parse structured output (JSON) and must not be confused by log lines
-// written to stderr.
+// runCLIStdout executes the binary and returns only stdout, discarding stderr.
+// Use this for JSON output tests where log lines on stderr would break parsing.
 func runCLIStdout(args ...string) (string, error) {
 	cmd := exec.Command(cliBinPath, args...)
-	var stdout strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = nil // discard stderr
-	runErr := cmd.Run()
-	return stdout.String(), runErr
+	out, runErr := cmd.Output()
+	return string(out), runErr
 }
 
 // ── help-text tests (safe in short mode) ──────────────────────────────────────
