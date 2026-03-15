@@ -53,8 +53,8 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
 		"CREATE CONSTRAINT ON (e:Entity) ASSERT e.name IS UNIQUE",
 
 		// Vector indexes for semantic search
-		`CREATE VECTOR INDEX memory_embedding ON :Memory(embedding) WITH CONFIG {"dimension": 768, "metric": "cosine", "capacity": 10000}`,
-		`CREATE VECTOR INDEX entity_name_embedding ON :Entity(name_embedding) WITH CONFIG {"dimension": 768, "metric": "cosine", "capacity": 10000}`,
+		`CREATE VECTOR INDEX memory_embedding ON :Memory(embedding) WITH CONFIG {"dimension": 768, "metric": "cos", "capacity": 10000}`,
+		`CREATE VECTOR INDEX entity_name_embedding ON :Entity(name_embedding) WITH CONFIG {"dimension": 768, "metric": "cos", "capacity": 10000}`,
 
 		// Property indexes for filtering
 		"CREATE INDEX ON :Memory(type)",
@@ -72,16 +72,19 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
 	}
 
 	for i := range queries {
-		_, writeErr := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-			_, runErr := tx.Run(ctx, queries[i], nil)
-			return nil, runErr
-		})
-		if writeErr != nil {
-			if isAlreadyExistsErr(writeErr) {
-				g.store.logger.Warn("memgraph schema already exists, skipping", "query_index", i, "query", queries[i])
+		// Memgraph requires auto-commit (implicit) transactions for DDL.
+		// session.Run() executes as an auto-commit transaction.
+		result, runErr := session.Run(ctx, queries[i], nil)
+		if runErr != nil {
+			if isAlreadyExistsErr(runErr) {
+				g.store.logger.Debug("memgraph schema already exists, skipping", "query_index", i)
 				continue
 			}
-			return fmt.Errorf("memgraph ensure schema query %d: %w", i, writeErr)
+			return fmt.Errorf("memgraph ensure schema query %d: %w", i, runErr)
+		}
+		// Consume the result to ensure the query completes.
+		if result != nil {
+			_, _ = result.Consume(ctx)
 		}
 	}
 
