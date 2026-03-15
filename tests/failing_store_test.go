@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -81,6 +82,18 @@ func (f *failingUpsertStore) UpdateConflictFields(ctx context.Context, id, group
 
 func (f *failingUpsertStore) UpdateReinforcement(ctx context.Context, id string, boost float64) error {
 	return f.inner.UpdateReinforcement(ctx, id, boost)
+}
+
+func (f *failingUpsertStore) InvalidateMemory(ctx context.Context, id string, validTo time.Time) error {
+	return f.inner.InvalidateMemory(ctx, id, validTo)
+}
+
+func (f *failingUpsertStore) GetHistory(ctx context.Context, id string) ([]models.Memory, error) {
+	return f.inner.GetHistory(ctx, id)
+}
+
+func (f *failingUpsertStore) MigrateTemporalFields(ctx context.Context) error {
+	return f.inner.MigrateTemporalFields(ctx)
 }
 
 func (f *failingUpsertStore) Close() error {
