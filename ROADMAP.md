@@ -33,7 +33,7 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 - [x] Graph-augmented recall (entity-neighborhood expansion of vector results)
 - [x] Entity name-to-UUID resolution (stable identity across captures)
 
-## v0.7.0 — Current (Memgraph Migration)
+## v0.7.0 — Memgraph Migration (Complete)
 
 - [x] Replaced Qdrant + Neo4j with single Memgraph instance
 - [x] Unified vector search + graph traversal in one container
@@ -42,6 +42,19 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 - [ ] Pluggable embedding providers: Cohere, Gemini, OpenAI-compatible endpoints
 - [ ] Streaming recall (SSE endpoint for progressive context injection)
 - [ ] Batch capture from chat export files (JSON, Markdown)
+
+## v0.8.0 — Current (Temporal Versioning, Triple Extraction, Contradiction Detection, Graph-Aware Recall)
+
+- [x] Phase 1: Temporal versioning — valid_from/valid_to fields, supersession auto-invalidates old versions, as-of point-in-time queries
+- [x] Phase 2: Episodic→Semantic triple extraction — Episode provenance nodes, automatic fact extraction from captured memories, entity linking
+- [x] Phase 3: Contradiction detection — vector similarity + keyword heuristic to detect contradicting memories during capture, auto-flagging with conflict groups
+- [x] Phase 4: Graph-aware recall — configurable traversal depth, RRF merge of vector + graph results, entity-seeded graph walks
+- [x] InvalidateMemory and GetHistory methods on store.Store interface
+- [x] MigrateTemporalFields for backfilling existing memories
+- [x] ContradictionDetector interface and MemoryContradictionDetector implementation
+- [x] CreateEpisode and GetEpisodesForMemory on graph.Client interface
+- [x] SearchFilters extended with IncludeInvalidated and AsOf temporal filters
+- [x] MockStore updated to filter invalidated memories by default
 
 ## Community
 

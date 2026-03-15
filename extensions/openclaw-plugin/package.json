@@ -1,6 +1,6 @@
 {
   "name": "memory-cortex",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "OpenClaw memory plugin backed by Cortex (Memgraph graph DB + multi-factor ranking)",
   "type": "module",
   "main": "index.ts",
