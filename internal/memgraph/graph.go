@@ -622,7 +622,7 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 	`
 
 	type row struct {
-		memoryIDs   []string
+		memoryIDs  []string
 		neighborID string
 	}
 

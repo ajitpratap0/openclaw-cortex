@@ -19,7 +19,6 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-
 // Compile-time assertion that MemgraphStore fully implements store.Store.
 var _ store.Store = (*MemgraphStore)(nil)
 
@@ -947,25 +946,25 @@ func memoryToParams(m models.Memory, vector []float32) map[string]any {
 	}
 
 	return map[string]any{
-		"uuid":               m.ID,
-		"type":               string(m.Type),
-		"scope":              string(m.Scope),
-		"visibility":         string(m.Visibility),
-		"content":            m.Content,
-		"confidence":         m.Confidence,
-		"source":             m.Source,
-		"project":            m.Project,
-		"ttl_seconds":        m.TTLSeconds,
-		"tags":               tags,
-		"metadata":           metaStr,
-		"created_at":         m.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":         m.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		"last_accessed":      m.LastAccessed.UTC().Format(time.RFC3339Nano),
-		"access_count":       m.AccessCount,
-		"supersedes_id":      m.SupersedesID,
-		"conflict_group_id":  m.ConflictGroupID,
-		"conflict_status":    string(m.ConflictStatus),
-		"valid_until_unix":   validUntilUnix,
+		"uuid":              m.ID,
+		"type":              string(m.Type),
+		"scope":             string(m.Scope),
+		"visibility":        string(m.Visibility),
+		"content":           m.Content,
+		"confidence":        m.Confidence,
+		"source":            m.Source,
+		"project":           m.Project,
+		"ttl_seconds":       m.TTLSeconds,
+		"tags":              tags,
+		"metadata":          metaStr,
+		"created_at":        m.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":        m.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"last_accessed":     m.LastAccessed.UTC().Format(time.RFC3339Nano),
+		"access_count":      m.AccessCount,
+		"supersedes_id":     m.SupersedesID,
+		"conflict_group_id": m.ConflictGroupID,
+		"conflict_status":   string(m.ConflictStatus),
+		"valid_until_unix":  validUntilUnix,
 		"valid_from": func() string {
 			if m.ValidFrom.IsZero() {
 				return m.CreatedAt.UTC().Format(time.RFC3339Nano)
