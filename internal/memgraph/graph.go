@@ -497,7 +497,7 @@ func (g *GraphAdapter) RecallByGraph(ctx context.Context, query string, embeddin
 //  1. Entity discovery: find Entity nodes whose name matches query terms via text search.
 //  2. 1-hop traversal: for each discovered entity, follow RELATES_TO edges (both directions)
 //     and collect source_memory_ids from adjacent fact relationships.
-//  3. 2-hop traversal (depth >= 2): for each neighbour entity found in step 2,
+//  3. 2-hop traversal (depth >= 2): for each neighbor entity found in step 2,
 //     repeat the 1-hop traversal to collect transitively connected memory IDs.
 //
 // Memories found at 1-hop score 1.0; 2-hop memories score 0.5.
@@ -546,7 +546,7 @@ func (g *GraphAdapter) RecallByGraphWithDepth(ctx context.Context, query string,
 		}
 	}
 
-	// Step 3: 2-hop traversal — neighbour entities → their facts → memory IDs.
+	// Step 3: 2-hop traversal — neighbor entities → their facts → memory IDs.
 	if depth >= 2 && len(hop1NeighbourIDs) > 0 {
 		// Exclude already-visited entity IDs to avoid cycles.
 		visitedEntityIDs := make(map[string]struct{}, len(entityIDs))
@@ -567,7 +567,7 @@ func (g *GraphAdapter) RecallByGraphWithDepth(ctx context.Context, query string,
 				// Non-fatal: 2-hop failure just means we return 1-hop results only.
 				g.store.logger.Warn("graph recall: 2-hop traversal failed", "error", hop2Err)
 			} else {
-				// Score 2-hop memories at 0.5 (half weight of direct neighbours).
+				// Score 2-hop memories at 0.5 (half weight of direct neighbors).
 				for _, mid := range hop2MemIDs {
 					if _, exists := seen[mid]; !exists {
 						seen[mid] = 0.5
@@ -602,8 +602,8 @@ func (g *GraphAdapter) RecallByGraphWithDepth(ctx context.Context, query string,
 // traverseEntityFacts fetches all active RELATES_TO facts for the given entity IDs
 // in a single Cypher query and returns:
 //   - the union of all source_memory_ids from those facts
-//   - the IDs of all neighbour entities (for 2-hop traversal)
-func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []string) (memoryIDs []string, neighbourEntityIDs []string, err error) {
+//   - the IDs of all neighbor entities (for 2-hop traversal)
+func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []string) (memoryIDs []string, neighborEntityIDs []string, err error) {
 	if len(entityIDs) == 0 {
 		return nil, nil, nil
 	}
@@ -615,15 +615,15 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 	// expired_at IS NULL filters out invalidated (soft-deleted) facts.
 	cypher := `
 		UNWIND $entity_ids AS eid
-		MATCH (e:Entity {uuid: eid})-[r:RELATES_TO]-(neighbour:Entity)
+		MATCH (e:Entity {uuid: eid})-[r:RELATES_TO]-(neighbor:Entity)
 		WHERE r.expired_at IS NULL
 		RETURN r.source_memory_ids AS memory_ids,
-		       neighbour.uuid      AS neighbour_id
+		       neighbor.uuid      AS neighbor_id
 	`
 
 	type row struct {
 		memoryIDs   []string
-		neighbourID string
+		neighborID string
 	}
 
 	result, runErr := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
@@ -638,7 +638,7 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 		for records.Next(ctx) {
 			rec := records.Record()
 			rawMIDs, _, _ := neo4j.GetRecordValue[[]any](rec, "memory_ids")
-			nid, _, _ := neo4j.GetRecordValue[string](rec, "neighbour_id")
+			nid, _, _ := neo4j.GetRecordValue[string](rec, "neighbor_id")
 
 			var mids []string
 			for _, v := range rawMIDs {
@@ -646,7 +646,7 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 					mids = append(mids, s)
 				}
 			}
-			rows = append(rows, row{memoryIDs: mids, neighbourID: nid})
+			rows = append(rows, row{memoryIDs: mids, neighborID: nid})
 		}
 		if recErr := records.Err(); recErr != nil {
 			return nil, recErr
@@ -668,18 +668,18 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 				memoryIDs = append(memoryIDs, mid)
 			}
 		}
-		if r.neighbourID != "" {
-			if _, ok := seenNeighbour[r.neighbourID]; !ok {
-				seenNeighbour[r.neighbourID] = struct{}{}
-				neighbourEntityIDs = append(neighbourEntityIDs, r.neighbourID)
+		if r.neighborID != "" {
+			if _, ok := seenNeighbour[r.neighborID]; !ok {
+				seenNeighbour[r.neighborID] = struct{}{}
+				neighborEntityIDs = append(neighborEntityIDs, r.neighborID)
 			}
 		}
 	}
-	return memoryIDs, neighbourEntityIDs, nil
+	return memoryIDs, neighborEntityIDs, nil
 }
 
 // recallByFactSearch is the fallback when entity search yields no results.
-// It performs fact text search and collects source_memory_ids (original behaviour).
+// It performs fact text search and collects source_memory_ids (original behavior).
 func (g *GraphAdapter) recallByFactSearch(ctx context.Context, query string, embedding []float32, limit int) ([]string, error) {
 	facts, err := g.SearchFacts(ctx, query, embedding, limit)
 	if err != nil {
