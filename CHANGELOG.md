@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-15
+
+### Added
+- Phase 1: Temporal versioning — memories have valid_from/valid_to fields, supersession auto-invalidates old versions, as-of point-in-time queries
+- Phase 2: Episodic→Semantic triple extraction — Episode provenance nodes, automatic fact extraction from captured memories, entity linking
+- Phase 3: Contradiction detection — vector similarity + keyword heuristic to detect contradicting memories during capture, auto-flagging with conflict groups
+- Phase 4: Graph-aware recall — configurable traversal depth, RRF merge of vector + graph results, entity-seeded graph walks
+- InvalidateMemory and GetHistory methods on store.Store interface
+- MigrateTemporalFields for backfilling existing memories
+- ContradictionDetector interface and MemoryContradictionDetector implementation
+- CreateEpisode and GetEpisodesForMemory on graph.Client interface
+- SearchFilters extended with IncludeInvalidated and AsOf temporal filters
+- MockStore updated to filter invalidated memories by default
+
+### Changed
+- Upsert auto-sets valid_from and invalidates superseded memories
+- List and Search exclude invalidated memories by default (respects IncludeInvalidated flag)
+
 ## [0.7.2] - 2026-03-15
 
 ### Fixed
@@ -143,7 +161,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Comprehensive test suite with mocked Qdrant
 - golangci-lint configuration
 
-[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.2...v0.8.0
+[0.7.2]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.4.0...v0.5.0

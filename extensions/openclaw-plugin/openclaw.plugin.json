@@ -1,6 +1,6 @@
 {
   "id": "memory-cortex",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "kind": "memory",
   "configSchema": {
     "type": "object",

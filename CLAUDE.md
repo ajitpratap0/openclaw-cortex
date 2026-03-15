@@ -35,25 +35,28 @@ openclaw-cortex health
 
 OpenClaw Cortex is a hybrid semantic memory system for AI agents. It stores memories and entity-relationship facts in Memgraph (graph DB with vector search) and retrieves them using multi-factor ranking. All external services (Memgraph, Ollama, Claude/Gateway) are wired together only in `cmd/`; `internal/` packages accept interfaces.
 
-**Layered call flow for a `recall` command:**
+**Layered call flow for a `recall` command (graph-aware, RRF merge):**
 ```
 cmd/cmd_recall.go
-  → recall.Recaller          (internal/recall/)      — multi-factor scoring + graph merge
-  → memgraph.Client          (internal/memgraph/)    — Memgraph graph recall (latency-budgeted)
+  → recall.Recaller          (internal/recall/)      — multi-factor scoring + RRF graph merge
+  → memgraph.Client          (internal/memgraph/)    — entity-seeded graph walks (configurable depth)
   → embedder.Embedder        (internal/embedder/)    — Ollama HTTP, 768-dim nomic-embed-text
   → memgraph.Client          (internal/memgraph/)    — vector search + graph traversal
+  → recall.RRFMerge          (internal/recall/)      — Reciprocal Rank Fusion of vector + graph results
   → tokenizer.FormatMemoriesWithBudget (pkg/tokenizer/) — trim to token budget
 ```
 
-**Capture flow** (`cmd capture`):
+**Capture flow** (`cmd capture`) with contradiction detection and temporal versioning:
 ```
 cmd/cmd_capture.go
   → capture.Capturer         (internal/capture/)     — Claude Haiku extracts JSON memories
   → capture.EntityExtractor  (internal/capture/)     — Claude Haiku extracts entities
-  → memgraph.FactExtractor   (internal/memgraph/)    — Claude Haiku extracts relationship facts
+  → capture.ContradictionDetector (internal/capture/) — vector similarity + keyword heuristic contradiction check
+  → memgraph.FactExtractor   (internal/memgraph/)    — Claude Haiku extracts relationship facts (triple extraction)
+  → memgraph.Client          (internal/memgraph/)    — CreateEpisode (episode provenance node)
   → classifier.Classifier    (internal/classifier/)  — heuristic keyword scoring → MemoryType
-  → memgraph.Client          (internal/memgraph/)    — dedup via cosine similarity, then upsert
-  → memgraph.Client          (internal/memgraph/)    — entity/fact upsert (always enabled)
+  → memgraph.Client          (internal/memgraph/)    — dedup via cosine similarity, then upsert (sets valid_from, invalidates superseded)
+  → memgraph.Client          (internal/memgraph/)    — entity/fact upsert + GetEpisodesForMemory linking
 ```
 
 **Lifecycle flow** (`cmd consolidate`):
@@ -84,7 +87,15 @@ The factory `llm.NewClient(cfg.Claude)` picks the right implementation based on 
 | `embedder.Embedder` | `internal/embedder/embedder.go` | `OllamaEmbedder` (HTTP) |
 | `classifier.Classifier` | `internal/classifier/classifier.go` | `HeuristicClassifier` |
 | `capture.Capturer` | `internal/capture/capture.go` | `ClaudeCapturer` |
+| `capture.ContradictionDetector` | `internal/capture/contradiction.go` | `MemoryContradictionDetector` |
 | `llm.LLMClient` | `internal/llm/client.go` | `AnthropicClient`, `GatewayClient` |
+
+New in v0.8.0 — methods added to `memgraph.Client`:
+- `InvalidateMemory(ctx, id)` — marks a memory as invalidated (sets valid_to)
+- `GetHistory(ctx, id)` — returns supersession chain for a memory
+- `MigrateTemporalFields(ctx)` — backfills valid_from on existing memories
+- `CreateEpisode(ctx, episode)` — creates an Episode provenance node
+- `GetEpisodesForMemory(ctx, memoryID)` — returns episodes linked to a memory
 
 ### Core Data Model (`internal/models/memory.go`)
 
@@ -94,6 +105,13 @@ The factory `llm.NewClient(cfg.Claude)` picks the right implementation based on 
 - `Confidence` — `0.0–1.0`; memories below 0.5 are filtered on capture
 - `LastAccessed` / `AccessCount` — updated on every retrieval for recency/frequency scoring
 - `Project` — used to boost `scope=project` memories in context
+- `ValidFrom` / `ValidTo` — temporal versioning fields (v0.8.0); `ValidTo` set on invalidation
+- `ConflictGroupID` / `ConflictStatus` — contradiction detection (v0.8.0); auto-flagged on capture
+- `EpisodeIDs` — provenance links to Episode nodes created during capture (v0.8.0)
+
+`SearchFilters` extensions (v0.8.0):
+- `IncludeInvalidated bool` — include memories with a non-zero ValidTo (default: false)
+- `AsOf time.Time` — point-in-time query; returns memories valid at that instant
 
 ### Recall Scoring (`internal/recall/recall.go`)
 
