@@ -22,7 +22,7 @@ export default function Nav() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-indigo-500 to-emerald-500 flex-shrink-0 group-hover:opacity-90 transition-opacity" />
+            <Image src="/logo/logo-navbar.png" alt="OpenClaw Cortex" width={28} height={28} className="flex-shrink-0 group-hover:opacity-90 transition-opacity" />
             <span className="font-semibold text-zinc-100 text-sm tracking-tight">
               openclaw-cortex
             </span>

@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://openclaw-cortex.dev"),
+  metadataBase: new URL("https://openclaw-cortex.vercel.app"),
   title: {
     default: "OpenClaw Cortex",
     template: "%s | OpenClaw Cortex",
