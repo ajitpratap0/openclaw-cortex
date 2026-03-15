@@ -106,7 +106,7 @@ type MemoryContradictionDetector struct {
 	store       store.Store
 	graphClient graph.Client // may be nil — entity lookup is best-effort
 	embedder    embedder.Embedder
-	llmClient   llm.LLMClient  // may be nil — Stage 3 skipped without one
+	llmClient   llm.LLMClient // may be nil — Stage 3 skipped without one
 	model       string
 	cfg         ContradictionConfig
 	logger      *slog.Logger
