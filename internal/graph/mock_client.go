@@ -15,6 +15,7 @@ type MockGraphClient struct {
 	mu       sync.RWMutex
 	entities map[string]models.Entity
 	facts    map[string]models.Fact
+	episodes map[string]models.Episode
 }
 
 // Compile-time interface assertion.
@@ -25,6 +26,7 @@ func NewMockGraphClient() *MockGraphClient {
 	return &MockGraphClient{
 		entities: make(map[string]models.Entity),
 		facts:    make(map[string]models.Fact),
+		episodes: make(map[string]models.Episode),
 	}
 }
 
@@ -225,6 +227,52 @@ func (m *MockGraphClient) RecallByGraph(_ context.Context, _ string, _ []float32
 		}
 	}
 	return memoryIDs, nil
+}
+
+// CreateEpisode stores an episode in the mock.
+func (m *MockGraphClient) CreateEpisode(_ context.Context, episode models.Episode) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ep := episode
+	if len(episode.MemoryIDs) > 0 {
+		ids := make([]string, len(episode.MemoryIDs))
+		copy(ids, episode.MemoryIDs)
+		ep.MemoryIDs = ids
+	}
+	if len(episode.FactIDs) > 0 {
+		ids := make([]string, len(episode.FactIDs))
+		copy(ids, episode.FactIDs)
+		ep.FactIDs = ids
+	}
+	m.episodes[ep.UUID] = ep
+	return nil
+}
+
+// GetEpisodesForMemory returns all episodes that reference the given memory ID.
+func (m *MockGraphClient) GetEpisodesForMemory(_ context.Context, memoryID string) ([]models.Episode, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var results []models.Episode
+	for i := range m.episodes {
+		for _, id := range m.episodes[i].MemoryIDs {
+			if id == memoryID {
+				results = append(results, m.episodes[i])
+				break
+			}
+		}
+	}
+	return results, nil
+}
+
+// GetEpisodes returns all stored episodes (test helper).
+func (m *MockGraphClient) GetEpisodes() []models.Episode {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]models.Episode, 0, len(m.episodes))
+	for i := range m.episodes {
+		out = append(out, m.episodes[i])
+	}
+	return out
 }
 
 func (m *MockGraphClient) Healthy(_ context.Context) bool {

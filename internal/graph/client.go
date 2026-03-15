@@ -50,6 +50,12 @@ type Client interface {
 	// RecallByGraph returns memory IDs relevant to a query via graph traversal.
 	RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error)
 
+	// CreateEpisode stores an episode node in the graph.
+	CreateEpisode(ctx context.Context, episode models.Episode) error
+
+	// GetEpisodesForMemory returns all episodes linked to a given memory ID.
+	GetEpisodesForMemory(ctx context.Context, memoryID string) ([]models.Episode, error)
+
 	// Healthy returns true if the graph database is reachable.
 	Healthy(ctx context.Context) bool
 
