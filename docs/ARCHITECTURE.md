@@ -1,6 +1,6 @@
 # Architecture
 
-OpenClaw Cortex is a hybrid semantic memory system. It stores memories as both structured metadata and high-dimensional vectors, then retrieves them using a multi-factor scoring algorithm that combines semantic similarity with recency, frequency, type priority, and project scope.
+OpenClaw Cortex is a hybrid semantic memory system. It stores memories as both structured metadata and high-dimensional vectors inside a single Memgraph instance, then retrieves them using a multi-factor scoring algorithm that combines semantic similarity with recency, frequency, type priority, project scope, and graph-traversal signals.
 
 ## System Diagram
 
@@ -26,8 +26,10 @@ OpenClaw Cortex is a hybrid semantic memory system. It stores memories as both s
 │                                                          │
 │  ┌──────────┐  ┌───────────┐  ┌──────────────────────┐ │
 │  │ Indexer  │  │ Capturer  │  │      Recaller        │ │
-│  │ (scan +  │  │ (Claude   │  │  (multi-factor rank) │ │
-│  │  chunk)  │  │  Haiku)   │  │                      │ │
+│  │ (scan +  │  │ (Claude   │  │  (multi-factor rank  │ │
+│  │  chunk)  │  │  Haiku +  │  │   + graph-aware RRF) │ │
+│  │          │  │  entity/  │  │                      │ │
+│  │          │  │  fact ext)│  │                      │ │
 │  └─────┬────┘  └─────┬─────┘  └──────────┬───────────┘ │
 │        │              │                   │              │
 │  ┌─────▼──────────────▼───────────────────▼─────────┐   │
@@ -39,14 +41,17 @@ OpenClaw Cortex is a hybrid semantic memory system. It stores memories as both s
 │  │            Lifecycle Manager                       │   │
 │  │     (TTL expiry, session decay, consolidation)     │   │
 │  └────────────────────────────────────────────────────┘  │
-└──────────┬──────────────────────────┬───────────────────┘
-           │                          │
-           ▼                          ▼
-┌──────────────────┐       ┌──────────────────────┐
-│    Embedder      │       │       Store           │
-│  (Ollama HTTP)   │       │   (Qdrant gRPC)       │
-│  nomic-embed-text│       │   768-dim vectors     │
-└──────────────────┘       └──────────────────────┘
+└──────────┬──────────────────────────────────────────────┘
+           │
+           ▼
+┌──────────────────┐       ┌──────────────────────────────┐
+│    Embedder      │       │          Memgraph             │
+│  (Ollama HTTP)   │──────>│  (Bolt protocol, port 7687)   │
+│  nomic-embed-text│       │  • Vector search (768-dim)    │
+└──────────────────┘       │  • Knowledge graph (Cypher)   │
+                           │  • Entities + relationships   │
+                           │  • Temporal versioning        │
+                           └──────────────────────────────┘
 ```
 
 ## Layered Call Flows
@@ -56,29 +61,37 @@ OpenClaw Cortex is a hybrid semantic memory system. It stores memories as both s
 ```
 cmd/cmd_recall.go
   -> recall.Recaller          (internal/recall/)
-       -> embedder.Embed()    (internal/embedder/)  -- Ollama HTTP, 768-dim
-       -> store.Search()      (internal/store/)     -- Qdrant gRPC vector search
-       -> recaller.Rank()                           -- multi-factor scoring
-  -> tokenizer.FormatMemoriesWithBudget()           -- trim to token budget
+       -> embedder.Embed()    (internal/embedder/)    -- Ollama HTTP, 768-dim
+       -> memgraph.Client     (internal/memgraph/)    -- Bolt: vector search (top-50)
+       -> memgraph.Client     (internal/memgraph/)    -- Bolt: graph traversal (RRF merge)
+       -> recaller.Rank()                             -- multi-factor scoring
+  -> tokenizer.FormatMemoriesWithBudget()             -- trim to token budget
 ```
 
 1. The query is embedded via Ollama (`nomic-embed-text`).
-2. Qdrant returns the top-50 candidates by cosine similarity.
-3. The multi-factor scorer re-ranks them.
-4. Results are trimmed to fit the token budget (default: 2000 tokens).
-5. Access metadata (`last_accessed`, `access_count`) is updated for returned memories.
+2. Memgraph returns the top-50 candidates by cosine similarity (vector index).
+3. A graph traversal expands the candidate set via entity relationships.
+4. Vector and graph results are merged with Reciprocal Rank Fusion (RRF).
+5. The multi-factor scorer re-ranks the merged candidates.
+6. Results are trimmed to fit the token budget (default: 2000 tokens).
+7. Access metadata (`last_accessed`, `access_count`) is updated for returned memories.
 
 ### Capture Flow (`cortex capture`)
 
 ```
 cmd/cmd_capture.go
-  -> capture.Capturer.Extract()  (internal/capture/)
+  -> capture.Capturer.Extract()       (internal/capture/)
        -- Claude Haiku extracts JSON memories from conversation text
-  -> classifier.Classifier       (internal/classifier/)
+  -> capture.EntityExtractor          (internal/capture/)
+       -- Claude Haiku extracts named entities from the conversation
+  -> memgraph.FactExtractor           (internal/memgraph/)
+       -- Claude Haiku extracts subject-predicate-object relationship facts
+  -> classifier.Classifier            (internal/classifier/)
        -- heuristic keyword scoring assigns MemoryType if LLM left it empty
   -> embedder.Embed()
-  -> store.FindDuplicates()      -- cosine similarity dedup (threshold: 0.92)
-  -> store.Upsert()
+  -> memgraph.Client.FindDuplicates() -- cosine similarity dedup (threshold: 0.92)
+  -> memgraph.Client.Upsert()         -- store memory node
+  -> memgraph.Client.UpsertEntities() -- store entity nodes + relationships (always)
 ```
 
 User and assistant message content is XML-escaped before interpolation into the Claude prompt to prevent prompt injection.
@@ -93,7 +106,7 @@ cmd/cmd_index.go
        -- optional: generates per-section summaries via Claude Haiku (--summarize)
        -> classifier.Classify() per chunk
        -> embedder.Embed() per chunk
-       -> store.Upsert() per chunk
+       -> memgraph.Client.Upsert() per chunk
 ```
 
 ### Lifecycle Flow (`cortex consolidate`)
@@ -107,7 +120,26 @@ cmd/cmd_lifecycle.go
        -- conflict resolution: group by ConflictGroupID, keep highest confidence, mark losers resolved
 ```
 
-## Recall Intelligence (v0.3.0)
+## LLM Client Abstraction
+
+All LLM calls go through the `llm.LLMClient` interface (`internal/llm/client.go`):
+
+```go
+type LLMClient interface {
+    Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error)
+}
+```
+
+Two implementations are available:
+
+| Implementation | When to use |
+|---------------|-------------|
+| `AnthropicClient` | Direct Anthropic API calls; requires `ANTHROPIC_API_KEY` |
+| `GatewayClient` | Routes through the OpenClaw gateway's OpenAI-compatible endpoint; for Max plan / subscription users; requires `claude.gateway_url` and `claude.gateway_token` in config |
+
+The factory `llm.NewClient(cfg.Claude)` picks the right implementation based on config. All LLM-calling subsystems (capture, entity extraction, fact extraction, recall re-ranking) use this interface, so both authentication modes work transparently.
+
+## Recall Intelligence
 
 ### Threshold-Gated Re-Ranking
 
@@ -124,11 +156,21 @@ On timeout or API error, the original multi-factor ranking is used — graceful 
 
 ### Session Pre-Warm Cache
 
-A goroutine in `PostTurnHook` writes the ranked recall results for the current session to `~/.cortex/rerank_cache/<session_id>.json` immediately after each turn (5-minute TTL). On the next turn, `PreTurnHook` reads the cache before calling Qdrant, providing zero-latency context injection for session-resumed conversations.
+A goroutine in `PostTurnHook` writes the ranked recall results for the current session to `~/.cortex/rerank_cache/<session_id>.json` immediately after each turn (5-minute TTL). On the next turn, `PreTurnHook` reads the cache before querying Memgraph, providing zero-latency context injection for session-resumed conversations.
 
 Cache files are invalidated after 5 minutes or when the session ends.
 
-## Conflict Engine (v0.3.0)
+## Temporal Versioning (v0.8.0)
+
+OpenClaw Cortex tracks how memories evolve over time. Rather than overwriting a fact when new information contradicts it, the system preserves the full version history:
+
+- Each memory node in Memgraph carries `valid_from` and `valid_to` timestamps
+- When a memory is superseded, `valid_to` is set on the old version and a new version is created with `SupersedesID` pointing back to the predecessor
+- Recall queries filter to memories where `valid_to IS NULL` (current versions) by default
+- Historical versions remain in the graph and are accessible via the `--include-history` flag
+- The `reinforcement` path (0.80–0.92 similarity) still increments confidence in-place on the current version rather than creating a new version
+
+## Contradiction Detection (v0.8.0)
 
 Contradicting facts accumulate in long-running agent sessions. The conflict engine detects, surfaces, and resolves them across three phases:
 
@@ -147,15 +189,30 @@ Contradicting facts accumulate in long-running agent sessions. The conflict engi
 
 Phase 4 of `lifecycle.Manager.Run()` groups memories by `ConflictGroupID`, sorts each group by `Confidence` descending, and marks all but the highest-confidence member as `status = "resolved"`. Resolved memories are excluded from future recall results.
 
-## Confidence Reinforcement (v0.3.0)
+## Graph-Aware Recall (v0.8.0)
+
+Beyond pure vector search, Memgraph's property graph is used to surface related memories that may not score highly on embedding similarity alone:
+
+- **Entity extraction**: `capture.EntityExtractor` identifies named entities (people, systems, concepts, projects) in each conversation turn and stores them as `Entity` nodes linked to their source `Memory` nodes via `MENTIONS` relationships
+- **Fact extraction**: `memgraph.FactExtractor` extracts subject-predicate-object triples and stores them as `Relationship` edges between `Entity` nodes with properties on the edge (`--storage-properties-on-edges=true` is required)
+- **Graph traversal**: During recall, `memgraph.Client` traverses up to 2 hops from entities mentioned in the query to find memories connected through the entity graph
+- **RRF merge**: Vector search results and graph traversal results are merged using Reciprocal Rank Fusion before the multi-factor re-ranker runs
+
+## Episodic Extraction (v0.8.0)
+
+When a conversation turn contains time-anchored events (e.g., "we deployed the new auth service yesterday"), the capturer creates `episode`-typed memories with additional temporal fields:
+
+- `EpisodeStart` / `EpisodeEnd`: parsed timestamps for the event window
+- `EpisodeEntities`: list of entity IDs involved in the episode
+- Episodes are linked to their participant entities in the knowledge graph
+
+## Confidence Reinforcement
 
 When a new capture closely resembles an existing memory but not closely enough to trigger dedup (0.80 ≤ similarity < 0.92), the existing memory is reinforced rather than duplicating it:
 
-- `store.UpdateReinforcement(id)` atomically increments `confidence` by 0.05 (capped at 1.0) and `reinforced_count` by 1
+- `memgraph.Client.UpdateReinforcement(id)` atomically increments `confidence` by 0.05 (capped at 1.0) and `reinforced_count` by 1
 - The new candidate is discarded (not stored)
 - At similarity ≥ 0.92, the existing dedup skip continues as before
-
-This ensures frequently-observed facts converge toward maximum confidence over time without growing the collection.
 
 ## Data Model
 
@@ -194,9 +251,11 @@ The central struct is `models.Memory` in `internal/models/memory.go`.
 | `CreatedAt` | time.Time | When the memory was first stored |
 | `LastAccessed` | time.Time | Updated on every recall |
 | `AccessCount` | int | Total recall count |
-| `SupersedesID` | string | ID of the memory this one replaces (conflict resolution) |
+| `SupersedesID` | string | ID of the memory this one replaces (temporal versioning / conflict resolution) |
+| `ValidFrom` | time.Time | Start of this version's validity window |
+| `ValidTo` | *time.Time | End of validity; nil means current version |
 
-## Recall Scoring (v0.4.0)
+## Recall Scoring
 
 The multi-factor scoring formula combines eight weighted signals plus two multiplicative penalties:
 
@@ -210,7 +269,7 @@ weightedSum = 0.35 * similarity + 0.15 * recency + 0.10 * frequency
 finalScore = weightedSum * supersessionPenalty * conflictPenalty
 ```
 
-**Similarity** (35%): Cosine similarity from Qdrant. The primary signal.
+**Similarity** (35%): Cosine similarity from Memgraph vector index. The primary signal.
 
 **Recency** (15%): Exponential decay with a 7-day half-life:
 
@@ -224,8 +283,6 @@ recency = exp(-ln(2) * hoursSinceAccess / 168)
 frequency = min(1.0, log2(1 + accessCount) / 10)
 ```
 
-This saturates at ~1000 accesses (log₂(1001) ≈ 10).
-
 **Type boost** (10%): Multiplier based on memory type priority (see table above).
 
 **Scope boost** (8%): Normalized multiplier. Project-scoped memories whose project matches the query receive a score of 1.0 (vs. 0.67 for `permanent`-scope and 0.53 for `session`/`ttl`).
@@ -238,26 +295,29 @@ This saturates at ~1000 accesses (log₂(1001) ≈ 10).
 reinforcement = min(1.0, log2(reinforcedCount + 1) / 5.0)
 ```
 
-**Tag affinity** (5%): Fraction of the memory's tags that match query words (case-insensitive, exact word match). Returns 0 if the memory has no tags.
+**Tag affinity** (5%): Fraction of the memory's tags that match query words (case-insensitive, exact word match).
 
 ### Multiplicative Penalties
 
 **Supersession penalty** (x0.3): Applied when both a superseding memory and its predecessor appear in the same result set. The older memory is penalized; the newer one is not.
 
-**Conflict penalty** (x0.8): Applied to memories with `ConflictStatus == "active"`. Mild demotion for unresolved conflicts. Resolved conflicts are not penalized.
+**Conflict penalty** (x0.8): Applied to memories with `ConflictStatus == "active"`. Mild demotion for unresolved conflicts.
 
-All weights are configurable via `recall.weights.*` in config.yaml or `OPENCLAW_CORTEX_RECALL_WEIGHTS_*` environment variables. Invalid weights (negative or don't sum to 1.0) trigger a warning and fallback to defaults.
+All weights are configurable via `recall.weights.*` in config.yaml or `OPENCLAW_CORTEX_RECALL_WEIGHTS_*` environment variables.
 
 ## Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Qdrant over Chroma/Pinecone | gRPC performance, self-hosted, rich payload filtering |
+| Memgraph as single backend | Combines vector search and property graph in one service; Bolt-compatible with `neo4j-go-driver/v5`; eliminates separate vector DB and graph DB |
+| Bolt protocol (port 7687) | Standard graph database protocol; `neo4j-go-driver/v5` provides a mature Go client |
+| `--storage-properties-on-edges=true` | Required for storing predicate/confidence metadata on relationship edges |
 | Ollama for embeddings | Local, free, no external API dependency on the critical recall path |
 | Claude Haiku for extraction | Best cost/quality ratio for structured JSON extraction |
-| 768-dim nomic-embed-text | Good quality-to-storage-cost balance; well-suited for semantic similarity |
-| gRPC for Qdrant | 2-3x faster than HTTP for batch operations |
+| 768-dim nomic-embed-text | Good quality-to-storage-cost balance |
 | Cosine dedup at 0.92 | Catches near-duplicates without false positives on related-but-distinct memories |
+| RRF for graph+vector merge | Principled, parameter-free combination of two ranked lists |
+| LLM gateway abstraction | Allows Max plan users to route through the OpenClaw gateway without code changes |
 | Black-box tests in `tests/` | Prevents tests from coupling to internal implementation details |
 | XML-escape before prompt interpolation | Prevents prompt injection when user content is embedded in Claude prompts |
 
@@ -266,18 +326,19 @@ All weights are configurable via `recall.weights.*` in config.yaml or `OPENCLAW_
 ```
 internal/
   api/         -- HTTP API server (REST endpoints)
-  capture/     -- Claude Haiku memory extraction + conflict detection
+  capture/     -- Claude Haiku memory + entity extraction; conflict detection
   classifier/  -- Heuristic keyword scoring -> MemoryType
   config/      -- Viper-based configuration loading
   embedder/    -- Embedder interface + Ollama HTTP implementation
   hooks/       -- Pre/post-turn hook handlers
   indexer/     -- Markdown tree walker + section summarizer
   lifecycle/   -- TTL expiry, session decay, consolidation
+  llm/         -- LLMClient interface + AnthropicClient + GatewayClient
   mcp/         -- MCP server (remember/recall/forget/search/stats tools)
+  memgraph/    -- Memgraph Bolt client: vector search, graph traversal, entity/fact upsert
   metrics/     -- In-process counters
   models/      -- Memory struct and type definitions
   recall/      -- Multi-factor ranker + optional Claude re-ranker
-  store/       -- Store interface, Qdrant gRPC implementation, MockStore
 
 pkg/
   tokenizer/   -- Token estimation and budget-aware formatting

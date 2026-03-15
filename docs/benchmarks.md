@@ -4,45 +4,49 @@ This page describes the performance characteristics of OpenClaw Cortex under typ
 
 ## Recall Latency
 
-Recall involves two external service calls: Ollama for embedding and Qdrant for vector search. Both are required on the critical path.
+Recall involves two external service calls: Ollama for embedding and Memgraph for vector search and graph traversal. All three steps are on the critical path.
 
 | Component | P50 estimate | P99 estimate | Notes |
 |-----------|-------------|-------------|-------|
 | Ollama embedding (nomic-embed-text) | 15–30 ms | 80–150 ms | Local CPU; GPU would be 2–5x faster |
-| Qdrant gRPC search (top-50) | 2–5 ms | 15–30 ms | Local Docker; scales with collection size |
-| Multi-factor re-ranking (in-process) | <1 ms | <1 ms | Pure Go, no I/O |
+| Memgraph vector search (top-50) | 3–8 ms | 20–40 ms | Local Docker; scales with collection size |
+| Memgraph graph traversal (2-hop entity expand) | 2–5 ms | 15–25 ms | Depends on entity fanout |
+| RRF merge + multi-factor re-ranking (in-process) | <1 ms | <1 ms | Pure Go, no I/O |
 | Token budget trimming | <1 ms | <1 ms | Pure Go, no I/O |
-| **Total recall** | **20–40 ms** | **100–200 ms** | |
+| **Total recall** | **25–50 ms** | **120–230 ms** | |
 
 LLM re-ranking (when triggered) adds latency on top of the base recall path:
 
 | Component | P50 estimate | P99 estimate | Notes |
 |-----------|-------------|-------------|-------|
 | LLM re-rank (triggered) | 80 ms | 2000 ms | Fires ~10–30% of recalls; spread ≤ 0.15 |
-| Pre-warm cache hit | ~0 ms extra | ~0 ms extra | Reads local JSON; replaces Qdrant call |
+| Pre-warm cache hit | ~0 ms extra | ~0 ms extra | Reads local JSON; replaces Memgraph call |
 
 Re-ranking is skipped when the score spread > 0.15 (unambiguous top result) or when the latency budget is exceeded (hook: 100 ms, CLI: 3000 ms). On budget expiry, the original multi-factor ranking is used without penalty.
 
-At 10k memories, Qdrant search latency increases modestly. At 100k memories, expect P50 to reach 10–20 ms for the vector search component. Qdrant is designed for millions of vectors.
+At 10k memories, Memgraph search latency increases modestly. At 100k memories, expect P50 to reach 10–20 ms for the vector search component. Memgraph is designed for millions of nodes.
 
 ### Factors that increase recall latency
 
 - Slow hardware running Ollama (no GPU, older CPU)
-- Network round-trip to remote Qdrant instance
-- Large collections (>100k memories) without HNSW index tuning
+- Network round-trip to remote Memgraph instance
+- Large collections (>100k memories) without index tuning
+- High entity fanout (nodes with many relationships) during graph traversal
 - High token budgets that require processing many candidates
 
 ## Capture Latency
 
-Capture involves an Anthropic API call, which dominates the latency.
+Capture involves Anthropic API calls for memory extraction, entity extraction, and fact extraction. The LLM call dominates the latency.
 
 | Component | P50 estimate | P99 estimate | Notes |
 |-----------|-------------|-------------|-------|
-| Claude Haiku extraction | 400–800 ms | 1.5–3 s | Anthropic API; varies with input length |
+| Claude Haiku memory extraction | 400–800 ms | 1.5–3 s | Anthropic API; varies with input length |
+| Claude Haiku entity extraction | 200–400 ms | 800 ms–1.5 s | Separate call; smaller prompt |
+| Claude Haiku fact extraction | 200–400 ms | 800 ms–1.5 s | Separate call; smaller prompt |
 | Embedding extracted memories | 15–30 ms each | 80–150 ms each | One call per extracted memory |
-| Dedup check (Qdrant) | 2–5 ms per memory | 15 ms per memory | FindDuplicates is a vector search |
-| Upsert (Qdrant) | 1–3 ms per memory | 10 ms per memory | gRPC write |
-| **Total capture (2–3 memories extracted)** | **500 ms – 1 s** | **2–4 s** | |
+| Dedup check (Memgraph) | 3–8 ms per memory | 20 ms per memory | Vector search |
+| Upsert (Memgraph) | 2–5 ms per memory | 15 ms per memory | Bolt write |
+| **Total capture (2–3 memories extracted)** | **900 ms – 2 s** | **4–7 s** | |
 
 Capture runs in the post-turn hook so it does not block the user from seeing Claude's response.
 
@@ -66,54 +70,56 @@ Deduplication uses cosine similarity at a threshold of 0.92.
 
 | Collection size | FindDuplicates latency (P50) |
 |-----------------|------------------------------|
-| 1k memories | <2 ms |
-| 10k memories | 3–5 ms |
-| 100k memories | 8–15 ms |
+| 1k memories | <3 ms |
+| 10k memories | 4–8 ms |
+| 100k memories | 10–20 ms |
 
 False positive rate at 0.92 threshold is low for distinct memories. Near-paraphrases of the same concept will typically exceed the threshold and be correctly deduplicated.
 
 ## Memory Store Size
 
-Approximate storage per memory:
+Approximate storage per memory (Memgraph in-memory + snapshot):
 
 | Component | Size |
 |-----------|------|
 | Vector (768 float32 dimensions) | 3 KB |
-| Payload (metadata JSON) | 0.5–2 KB |
-| **Total per memory** | **~4–5 KB** |
+| Memory node + payload (metadata) | 0.5–2 KB |
+| Entity nodes + relationship edges (avg per memory) | 1–3 KB |
+| **Total per memory** | **~5–8 KB** |
 
-| Collection size | Approximate storage |
-|-----------------|---------------------|
-| 1k memories | ~5 MB |
-| 10k memories | ~50 MB |
-| 100k memories | ~500 MB |
-| 1M memories | ~5 GB |
+| Collection size | Approximate memory usage |
+|-----------------|--------------------------|
+| 1k memories | ~8 MB |
+| 10k memories | ~80 MB |
+| 100k memories | ~800 MB |
+| 1M memories | ~8 GB |
 
-Qdrant stores vectors in memory by default for fast access. For large collections, configure Qdrant's `on_disk` vector storage to reduce RAM requirements.
+Memgraph stores the full graph in RAM for fast access. For large collections, use Memgraph's on-disk storage mode to reduce RAM requirements.
 
 ## What Affects Throughput
 
 **Increases throughput**:
 - Running Ollama with GPU acceleration
-- Co-locating all services (Qdrant + Ollama + cortex on same machine)
+- Co-locating all services (Memgraph + Ollama + cortex on same machine)
 - Batching index operations rather than calling `store` one at a time
-- Increasing Qdrant HNSW `m` and `ef_construction` for better index quality at scale
+- Tuning Memgraph's vector index parameters for better recall at scale
 
 **Decreases throughput**:
-- Remote Qdrant or Ollama over WAN
+- Remote Memgraph or Ollama over WAN
 - Very long memory content (>1000 tokens per memory)
 - High `dedup_threshold` causing more candidate comparisons
+- High entity fanout graphs (many relationships per entity)
 - Enabling `--summarize` in `cortex index` (adds one Haiku call per section)
 
 ## Hook Overhead
 
-The pre-turn hook adds ~20–40 ms (P50) to each conversation turn when all services are local. This is imperceptible in interactive use.
+The pre-turn hook adds ~25–50 ms (P50) to each conversation turn when all services are local. This is imperceptible in interactive use.
 
 The post-turn hook runs asynchronously in the hook pipeline and does not block Claude's response delivery to the user.
 
 ## Reliability
 
-Both hooks exit with code 0 even on failure, so service downtime does not break Claude. When Qdrant or Ollama is unavailable:
+Both hooks exit with code 0 even on failure, so service downtime does not break Claude. When Memgraph or Ollama is unavailable:
 
 - Pre-turn hook: returns empty context in <1 ms (immediate fallback)
 - Post-turn hook: logs a warning and returns `{"stored": false}` in <1 ms

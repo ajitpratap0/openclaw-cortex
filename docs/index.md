@@ -1,19 +1,24 @@
 # OpenClaw Cortex
 
-**Persistent, semantically searchable memory for AI agents.**
+**Persistent, graph-aware semantic memory for AI agents.**
 
-OpenClaw Cortex is a hybrid memory system that gives AI agents long-term memory. It combines vector-based semantic search (Qdrant) with structured memory classification so agents can recall relevant context across conversations, sessions, and projects — without hitting token limits.
+OpenClaw Cortex is a hybrid memory system that gives AI agents long-term memory. It combines vector-based semantic search with a knowledge graph in a single Memgraph instance, so agents can recall relevant context across conversations, sessions, and projects — without hitting token limits.
 
 ## Key Features
 
 - **Semantic recall**: Vector similarity search powered by Ollama (`nomic-embed-text`, 768 dimensions)
-- **Smart capture**: Claude Haiku extracts structured memories from conversation turns automatically
-- **Multi-factor ranking**: Combines similarity, recency, frequency, memory type, and project scope into a single score
+- **Graph-aware recall**: Traverses entity relationships in Memgraph to surface connected facts using Reciprocal Rank Fusion (RRF)
+- **Smart capture**: Claude Haiku extracts structured memories and entities from conversation turns automatically
+- **Episodic extraction**: Temporal events are stored as episodes with start/end timestamps and linked to related entities
+- **Temporal versioning**: Memories are versioned over time; superseded facts are preserved as history rather than deleted
+- **Contradiction detection**: Conflicting memories are flagged with a shared `ConflictGroupID` and resolved during consolidation
+- **Multi-factor ranking**: Combines similarity, recency, frequency, memory type, project scope, and confidence into a single score
 - **Token-aware output**: Recalled memories are trimmed to fit your token budget
 - **Deduplication**: Cosine similarity dedup prevents storing near-identical memories
 - **Lifecycle management**: TTL expiry, session decay, and consolidation keep the memory store clean
 - **Claude Code integration**: Pre/post-turn hooks inject memories and capture new ones automatically
 - **HTTP API + MCP server**: Integrate with any LLM stack or use directly from Claude Desktop
+- **LLM gateway support**: Routes LLM calls through the OpenClaw gateway for Max plan / subscription users
 
 ## Quick Install
 
@@ -32,9 +37,9 @@ go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
 ## 3-Command Start
 
 ```bash
-docker compose up -d              # start Qdrant vector store
+docker compose up -d              # start Memgraph (graph + vector store)
 ollama pull nomic-embed-text      # pull the embedding model
-cortex capture "Always prefer explicit error handling over panics" --type rule
+openclaw-cortex capture "Always prefer explicit error handling over panics" --type rule
 ```
 
 ## Documentation Sections
@@ -46,14 +51,16 @@ cortex capture "Always prefer explicit error handling over panics" --type rule
 | [Claude Code Hooks](hooks.md) | Automatic memory injection for Claude Code |
 | [HTTP API](api.md) | REST API reference with request/response schemas |
 | [MCP Server](mcp.md) | Model Context Protocol integration for Claude Desktop |
+| [Deployment](DEPLOYMENT.md) | Self-hosted and production deployment guide |
 | [Benchmarks](benchmarks.md) | Latency characteristics and throughput estimates |
+| [FAQ](faq.md) | Common questions and answers |
 
 ## Requirements
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | Go | 1.23+ | Build from source |
-| Qdrant | 1.12+ | Vector storage (via Docker or hosted) |
+| Memgraph | latest | Vector storage + knowledge graph (via Docker) |
 | Ollama | any | Local embeddings (`nomic-embed-text`) |
 | Anthropic API key | — | Memory extraction via Claude Haiku (capture only) |
 

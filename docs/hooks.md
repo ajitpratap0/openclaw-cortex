@@ -9,8 +9,9 @@ User message received
         |
         v
 [cortex hook pre]  <-- reads stdin JSON, writes stdout JSON
-        |           -- embeds the message, searches Qdrant
-        |           -- ranks with multi-factor scoring
+        |           -- embeds the message, searches Memgraph
+        |           -- graph traversal via entity relationships
+        |           -- ranks with multi-factor scoring (+ RRF)
         |           -- returns formatted context string
         v
 Context injected into Claude's system prompt
@@ -21,13 +22,14 @@ Claude generates response
         v
 [cortex hook post] <-- reads stdin JSON, writes stdout JSON
         |           -- sends turn to Claude Haiku for extraction
+        |           -- extracts entities and relationship facts
         |           -- deduplicates against existing memories
-        |           -- stores new memories in Qdrant
+        |           -- stores new memories + entities in Memgraph
         v
 Response delivered to user
 ```
 
-Both hooks exit with code 0 even on error. If Qdrant or Ollama is unavailable, the hooks return empty output so Claude is never blocked. This is **graceful degradation**.
+Both hooks exit with code 0 even on error. If Memgraph or Ollama is unavailable, the hooks return empty output so Claude is never blocked. This is **graceful degradation**.
 
 ## Configuration
 
@@ -165,19 +167,23 @@ The installed hook events are:
 
 ## Environment Variables
 
-The post-turn hook requires `ANTHROPIC_API_KEY` for memory extraction. If the key is not set, the hook exits cleanly with `{"stored": false}` and logs a warning.
+The post-turn hook requires an LLM key for memory extraction. If neither is set, the hook exits cleanly with `{"stored": false}` and logs a warning.
 
 ```bash
+# Option 1: Anthropic API key
 export ANTHROPIC_API_KEY=sk-ant-...
+
+# Option 2: OpenClaw gateway (Max plan / subscription users)
+# Set claude.gateway_url and claude.gateway_token in ~/.openclaw-cortex/config.yaml
 ```
 
 ## Graceful Degradation
 
 Both hooks are designed to never block Claude:
 
-- If Qdrant is down: pre-hook returns `{"context": "", "memory_count": 0, "tokens_used": 0}`
+- If Memgraph is down: pre-hook returns `{"context": "", "memory_count": 0, "tokens_used": 0}`
 - If Ollama is down: same empty response
-- If `ANTHROPIC_API_KEY` is missing: post-hook skips capture, returns `{"stored": false}`
+- If no LLM key is configured: post-hook skips capture, returns `{"stored": false}`
 - If JSON decode fails: hook logs the error and returns the zero-value response
 - All hooks exit with code 0 regardless of error
 
@@ -201,7 +207,7 @@ When `project` is specified in the hook input, memories are filtered to return o
 }
 ```
 
-## Multi-Turn Context (v0.3.0)
+## Multi-Turn Context
 
 By default, `PostTurnHook` extracts memories from a single user+assistant turn. Enabling multi-turn context passes the last N turns to Claude Haiku, allowing it to extract memories that span multiple exchanges — for example, a decision reached over three back-and-forth messages.
 
