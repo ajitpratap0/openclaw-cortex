@@ -38,7 +38,7 @@ link back to it. Superseded memories are automatically demoted during recall.`,
 			}
 
 			emb := newEmbedder(logger)
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				return fmt.Errorf("update: connecting to store: %w", storeErr)
 			}

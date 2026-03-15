@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/api"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
 
@@ -17,9 +18,10 @@ func serveCmd() *cobra.Command {
 		Short: "Start the HTTP/JSON API server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
+			ctx := cmd.Context()
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("serve: connecting to store: %w", err)
 			}
@@ -27,13 +29,9 @@ func serveCmd() *cobra.Command {
 
 			rec := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
-			gc, gcErr := newGraphClient(cmd.Context(), logger)
-			if gcErr != nil {
-				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
-			} else if gc != nil {
-				defer func() { _ = gc.Close() }()
-				rec.SetGraphClient(gc, st, cfg.Graph.RecallBudgetCLIMs)
-			}
+			// Wire graph client — MemgraphStore implements graph.Client.
+			gc := memgraph.NewGraphAdapter(st)
+			rec.SetGraphClient(gc, st, cfg.Recall.GraphBudgetCLIMs)
 
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
 

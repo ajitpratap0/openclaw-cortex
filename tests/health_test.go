@@ -23,11 +23,8 @@ func TestHealthConfig(t *testing.T) {
 // DedupThresholdHook value is rejected by Validate.
 func TestHealthConfig_Validate_DedupThresholdHookOutOfRange(t *testing.T) {
 	cfg := &config.Config{
-		Qdrant: config.QdrantConfig{
-			Host:       "localhost",
-			GRPCPort:   6334,
-			HTTPPort:   6333,
-			Collection: "test_col",
+		Memgraph: config.MemgraphConfig{
+			URI: "bolt://localhost:7687",
 		},
 		Ollama: config.OllamaConfig{
 			BaseURL: "http://localhost:11434",

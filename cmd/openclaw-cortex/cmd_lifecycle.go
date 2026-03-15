@@ -32,7 +32,7 @@ Use --json for machine-readable output.`,
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				return fmt.Errorf("lifecycle: connecting to store: %w", storeErr)
 			}
@@ -84,7 +84,7 @@ func consolidateCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("consolidate: connecting to store: %w", err)
 			}
@@ -133,7 +133,7 @@ func forgetCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("forget: connecting to store: %w", err)
 			}

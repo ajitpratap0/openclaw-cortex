@@ -15,18 +15,18 @@ func healthCmd() *cobra.Command {
 			ctx := cmd.Context()
 			allOK := true
 
-			// Check Qdrant
-			st, err := newStore(logger)
+			// Check Memgraph
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				fmt.Printf("Qdrant: FAIL (%v)\n", err)
+				fmt.Printf("Memgraph: FAIL (%v)\n", err)
 				allOK = false
 			} else {
 				defer func() { _ = st.Close() }()
 				if err := st.EnsureCollection(ctx); err != nil {
-					fmt.Printf("Qdrant: FAIL (%v)\n", err)
+					fmt.Printf("Memgraph: FAIL (schema: %v)\n", err)
 					allOK = false
 				} else {
-					fmt.Println("Qdrant: OK")
+					fmt.Println("Memgraph: OK")
 				}
 			}
 
@@ -48,25 +48,6 @@ func healthCmd() *cobra.Command {
 			default:
 				fmt.Println("Claude LLM: FAIL (no API key or gateway configured)")
 				allOK = false
-			}
-
-			// Check Neo4j (optional)
-			if cfg.Graph.Enabled {
-				gc, gcErr := newGraphClient(ctx, logger)
-				if gcErr != nil {
-					fmt.Printf("Neo4j:  FAIL (%v)\n", gcErr)
-					allOK = false
-				} else {
-					if gc.Healthy(ctx) {
-						fmt.Println("Neo4j:  OK")
-					} else {
-						fmt.Println("Neo4j:  FAIL (unhealthy)")
-						allOK = false
-					}
-					_ = gc.Close()
-				}
-			} else {
-				fmt.Println("Neo4j:  SKIP (graph.enabled=false)")
 			}
 
 			if !allOK {

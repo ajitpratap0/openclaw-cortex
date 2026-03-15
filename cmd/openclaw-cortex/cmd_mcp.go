@@ -9,6 +9,7 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
 	cortexmcp "github.com/ajitpratap0/openclaw-cortex/internal/mcp"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 )
 
@@ -26,14 +27,15 @@ Tools exposed:
   search    — raw semantic search with scores
   stats     — collection statistics
 
-If Qdrant or Ollama are unavailable at startup the server still starts;
+If Memgraph or Ollama are unavailable at startup the server still starts;
 individual tool calls will return MCP error responses on failure.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger := newLogger()
+			ctx := cmd.Context()
 
 			emb := newEmbedder(logger)
 
-			st, storeErr := newStore(logger)
+			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
 				// Log to stderr and continue with a nil store.
 				// Tool calls will return per-call errors rather than crashing.
@@ -43,12 +45,10 @@ individual tool calls will return MCP error responses on failure.`,
 
 			recaller := recall.NewRecaller(recallWeightsFromConfig(cfg.Recall.Weights), logger)
 
-			gc, gcErr := newGraphClient(cmd.Context(), logger)
-			if gcErr != nil {
-				logger.Warn("graph client init failed, using qdrant-only recall", "error", gcErr)
-			} else if gc != nil {
-				defer func() { _ = gc.Close() }()
-				recaller.SetGraphClient(gc, st, cfg.Graph.RecallBudgetMs)
+			if st != nil {
+				// Wire graph client — MemgraphStore implements graph.Client.
+				gc := memgraph.NewGraphAdapter(st)
+				recaller.SetGraphClient(gc, st, cfg.Recall.GraphBudgetMs)
 			}
 
 			srv := cortexmcp.NewServer(st, emb, recaller, logger)

@@ -29,7 +29,7 @@ func searchCmd() *cobra.Command {
 			query := args[0]
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("search: connecting to store: %w", err)
 			}

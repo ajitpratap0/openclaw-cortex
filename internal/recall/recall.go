@@ -221,26 +221,26 @@ func (r *Recaller) ShouldRerank(results []models.RecallResult, threshold float64
 	return spread <= threshold
 }
 
-// RecallWithGraph merges graph-sourced memory IDs with qdrantResults, deduplicates,
+// RecallWithGraph merges graph-sourced memory IDs with searchResults, deduplicates,
 // and runs Rank on the combined set.
 //
-// If GraphClient is nil the function is equivalent to calling Rank(qdrantResults, project, query).
+// If GraphClient is nil the function is equivalent to calling Rank(searchResults, project, query).
 // If the graph call exceeds the latency budget, the function falls back to Qdrant-only results.
 func (r *Recaller) RecallWithGraph(
 	ctx context.Context,
 	query string,
 	embedding []float32,
-	qdrantResults []models.SearchResult,
+	searchResults []models.SearchResult,
 	project string,
 ) []models.RecallResult {
 	if r.graphClient == nil {
-		return r.Rank(qdrantResults, project, query)
+		return r.Rank(searchResults, project, query)
 	}
 
-	// Build a set of IDs already present in qdrantResults.
-	existing := make(map[string]struct{}, len(qdrantResults))
-	for i := range qdrantResults {
-		existing[qdrantResults[i].Memory.ID] = struct{}{}
+	// Build a set of IDs already present in searchResults.
+	existing := make(map[string]struct{}, len(searchResults))
+	for i := range searchResults {
+		existing[searchResults[i].Memory.ID] = struct{}{}
 	}
 
 	// Call graph with a deadline derived from the latency budget.
@@ -253,13 +253,13 @@ func (r *Recaller) RecallWithGraph(
 
 	graphIDs, err := r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
 	if err != nil {
-		r.logger.Warn("graph recall failed, using qdrant-only results", "error", err)
-		return r.Rank(qdrantResults, project, query)
+		r.logger.Warn("graph recall failed, using vector-only results", "error", err)
+		return r.Rank(searchResults, project, query)
 	}
 
-	// Fetch memories for graph IDs not already present in qdrantResults.
-	merged := make([]models.SearchResult, len(qdrantResults))
-	copy(merged, qdrantResults)
+	// Fetch memories for graph IDs not already present in searchResults.
+	merged := make([]models.SearchResult, len(searchResults))
+	copy(merged, searchResults)
 
 	for _, id := range graphIDs {
 		if _, ok := existing[id]; ok {

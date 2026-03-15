@@ -23,11 +23,11 @@ most relevant context within your token budget.
 |---------|-----|
 | Never lose rules, decisions, or preferences across sessions | Semantic recall + permanent scope |
 | Recall stays relevant as memory grows | Multi-factor ranking + conflict resolution |
-| Zero vendor lock-in | Self-hosted Qdrant + Ollama |
+| Zero vendor lock-in | Self-hosted Memgraph + Ollama |
 | Drop-in for Claude Code | Pre/post-turn hooks — no code changes needed |
 | Intelligent ranking | Threshold-gated LLM re-ranking when scores are ambiguous |
 
-**Status**: v0.6.0 — production-ready for single-user / small-team use.
+**Status**: v0.7.0 — production-ready for single-user / small-team use.
 
 ## Install
 
@@ -46,7 +46,7 @@ go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
 ## 3-Command Quickstart
 
 ```bash
-docker compose up -d                                           # start Qdrant vector store
+docker compose up -d                                           # start Memgraph
 ollama pull nomic-embed-text                                   # pull the embedding model
 openclaw-cortex store "Always run tests before merging" \
   --type rule --scope permanent                                # store your first memory
@@ -67,7 +67,7 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
 | Ranking | Chronological only | 8-factor scoring + supersession/conflict penalties |
 | Memory expiry | Manual | TTL, session decay, lifecycle consolidation |
 | Entity tracking | None | Automatic from conversation capture |
-| Cross-session | Context window only | Persists in Qdrant across all sessions |
+| Cross-session | Context window only | Persists in Memgraph across all sessions |
 | API access | None | REST API + MCP server |
 | Project isolation | None | Per-project scoping and boosting |
 | Conflict detection | None | Automatic: contradicting facts tagged and resolved |
@@ -100,14 +100,14 @@ openclaw-cortex recall "What are the testing requirements?" --budget 2000
                        │
            ┌───────────▼──────────────┐
            │  Embedder    Store        │
-           │  (Ollama)    (Qdrant gRPC)│
+           │  (Ollama)    (Memgraph)   │
            │  768-dim     vectors      │
            └───────────────────────────┘
 ```
 
 ## Features
 
-- **Semantic recall**: Vector similarity search (Qdrant gRPC, 768-dim `nomic-embed-text`)
+- **Semantic recall**: Vector similarity search (Memgraph, 768-dim `nomic-embed-text`)
 - **Smart capture**: Claude Haiku extracts structured memories from conversation turns
 - **Multi-factor ranking**: 8-factor scoring (similarity + recency + frequency + type + scope + confidence + reinforcement + tag affinity) with supersession and conflict penalties
 - **Token-aware output**: Recalled memories trimmed to fit your token budget
@@ -143,9 +143,8 @@ Configuration is loaded from (in order of precedence):
 3. Built-in defaults
 
 ```yaml
-qdrant:
-  host: localhost
-  grpc_port: 6334
+memgraph:
+  uri: bolt://localhost:7687
 
 ollama:
   base_url: http://localhost:11434
@@ -170,8 +169,7 @@ recall:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | — | Required for `capture` (Claude Haiku extraction) |
-| `OPENCLAW_CORTEX_QDRANT_HOST` | `localhost` | Qdrant hostname |
-| `OPENCLAW_CORTEX_QDRANT_GRPC_PORT` | `6334` | Qdrant gRPC port |
+| `OPENCLAW_CORTEX_MEMGRAPH_URI` | `bolt://localhost:7687` | Memgraph Bolt URI |
 | `OPENCLAW_CORTEX_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
 
 ## Claude Code Integration
@@ -280,20 +278,20 @@ openclaw-cortex/
 │   ├── metrics/            # In-process counters
 │   ├── models/             # Memory struct and type definitions
 │   ├── recall/             # Multi-factor ranker + optional Claude re-ranker
-│   └── store/              # Store interface, Qdrant gRPC, MockStore
+│   └── memgraph/           # Memgraph client interface, Bolt implementation, MockClient
 ├── pkg/tokenizer/          # Token estimation and budget-aware formatting
 ├── tests/                  # Black-box test suite (no live services needed)
 ├── docs/                   # MkDocs documentation source
 ├── scripts/install.sh      # Binary installer
-├── k8s/qdrant.yaml         # Kubernetes StatefulSet
-├── docker-compose.yml      # Local Qdrant
+├── k8s/memgraph.yaml       # Kubernetes StatefulSet
+├── docker-compose.yml      # Local Memgraph
 └── Dockerfile              # Multi-stage build
 ```
 
 ## Tech Stack
 
 - **Go 1.23+** with structured logging (`slog`)
-- **Qdrant** vector database (gRPC via `github.com/qdrant/go-client`)
+- **Memgraph** graph database with vector search (Bolt via `github.com/neo4j/neo4j-go-driver`)
 - **Ollama** for local embeddings (`nomic-embed-text`, 768 dimensions)
 - **Claude Haiku** for memory extraction (`github.com/anthropics/anthropic-sdk-go`)
 - **Cobra** + **Viper** for CLI and configuration

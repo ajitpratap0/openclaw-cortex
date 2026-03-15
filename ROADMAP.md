@@ -25,13 +25,20 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 - [ ] Web UI memory browser (read-only, local-only)
 - [ ] Prometheus metrics endpoint (`/metrics`) via optional exporter
 
-## v0.6.0 — Current (Knowledge Graph Layer)
+## v0.6.0 — Knowledge Graph Layer (Complete)
 
 - [x] Neo4j graph backend integration (entity and relation storage)
 - [x] Entity extraction from conversation turns (name, type, attributes)
 - [x] Fact extraction linking entities via typed relations
 - [x] Graph-augmented recall (entity-neighborhood expansion of vector results)
 - [x] Entity name-to-UUID resolution (stable identity across captures)
+
+## v0.7.0 — Current (Memgraph Migration)
+
+- [x] Replaced Qdrant + Neo4j with single Memgraph instance
+- [x] Unified vector search + graph traversal in one container
+- [x] Graph features always enabled (removed `graph.enabled` flag)
+- [x] Simplified config: `memgraph.uri` replaces `qdrant.*` and `graph.neo4j.*`
 - [ ] Pluggable embedding providers: Cohere, Gemini, OpenAI-compatible endpoints
 - [ ] Streaming recall (SSE endpoint for progressive context injection)
 - [ ] Batch capture from chat export files (JSON, Markdown)

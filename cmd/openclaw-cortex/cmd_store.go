@@ -47,7 +47,7 @@ func storeCmd() *cobra.Command {
 			}
 
 			emb := newEmbedder(logger)
-			st, err := newStore(logger)
+			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
 				return fmt.Errorf("store: connecting to store: %w", err)
 			}
