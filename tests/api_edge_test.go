@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/api"
+	"github.com/ajitpratap0/openclaw-cortex/internal/hooks"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
@@ -291,4 +292,19 @@ func TestHandleStats_StoreError(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
+// --- hooks.PreTurnHook.WithReasoner (0% → covered) ---
+
+func TestPreTurnHook_WithReasoner_ChainsAndReturnsHook(t *testing.T) {
+	st := store.NewMockStore()
+	emb := &apiTestEmbedder{}
+	logger := slog.Default()
+	rec := recall.NewRecaller(recall.DefaultWeights(), logger)
+	reasoner := recall.NewReasoner(&mockLLMClient{Resp: "[]"}, "model", logger)
+
+	hook := hooks.NewPreTurnHook(emb, st, rec, logger)
+	chained := hook.WithReasoner(reasoner, hooks.RerankConfig{ScoreSpreadThreshold: 0.1})
+	assert.NotNil(t, chained, "WithReasoner should return the hook for method chaining")
+	assert.Equal(t, hook, chained, "WithReasoner should return the same hook (not a copy)")
 }
