@@ -25,3 +25,4 @@ Thumbs.db
 # Docker volumes
 qdrant_data/
 .claude/
+.worktrees/
