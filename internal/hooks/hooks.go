@@ -102,7 +102,9 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 			proj := input.Project
 			filter.Project = &proj
 		}
-		filter.UserID = input.UserID
+		if input.UserID != "" {
+			filter.UserID = input.UserID
+		}
 	}
 	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, filter)
 	if err != nil {

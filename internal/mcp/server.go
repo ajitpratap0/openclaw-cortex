@@ -310,7 +310,9 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 		if project != "" {
 			filters.Project = &project
 		}
-		filters.UserID = userID
+		if userID != "" {
+			filters.UserID = userID
+		}
 	}
 
 	results, err := s.st.Search(ctx, vec, recallSearchLimit, filters)

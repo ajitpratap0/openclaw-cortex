@@ -21,6 +21,11 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
+// userIDHeader is the HTTP request header used to scope memories to a specific user.
+// This header is intended for trusted internal callers (e.g. a reverse proxy or agent runtime
+// that authenticates the user before forwarding). Unauthenticated callers can supply any value;
+// the API layer does not validate or authenticate the UserID — that responsibility belongs to the
+// caller's infrastructure.
 const userIDHeader = "X-User-ID"
 
 // Server is an HTTP API server that exposes memory operations.
@@ -385,7 +390,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		if tagsStr != "" {
 			filters.Tags = strings.Split(tagsStr, ",")
 		}
-		filters.UserID = userID
+		if userID != "" {
+			filters.UserID = userID
+		}
 	}
 
 	const maxListLimit uint64 = 1000
