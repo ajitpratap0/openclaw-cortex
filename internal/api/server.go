@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -29,7 +28,7 @@ type Server struct {
 	embedder     embedder.Embedder
 	logger       *slog.Logger
 	authToken    string // empty = no auth required
-	cursorSecret string // empty = cursors are unsigned plain offsets
+	cursorSecret string // empty = cursor signing disabled (plain numeric offset passthrough)
 }
 
 // NewServer creates a new Server with the given dependencies.
@@ -394,16 +393,21 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Decode incoming signed cursor.
-	secret := []byte(s.cursorSecret)
-	skip, verifyErr := cursor.Verify(q.Get("cursor"), secret)
-	if verifyErr != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid cursor")
-		return
-	}
+	// Decode incoming cursor. When cursorSecret is set, cursors are HMAC-signed;
+	// otherwise they are plain numeric offsets (signing disabled).
+	rawCursorIn := q.Get("cursor")
 	var rawCursor string
-	if skip > 0 {
-		rawCursor = strconv.FormatInt(skip, 10)
+	if s.cursorSecret != "" {
+		skip, verifyErr := cursor.Verify(rawCursorIn, []byte(s.cursorSecret))
+		if verifyErr != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid cursor")
+			return
+		}
+		if skip > 0 {
+			rawCursor = strconv.FormatInt(skip, 10)
+		}
+	} else {
+		rawCursor = rawCursorIn
 	}
 
 	memories, nextRawCursor, err := s.store.List(r.Context(), filters, limit, rawCursor)
@@ -417,11 +421,15 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		memories = []models.Memory{}
 	}
 
-	// Encode outgoing cursor.
+	// Encode outgoing cursor. Signed when cursorSecret is set; plain offset otherwise.
 	var nextCursor string
 	if nextRawCursor != "" {
-		nextSkip, _ := strconv.ParseInt(nextRawCursor, 10, 64)
-		nextCursor = cursor.Sign(nextSkip, secret)
+		if s.cursorSecret != "" {
+			nextSkip, _ := strconv.ParseInt(nextRawCursor, 10, 64)
+			nextCursor = cursor.Sign(nextSkip, []byte(s.cursorSecret))
+		} else {
+			nextCursor = nextRawCursor
+		}
 	}
 
 	s.writeJSON(w, http.StatusOK, listResponse{Memories: memories, NextCursor: nextCursor})
@@ -579,7 +587,8 @@ func (s *Server) handleSearchEntities(w http.ResponseWriter, r *http.Request) {
 
 	entities, err := s.store.SearchEntities(r.Context(), query, typeFilter, limit)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, fmt.Sprintf("search failed: %s", err))
+		s.logger.Error("failed to search entities", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "failed to search entities")
 		return
 	}
 

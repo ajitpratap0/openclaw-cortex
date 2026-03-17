@@ -54,7 +54,7 @@ func New(ctx context.Context, uri, username, password, database string, logger *
 	defer verifyCancel()
 	if verifyErr := driver.VerifyConnectivity(verifyCtx); verifyErr != nil {
 		_ = driver.Close(ctx)
-		return nil, fmt.Errorf("memgraph new: verifying connectivity to %s: %w", uri, verifyErr)
+		return nil, fmt.Errorf("memgraph new: verifying connectivity to %s: %w", redactURI(uri), verifyErr)
 	}
 
 	logger.Debug("connected to Memgraph", "uri", redactURI(uri), "database", database)
