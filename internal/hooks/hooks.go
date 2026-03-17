@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
@@ -168,6 +166,7 @@ type PostTurnHook struct {
 	conflictDetector       *capture.ConflictDetector // nil = disabled
 	reinforcementThreshold float64                   // 0 = disabled
 	reinforcementBoost     float64
+	concurrency            int // number of goroutines for per-memory pipeline; 0 = default (4)
 }
 
 // PostTurnInput contains the conversation turn data.
@@ -180,9 +179,11 @@ type PostTurnInput struct {
 }
 
 // NewPostTurnHook creates a post-turn hook handler.
-// dedupThreshold is the cosine similarity threshold above which a memory is considered a duplicate.
-// A value of 0.95 is recommended for hook-captured memories to avoid false-positive dedup.
-func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedder.Embedder, st store.Store, logger *slog.Logger, dedupThreshold float64) *PostTurnHook {
+// dedupThreshold is the cosine similarity threshold above which a memory is
+// considered a duplicate. A value of 0.95 is recommended.
+// concurrency controls the number of memories processed simultaneously in
+// Execute; 0 falls back to the default of 4; values above 16 are clamped to 16.
+func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedder.Embedder, st store.Store, logger *slog.Logger, dedupThreshold float64, concurrency int) *PostTurnHook {
 	return &PostTurnHook{
 		capturer:       cap,
 		classifier:     cls,
@@ -190,6 +191,7 @@ func NewPostTurnHook(cap capture.Capturer, cls classifier.Classifier, emb embedd
 		store:          st,
 		logger:         logger,
 		dedupThreshold: dedupThreshold,
+		concurrency:    concurrency,
 	}
 }
 
@@ -234,113 +236,20 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 		return nil
 	}
 
-	now := time.Now().UTC()
-	stored := 0
-
-	for i := range captured {
-		cm := captured[i]
-		// 2. Classify – prefer the LLM-assigned type; only run the classifier if empty.
-		memType := cm.Type
-		if memType == "" {
-			memType = h.classifier.Classify(cm.Content)
-		}
-
-		// 3. Embed the content.
-		vec, embedErr := h.embedder.Embed(ctx, cm.Content)
-		if embedErr != nil {
-			h.logger.Warn("post-turn embed failed, skipping memory", "error", embedErr)
-			continue
-		}
-
-		// 4. Reinforcement: boost confidence of near-duplicate existing memories instead of storing new.
-		if h.reinforcementThreshold > 0 {
-			nearDups, nearErr := h.store.FindDuplicates(ctx, vec, h.reinforcementThreshold)
-			if nearErr == nil && len(nearDups) > 0 {
-				top := nearDups[0]
-				if top.Score < h.dedupThreshold {
-					// Near-duplicate (not exact): reinforce instead of store.
-					if boostErr := h.store.UpdateReinforcement(ctx, top.Memory.ID, h.reinforcementBoost); boostErr != nil {
-						h.logger.Warn("post-turn: reinforcement update failed", "id", top.Memory.ID, "error", boostErr)
-					} else {
-						h.logger.Info("post-turn: reinforced existing memory",
-							"id", top.Memory.ID, "similarity", top.Score,
-							"boost", h.reinforcementBoost)
-						continue // Don't store new memory
-					}
-				}
-			}
-		}
-
-		// 5. Dedup – skip if an exact duplicate already exists.
-		dupes, dedupErr := h.store.FindDuplicates(ctx, vec, h.dedupThreshold)
-		if dedupErr != nil {
-			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", dedupErr)
-		} else if len(dupes) > 0 {
-			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
-			metrics.Inc(metrics.DedupSkipped)
-			continue
-		}
-
-		// 6. Contradiction detection — only when a ConflictDetector is configured.
-		var conflictGroupID string
-		if h.conflictDetector != nil {
-			candidates, searchErr := h.store.Search(ctx, vec, conflictCandidateLimit, nil)
-			if searchErr != nil {
-				h.logger.Warn("post-turn conflict search failed", "error", searchErr)
-			} else {
-				mems := make([]models.Memory, len(candidates))
-				for j := range candidates {
-					mems[j] = candidates[j].Memory
-				}
-				contradicts, contradictedID, reason, _ := h.conflictDetector.Detect(ctx, cm.Content, mems)
-				if contradicts && contradictedID != "" {
-					groupID := uuid.New().String()
-					conflictGroupID = groupID
-					h.logger.Info("conflict detected: tagging both memories",
-						"new_content", cm.Content[:minLen(50, len(cm.Content))],
-						"contradicted_id", contradictedID,
-						"group_id", groupID,
-						"reason", reason,
-					)
-					if tagErr := h.store.UpdateConflictFields(ctx, contradictedID, groupID, "active"); tagErr != nil {
-						h.logger.Warn("failed to tag contradicted memory", "id", contradictedID, "error", tagErr)
-					}
-				}
-			}
-		}
-
-		// 7. Store the new memory.
-		mem := models.Memory{
-			ID:              uuid.New().String(),
-			Type:            memType,
-			Scope:           models.ScopeSession,
-			Visibility:      models.VisibilityPrivate,
-			Content:         cm.Content,
-			Confidence:      cm.Confidence,
-			Tags:            cm.Tags,
-			Source:          "post-turn-hook",
-			Project:         input.Project,
-			CreatedAt:       now,
-			UpdatedAt:       now,
-			LastAccessed:    now,
-			ConflictGroupID: conflictGroupID,
-			ConflictStatus: func() models.ConflictStatus {
-				if conflictGroupID != "" {
-					return models.ConflictStatusActive
-				}
-				return models.ConflictStatusNone
-			}(),
-		}
-
-		if upsertErr := h.store.Upsert(ctx, mem, vec); upsertErr != nil {
-			h.logger.Warn("post-turn store failed", "error", upsertErr)
-			continue
-		}
-		metrics.Inc(metrics.CaptureTotal)
-		metrics.Inc(metrics.StoreTotal)
-		stored++
+	deps := pipelineDeps{
+		classifier:             h.classifier,
+		embedder:               h.embedder,
+		store:                  h.store,
+		conflictDetector:       h.conflictDetector,
+		dedupThreshold:         h.dedupThreshold,
+		reinforcementThreshold: h.reinforcementThreshold,
+		reinforcementBoost:     h.reinforcementBoost,
+		project:                input.Project,
 	}
-
+	stored, pipelineErr := runMemoryPipeline(ctx, captured, h.concurrency, deps, h.logger)
 	h.logger.Info("post-turn hook completed", "extracted", len(captured), "stored", stored)
+	if pipelineErr != nil {
+		return fmt.Errorf("post-turn pipeline: %w", pipelineErr)
+	}
 	return nil
 }

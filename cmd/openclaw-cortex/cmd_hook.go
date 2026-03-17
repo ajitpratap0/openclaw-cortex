@@ -243,7 +243,7 @@ func hookPostCmd() *cobra.Command {
 			cap := capture.NewCapturer(llmClient, cfg.Claude.Model, logger)
 			cls := classifier.NewClassifier(logger)
 
-			postHook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThresholdHook).
+			postHook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, cfg.Memory.DedupThresholdHook, cfg.Hooks.PostTurnConcurrency).
 				WithReinforcement(cfg.CaptureQuality.ReinforcementThreshold, cfg.CaptureQuality.ReinforcementConfidenceBoost)
 			if cfg.Claude.APIKey != "" {
 				cd := capture.NewConflictDetector(llmClient, cfg.Claude.Model, logger)
