@@ -222,35 +222,21 @@ func TestConfig_Validate_UnknownProvider(t *testing.T) {
 	}
 }
 
-func TestConfig_Validate_OpenAIDimZero(t *testing.T) {
+func TestConfig_Validate_LMStudioMissingModel(t *testing.T) {
 	cfg := validBaseConfig()
-	cfg.Embedder.Provider = "openai"
-	cfg.Embedder.OpenAIKey = "sk-test"
-	cfg.Embedder.OpenAIDim = 0
-	cfg.Memory.VectorDimension = 768
+	cfg.Embedder.Provider = "lmstudio"
+	cfg.Embedder.LMStudio.Model = ""
 	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected error for OpenAIDim=0")
+		t.Fatal("expected error for lmstudio with empty model")
 	}
 }
 
-func TestConfig_Validate_OpenAIDimMismatch(t *testing.T) {
+func TestConfig_Validate_LMStudio_Valid(t *testing.T) {
 	cfg := validBaseConfig()
-	cfg.Embedder.Provider = "openai"
-	cfg.Embedder.OpenAIKey = "sk-test"
-	cfg.Embedder.OpenAIDim = 512
-	cfg.Memory.VectorDimension = 768
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected error when OpenAIDim doesn't match VectorDimension")
-	}
-}
-
-func TestConfig_Validate_OpenAI_Valid(t *testing.T) {
-	cfg := validBaseConfig()
-	cfg.Embedder.Provider = "openai"
-	cfg.Embedder.OpenAIKey = "sk-test"
-	cfg.Embedder.OpenAIDim = 768
-	cfg.Memory.VectorDimension = 768
+	cfg.Embedder.Provider = "lmstudio"
+	cfg.Embedder.LMStudio.Model = "nomic-embed-text-v1.5"
+	cfg.Embedder.LMStudio.URL = "http://localhost:1234"
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("expected valid config, got: %v", err)
+		t.Fatalf("expected valid lmstudio config, got: %v", err)
 	}
 }
