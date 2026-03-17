@@ -5,31 +5,40 @@ package sentry
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	sentrygo "github.com/getsentry/sentry-go"
 )
 
-// initialised is set to true by Init when a non-empty DSN is provided.
-// It guards all Sentry calls so they are no-ops when Sentry is not configured.
-var initialised bool
+// initialized is set to true by Init when a non-empty DSN is successfully configured.
+// Atomic bool ensures safe reads from concurrent goroutines (HTTP handlers, hooks).
+var initialized atomic.Bool
 
-// Init initialises the Sentry SDK. Does nothing if dsn is empty.
+// Init initializes the Sentry SDK. Does nothing if dsn is empty.
+// If the DSN is invalid, initialization is skipped silently.
 func Init(dsn, environment, release string) {
 	if dsn == "" {
 		return
 	}
-	_ = sentrygo.Init(sentrygo.ClientOptions{
+	if err := sentrygo.Init(sentrygo.ClientOptions{
 		Dsn:              dsn,
 		Environment:      environment,
 		Release:          release,
 		TracesSampleRate: 0.2,
-	})
-	initialised = true
+	}); err != nil {
+		// Invalid DSN or other SDK error — do not mark as initialized.
+		return
+	}
+	initialized.Store(true)
 }
 
 // Flush waits up to timeout for buffered events to be sent.
+// No-op if Sentry is not configured.
 func Flush(timeout time.Duration) {
+	if !initialized.Load() {
+		return
+	}
 	sentrygo.Flush(timeout)
 }
 
@@ -41,13 +50,14 @@ func CaptureException(err error) {
 	sentrygo.CaptureException(err)
 }
 
-// StartSpan starts a Sentry performance span. Returns a function that must be called to finish the span.
+// StartSpan starts a Sentry performance span attached to ctx.
+// Returns a function that must be called to finish the span.
 // If Sentry is not configured, returns a no-op finish function.
-func StartSpan(op, description string) func() {
-	if !initialised {
+func StartSpan(ctx context.Context, op, description string) func() {
+	if !initialized.Load() {
 		return func() {}
 	}
-	span := sentrygo.StartSpan(context.Background(), op,
+	span := sentrygo.StartSpan(ctx, op,
 		sentrygo.WithDescription(description),
 	)
 	return func() { span.Finish() }

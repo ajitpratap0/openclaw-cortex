@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ func TestSentry_NoopWhenDSNEmpty(t *testing.T) {
 	// Verify that all sentry functions are safe to call with no DSN configured.
 	sentry.Init("", "test", "0.0.0")
 	sentry.CaptureException(errors.New("test error"))
-	finish := sentry.StartSpan("test.op", "test description")
+	finish := sentry.StartSpan(context.Background(), "test.op", "test description")
 	finish()
 	sentry.Flush(0)
 	// If we get here without panic, the no-op behavior works.

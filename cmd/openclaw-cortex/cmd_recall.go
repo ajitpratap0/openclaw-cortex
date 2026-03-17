@@ -11,6 +11,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -54,6 +55,9 @@ func recallCmd() *cobra.Command {
 				return filterErr
 			}
 			if includeHistory {
+				if filters == nil {
+					filters = &store.SearchFilters{}
+				}
 				filters.IncludeInvalidated = true
 			}
 

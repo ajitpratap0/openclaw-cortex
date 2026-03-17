@@ -61,7 +61,7 @@ func NewOllamaEmbedder(baseURL, model string, dimension int, logger *slog.Logger
 
 // Embed returns a vector embedding for the given text using the Ollama API.
 func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
-	finish := sentry.StartSpan("embed.ollama", "OllamaEmbedder.Embed")
+	finish := sentry.StartSpan(ctx, "embed.ollama", "OllamaEmbedder.Embed")
 	defer finish()
 	reqBody := ollamaEmbedRequest{
 		Model:  o.model,

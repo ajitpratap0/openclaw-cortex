@@ -55,7 +55,7 @@ type gatewayResponse struct {
 
 // Complete sends a single-turn request to the gateway and returns the model reply.
 func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
-	finish := sentry.StartSpan("llm.complete", "GatewayClient.Complete")
+	finish := sentry.StartSpan(ctx, "llm.complete", "GatewayClient.Complete")
 	defer finish()
 	reqBody := gatewayRequest{
 		Model: model,

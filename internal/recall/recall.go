@@ -294,7 +294,7 @@ func (r *Recaller) RecallWithGraph(
 	searchResults []models.SearchResult,
 	project string,
 ) []models.RecallResult {
-	finish := sentry.StartSpan("recall.with_graph", "Recaller.RecallWithGraph")
+	finish := sentry.StartSpan(ctx, "recall.with_graph", "Recaller.RecallWithGraph")
 	defer finish()
 	if r.graphClient == nil {
 		return r.Rank(searchResults, project, query)

@@ -30,7 +30,7 @@ func NewAnthropicClient(apiKey string) *AnthropicClient {
 // Complete sends a single-turn request to the Anthropic Messages API and returns the
 // first text block from the response.
 func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
-	finish := sentry.StartSpan("llm.complete", "AnthropicClient.Complete")
+	finish := sentry.StartSpan(ctx, "llm.complete", "AnthropicClient.Complete")
 	defer finish()
 	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
