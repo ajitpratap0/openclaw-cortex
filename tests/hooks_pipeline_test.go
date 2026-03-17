@@ -154,8 +154,8 @@ func TestPostTurnHook_Pipeline_ConcurrencyOne(t *testing.T) {
 // atomicSeqEmbedder generates distinct orthogonal vectors using an atomic counter.
 // Thread-safe: uses atomic.Int32 instead of a plain int.
 type atomicSeqEmbedder struct {
-	dim  int
-	seq  atomic.Int32
+	dim int
+	seq atomic.Int32
 }
 
 func (e *atomicSeqEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
