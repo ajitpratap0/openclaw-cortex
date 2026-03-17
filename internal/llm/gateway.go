@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
@@ -20,12 +21,13 @@ type GatewayClient struct {
 }
 
 // NewGatewayClient creates a GatewayClient that POSTs to baseURL/v1/chat/completions
-// authenticated with token.
-func NewGatewayClient(baseURL, token string) *GatewayClient {
+// authenticated with token. timeoutSeconds controls the HTTP client timeout (0 = no timeout).
+func NewGatewayClient(baseURL, token string, timeoutSeconds int) *GatewayClient {
+	timeout := time.Duration(timeoutSeconds) * time.Second
 	return &GatewayClient{
 		baseURL: baseURL,
 		token:   token,
-		http:    &http.Client{},
+		http:    &http.Client{Timeout: timeout},
 	}
 }
 

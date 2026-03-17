@@ -128,6 +128,8 @@ type ClaudeConfig struct {
 	GatewayURL   string `mapstructure:"gateway_url"`
 	GatewayToken string `mapstructure:"gateway_token"`
 
+	GatewayTimeoutSeconds int `mapstructure:"gateway_timeout_seconds"` // 0 = no timeout
+
 	// LLM resilience settings
 	MaxConcurrentLLMCalls int `mapstructure:"max_concurrent_llm_calls"` // default: 4
 	CBFailureThreshold    int `mapstructure:"cb_failure_threshold"`     // default: 5

@@ -21,7 +21,7 @@ func gatewayServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *l
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return srv, llm.NewGatewayClient(srv.URL, "test-token")
+	return srv, llm.NewGatewayClient(srv.URL, "test-token", 0)
 }
 
 func TestGatewayClient_Complete_Success(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGatewayClient_Complete_ContextCancelled(t *testing.T) {
 }
 
 func TestGatewayClient_Complete_ConnectionRefused(t *testing.T) {
-	client := llm.NewGatewayClient("http://127.0.0.1:1", "tok")
+	client := llm.NewGatewayClient("http://127.0.0.1:1", "tok", 0)
 	_, err := client.Complete(context.Background(), "m", "sys", "usr", 100)
 	assert.Error(t, err)
 }

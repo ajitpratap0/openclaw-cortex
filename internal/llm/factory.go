@@ -12,7 +12,7 @@ import "github.com/ajitpratap0/openclaw-cortex/internal/config"
 func NewClient(cfg config.ClaudeConfig) LLMClient {
 	var inner LLMClient
 	if cfg.GatewayURL != "" && cfg.GatewayToken != "" {
-		inner = NewGatewayClient(cfg.GatewayURL, cfg.GatewayToken)
+		inner = NewGatewayClient(cfg.GatewayURL, cfg.GatewayToken, cfg.GatewayTimeoutSeconds)
 	} else if cfg.APIKey != "" {
 		inner = NewAnthropicClient(cfg.APIKey)
 	}
