@@ -68,13 +68,15 @@ func TestBuildWhereClause_AsOf(t *testing.T) {
 	}
 }
 
-// TestBuildWhereClause_NilFilters verifies nil filters return no clauses.
+// TestBuildWhereClause_NilFilters verifies nil filters still exclude sensitive memories
+// (matches the opt-in behavior of matchesFilters in MockStore).
 func TestBuildWhereClause_NilFilters(t *testing.T) {
 	clauses, params := buildWhereClause(nil, "m")
-	if len(clauses) != 0 {
-		t.Errorf("expected no clauses for nil filters, got %v", clauses)
+	// Nil filters should produce exactly one clause: the sensitive-memory exclusion.
+	if len(clauses) != 1 {
+		t.Errorf("expected 1 clause (sensitive exclusion) for nil filters, got %v", clauses)
 	}
-	if len(params) != 0 {
-		t.Errorf("expected no params for nil filters, got %v", params)
+	if _, ok := params["exclude_sensitive"]; !ok {
+		t.Errorf("expected exclude_sensitive param for nil filters, got %v", params)
 	}
 }

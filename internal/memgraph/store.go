@@ -140,6 +140,7 @@ func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector
 			    m.valid_to         = $valid_to,
 			    m.reinforced_at_unix = $reinforced_at_unix,
 			    m.reinforced_count = $reinforced_count,
+			    m.user_id          = $user_id,
 			    m.embedding        = CASE WHEN $has_embedding THEN $embedding ELSE m.embedding END
 		`, params)
 		return nil, txErr
@@ -1012,6 +1013,7 @@ func memoryToParams(m models.Memory, vector []float32) map[string]any {
 		"reinforced_at_unix": reinforcedAtUnix,
 		"reinforced_count":   int64(m.ReinforcedCount),
 		"has_embedding":      vector != nil,
+		"user_id":            m.UserID,
 		"embedding":          float32SliceToAny(vector),
 	}
 }
@@ -1037,6 +1039,7 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 		Confidence:      propFloat64(props, "confidence"),
 		Source:          propString(props, "source"),
 		Project:         propString(props, "project"),
+		UserID:          propString(props, "user_id"),
 		TTLSeconds:      propInt64(props, "ttl_seconds"),
 		AccessCount:     propInt64(props, "access_count"),
 		SupersedesID:    propString(props, "supersedes_id"),
@@ -1177,15 +1180,35 @@ func recordToEntity(record *neo4j.Record, alias string) (*models.Entity, error) 
 // --- Filter builder ---
 
 // buildWhereClause constructs WHERE clause conditions from SearchFilters.
-// nodeAlias is the Cypher variable name (e.g. "m" or "node").
+// nodeAlias MUST be a hard-coded Cypher variable name ("m" or "node") — never user-supplied input.
 // Returns the condition strings and a parameter map.
 func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[string]any) {
+	// Allowlist guard: nodeAlias is interpolated into Cypher; only known literals are safe.
+	switch nodeAlias {
+	case "m", "node":
+	default:
+		panic(fmt.Sprintf("buildWhereClause: invalid nodeAlias %q (must be \"m\" or \"node\")", nodeAlias))
+	}
+
+	// Sensitive memories are opt-in: excluded by default unless visibility filter explicitly requests them.
+	// This mirrors the matchesFilters logic in MockStore for consistent behavior across implementations.
+	var sensitiveRequested bool
+	if f != nil && f.Visibility != nil && *f.Visibility == models.VisibilitySensitive {
+		sensitiveRequested = true
+	}
+
 	if f == nil {
-		return nil, nil
+		return []string{fmt.Sprintf("%s.visibility <> $exclude_sensitive", nodeAlias)},
+			map[string]any{"exclude_sensitive": string(models.VisibilitySensitive)}
 	}
 
 	var clauses []string
 	params := make(map[string]any)
+
+	if !sensitiveRequested {
+		clauses = append(clauses, fmt.Sprintf("%s.visibility <> $exclude_sensitive", nodeAlias))
+		params["exclude_sensitive"] = string(models.VisibilitySensitive)
+	}
 
 	if f.Type != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.type = $filter_type", nodeAlias))
@@ -1206,6 +1229,10 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 	if f.Source != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.source = $filter_source", nodeAlias))
 		params["filter_source"] = *f.Source
+	}
+	if f.UserID != "" {
+		clauses = append(clauses, fmt.Sprintf("%s.user_id = $filter_user_id", nodeAlias))
+		params["filter_user_id"] = f.UserID
 	}
 	if f.ConflictStatus != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.conflict_status = $filter_conflict_status", nodeAlias))
