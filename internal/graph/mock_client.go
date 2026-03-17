@@ -30,7 +30,7 @@ func NewMockGraphClient() *MockGraphClient {
 	}
 }
 
-func (m *MockGraphClient) EnsureSchema(_ context.Context) error {
+func (m *MockGraphClient) EnsureSchema(_ context.Context, _ int) error {
 	return nil
 }
 

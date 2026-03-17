@@ -33,6 +33,7 @@ type MemgraphStore struct {
 	database              string
 	logger                *slog.Logger
 	contradictionDetector store.ContradictionDetector
+	vectorDim             int
 }
 
 // SetContradictionDetector attaches a contradiction detector to the store.
@@ -43,7 +44,7 @@ func (s *MemgraphStore) SetContradictionDetector(d store.ContradictionDetector) 
 }
 
 // New creates a new MemgraphStore and verifies connectivity.
-func New(ctx context.Context, uri, username, password, database string, logger *slog.Logger) (*MemgraphStore, error) {
+func New(ctx context.Context, uri, username, password, database string, vectorDim int, logger *slog.Logger) (*MemgraphStore, error) {
 	driver, err := neo4j.NewDriverWithContext(uri, neo4j.BasicAuth(username, password, ""))
 	if err != nil {
 		return nil, fmt.Errorf("memgraph new: creating driver: %w", err)
@@ -59,9 +60,10 @@ func New(ctx context.Context, uri, username, password, database string, logger *
 	logger.Info("connected to Memgraph", "uri", uri, "database", database)
 
 	return &MemgraphStore{
-		driver:   driver,
-		database: database,
-		logger:   logger,
+		driver:    driver,
+		database:  database,
+		logger:    logger,
+		vectorDim: vectorDim,
 	}, nil
 }
 
@@ -84,7 +86,7 @@ func (s *MemgraphStore) closeSession(ctx context.Context, session neo4j.SessionW
 // Delegates to GraphAdapter.EnsureSchema which runs each DDL statement individually.
 func (s *MemgraphStore) EnsureCollection(ctx context.Context) error {
 	ga := NewGraphAdapter(s)
-	return ga.EnsureSchema(ctx)
+	return ga.EnsureSchema(ctx, s.vectorDim)
 }
 
 // Upsert inserts or updates a memory node with its embedding vector.
