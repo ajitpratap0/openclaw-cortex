@@ -107,20 +107,19 @@ type OllamaConfig struct {
 	Model   string `mapstructure:"model"`
 }
 
-// EmbedderConfig selects which embedding provider to use and holds provider-specific settings.
+// LMStudioConfig holds settings for the LM Studio local embedding provider.
+type LMStudioConfig struct {
+	// URL is the base URL of the LM Studio server. Defaults to http://localhost:1234.
+	URL string `mapstructure:"url"`
+	// Model is the embedding model to request. Required when provider is "lmstudio".
+	Model string `mapstructure:"model"`
+}
+
+// EmbedderConfig selects which local embedding provider to use.
 type EmbedderConfig struct {
-	// Provider selects the embedding backend: "ollama" (default) or "openai".
-	Provider string `mapstructure:"provider"`
-
-	// OpenAIKey is the OpenAI API key. May also be supplied via OPENCLAW_CORTEX_OPENAI_API_KEY.
-	OpenAIKey string `mapstructure:"openai_api_key"`
-
-	// OpenAIModel is the OpenAI embedding model. Defaults to "text-embedding-3-small".
-	OpenAIModel string `mapstructure:"openai_model"`
-
-	// OpenAIDim is the number of dimensions requested from the OpenAI API.
-	// Defaults to 768 to maintain compatibility with existing collections.
-	OpenAIDim int `mapstructure:"openai_dimensions"`
+	// Provider selects the embedding backend: "ollama" (default) | "lmstudio".
+	Provider string         `mapstructure:"provider"`
+	LMStudio LMStudioConfig `mapstructure:"lmstudio"`
 }
 
 // ClaudeConfig holds Anthropic Claude API settings.
@@ -137,10 +136,12 @@ func (c ClaudeConfig) String() string {
 	return fmt.Sprintf("ClaudeConfig{APIKey:%s, Model:%s, GatewayURL:%s}", masked, c.Model, c.GatewayURL)
 }
 
-// String returns a safe representation of EmbedderConfig with the API key masked.
+// String returns a human-readable representation of EmbedderConfig.
 func (c EmbedderConfig) String() string {
-	return fmt.Sprintf("EmbedderConfig{Provider:%s, OpenAIKey:%s, Model:%s, Dim:%d}",
-		c.Provider, maskAPIKey(c.OpenAIKey), c.OpenAIModel, c.OpenAIDim)
+	if c.Provider == "lmstudio" {
+		return fmt.Sprintf("EmbedderConfig{Provider:%s LMStudio.URL:%s Model:%s}", c.Provider, c.LMStudio.URL, c.LMStudio.Model)
+	}
+	return fmt.Sprintf("EmbedderConfig{Provider:%s}", c.Provider)
 }
 
 // maskAPIKey shows first 4 + last 4 chars, replacing the middle with asterisks.
@@ -183,8 +184,7 @@ func Load() (*Config, error) {
 	v.SetDefault("ollama.model", "nomic-embed-text")
 
 	v.SetDefault("embedder.provider", "ollama")
-	v.SetDefault("embedder.openai_model", "text-embedding-3-small")
-	v.SetDefault("embedder.openai_dimensions", 768)
+	v.SetDefault("embedder.lmstudio.url", "http://localhost:1234")
 
 	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
 
@@ -259,9 +259,8 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("api.rate_limit_rps", "OPENCLAW_CORTEX_API_RATE_LIMIT_RPS")
 	_ = v.BindEnv("api.rate_limit_burst", "OPENCLAW_CORTEX_API_RATE_LIMIT_BURST")
 	_ = v.BindEnv("embedder.provider", "OPENCLAW_CORTEX_EMBEDDER_PROVIDER")
-	_ = v.BindEnv("embedder.openai_api_key", "OPENCLAW_CORTEX_OPENAI_API_KEY")
-	_ = v.BindEnv("embedder.openai_model", "OPENCLAW_CORTEX_OPENAI_MODEL")
-	_ = v.BindEnv("embedder.openai_dimensions", "OPENCLAW_CORTEX_OPENAI_DIMENSIONS")
+	_ = v.BindEnv("embedder.lmstudio.url", "OPENCLAW_CORTEX_LMSTUDIO_URL")
+	_ = v.BindEnv("embedder.lmstudio.model", "OPENCLAW_CORTEX_LMSTUDIO_MODEL")
 	_ = v.BindEnv("claude.gateway_url", "OPENCLAW_GATEWAY_URL")
 	_ = v.BindEnv("claude.gateway_token", "OPENCLAW_GATEWAY_TOKEN")
 
@@ -313,27 +312,16 @@ func (c *Config) Validate() error {
 	if c.Memory.DefaultTTLHours < 0 {
 		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
 	}
-	if c.Embedder.Provider == "openai" && c.Embedder.OpenAIKey == "" {
-		return fmt.Errorf("embedder.openai_api_key must not be empty when provider is \"openai\"")
-	}
-
-	// Validate provider name.
+	// Validate provider name and provider-specific fields.
 	switch c.Embedder.Provider {
-	case "ollama", "openai", "":
-		// valid
+	case "ollama", "":
+		// valid — no extra fields required
+	case "lmstudio":
+		if c.Embedder.LMStudio.Model == "" {
+			return fmt.Errorf("embedder.lmstudio.model must not be empty when provider is \"lmstudio\"")
+		}
 	default:
-		return fmt.Errorf("embedder.provider must be \"ollama\" or \"openai\", got %q", c.Embedder.Provider)
-	}
-
-	// Validate OpenAI-specific fields when openai provider is selected.
-	if c.Embedder.Provider == "openai" {
-		if c.Embedder.OpenAIDim <= 0 {
-			return fmt.Errorf("embedder.openai_dimensions must be > 0 when provider is \"openai\"")
-		}
-		if int(c.Memory.VectorDimension) != c.Embedder.OpenAIDim {
-			return fmt.Errorf("embedder.openai_dimensions (%d) must match memory.vector_dimension (%d)",
-				c.Embedder.OpenAIDim, c.Memory.VectorDimension)
-		}
+		return fmt.Errorf("embedder.provider must be \"ollama\" or \"lmstudio\", got %q", c.Embedder.Provider)
 	}
 
 	return nil

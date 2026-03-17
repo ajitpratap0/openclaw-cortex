@@ -8,35 +8,30 @@ import (
 )
 
 func TestEmbedderConfigString(t *testing.T) {
-	t.Run("long key masked", func(t *testing.T) {
-		cfg := config.EmbedderConfig{
-			Provider:    "openai",
-			OpenAIKey:   "sk-abcdefghijklmnopqrstuvwxyz123456",
-			OpenAIModel: "text-embedding-3-small",
-			OpenAIDim:   768,
-		}
-		s := cfg.String()
-		if strings.Contains(s, "sk-abcdefghijklmnopqrstuvwxyz123456") {
-			t.Error("full API key should not appear in String() output")
-		}
-		if !strings.Contains(s, "****") {
-			t.Error("masked key should contain '****'")
-		}
-	})
-
-	t.Run("short key fully masked", func(t *testing.T) {
-		cfg := config.EmbedderConfig{
-			Provider:  "openai",
-			OpenAIKey: "short",
-		}
-		s := cfg.String()
-		if strings.Contains(s, "short") {
-			t.Error("short key should be fully masked")
-		}
-	})
-
-	t.Run("empty key no panic", func(t *testing.T) {
+	t.Run("ollama provider", func(t *testing.T) {
 		cfg := config.EmbedderConfig{Provider: "ollama"}
+		s := cfg.String()
+		if !strings.Contains(s, "ollama") {
+			t.Errorf("String() %q does not contain provider name", s)
+		}
+	})
+
+	t.Run("lmstudio provider", func(t *testing.T) {
+		cfg := config.EmbedderConfig{
+			Provider: "lmstudio",
+			LMStudio: config.LMStudioConfig{
+				URL:   "http://localhost:1234",
+				Model: "nomic-embed-text-v1.5",
+			},
+		}
+		s := cfg.String()
+		if !strings.Contains(s, "lmstudio") {
+			t.Errorf("String() %q does not contain provider name", s)
+		}
+	})
+
+	t.Run("empty provider no panic", func(t *testing.T) {
+		cfg := config.EmbedderConfig{}
 		_ = cfg.String() // must not panic
 	})
 }
