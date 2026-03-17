@@ -412,7 +412,11 @@ grep -rn "metrics\." internal/ cmd/ --include="*.go" | grep -v "metrics.go"
 **Known files to update** (grep may return more — update everything the grep finds):
 - `internal/hooks/hooks.go`
 - `internal/recall/recall.go`
-- `cmd/openclaw-cortex/cmd_serve.go` — the serve command registers the existing `/debug/vars` or metrics handler; **remove** the `expvar`/`net/http/pprof` handler registration here and add nothing (the `/metrics` route is added in Step 5 via `internal/api/server.go` instead)
+- `cmd/openclaw-cortex/cmd_stats.go` — calls `.Value()` on existing counters; replace with `testutil.ToFloat64` or direct counter reads
+- `cmd/openclaw-cortex/cmd_serve.go` — remove any `/debug/vars` or `expvar` handler registration; the `/metrics` route is added in Step 5 via `internal/api/server.go`
+- `internal/lifecycle/lifecycle.go` — may increment `LifecycleExpired`, `LifecycleDecayed`, `LifecycleRetired` counters; add Prometheus equivalents or consolidate into `MemoriesStoredTotal` with a `"lifecycle"` source label
+
+**Note on `StoreTotal` / `CaptureTotal` consolidation:** The existing `hooks.go` increments both `metrics.StoreTotal` and `metrics.CaptureTotal`. Map both to `MemoriesStoredTotal.With(prometheus.Labels{"source": "hook"}).Inc()` — one increment per memory stored is sufficient. If separate lifecycle metrics are desired, add them to `metrics.go` as part of this PR.
 
 Replace with new Prometheus counter increments. Examples:
 - `metrics.Inc(metrics.RecallTotal)` → `metrics.RecallsTotal.Inc()`

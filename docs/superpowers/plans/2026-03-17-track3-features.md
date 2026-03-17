@@ -513,17 +513,57 @@ Commit any changes to `internal/recall/recall.go` as part of this PR (it is alre
 
 - [ ] **Step 1: Write failing test in `tests/streaming_recall_test.go`**
 
-Note: `newTestRecaller(t)` must be defined in the `tests/` package. Add this helper to a shared test file (e.g. `tests/helpers_test.go`). Since `recall.NewRecaller` (or equivalent constructor) requires a store and embedder, create a minimal version:
+Note: Several test helpers must be defined in the `tests/` package. Add them to a shared test file (e.g. `tests/helpers_test.go`). Create the file if it does not exist:
 
 ```go
-// Add to tests/helpers_test.go (create file if it does not exist):
+// tests/helpers_test.go
+package tests
+
+import (
+    "log/slog"
+    "os"
+    "testing"
+
+    "github.com/ajitpratap0/openclaw-cortex/internal/capture"
+    "github.com/ajitpratap0/openclaw-cortex/internal/classifier"
+    "github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+    "github.com/ajitpratap0/openclaw-cortex/internal/recall"
+    "github.com/ajitpratap0/openclaw-cortex/internal/store"
+)
+
+func newTestLogger() *slog.Logger {
+    return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+}
+
+func newTestEmbedder(t *testing.T) embedder.Embedder {
+    t.Helper()
+    // Returns a no-op embedder that always returns a zero vector.
+    // If a stub/mock embedder already exists in internal/embedder/, use that.
+    return embedder.NewNoOpEmbedder(768)
+}
+
+func newTestCapturer(t *testing.T) capture.Capturer {
+    t.Helper()
+    // Returns a stub capturer. If capture.NewStubCapturer exists, use it;
+    // otherwise check if capture.ClaudeCapturer can be constructed with a nil
+    // LLM client for tests that never call Extract (dry-run / structural tests).
+    // Consult internal/capture/capture.go for the constructor signature.
+    return capture.NewStubCapturer() // or capture.NewCapturer(nil, "", newTestLogger())
+}
+
+func newTestClassifier(t *testing.T) classifier.Classifier {
+    t.Helper()
+    return classifier.New() // heuristic classifier; no external dependencies
+}
+
 func newTestRecaller(t *testing.T) *recall.Recaller {
     t.Helper()
+    // Consult internal/recall/recall.go for the NewRecaller constructor signature.
     return recall.NewRecaller(store.NewMockStore(), nil, nil)
-    // Adjust constructor arguments to match the actual recall.NewRecaller signature
-    // found in internal/recall/recall.go.
 }
 ```
+
+**Before writing the test:** read `internal/recall/recall.go`, `internal/embedder/embedder.go`, and `internal/capture/capture.go` to confirm constructor signatures and adjust the helpers above accordingly. If a `NoOpEmbedder` or `StubCapturer` does not already exist, create minimal implementations in the appropriate `internal/` package.
 
 Also note: `api.NewServer` gains a `recall *recall.Recaller` parameter in PR 3.1b (Task 6, Step 3). Ensure the test matches that updated signature — `NewServer(st, rec, emb, logger, authToken, defaultUserID)`.
 
@@ -1085,7 +1125,7 @@ See store-batch for bulk-upsert of pre-formed memory records without LLM extract
     }
 
     cmd.Flags().IntVar(&concurrency, "concurrency", 4, "Number of concurrent workers (max 16)")
-    cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Extract memories but do not write to store; prints extracted JSONL to stdout")
+    cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Extract memories but do not write to store (use --stats to see counts)")
     cmd.Flags().BoolVar(&printStats, "stats", false, "Print JSON summary to stdout on completion")
     return cmd
 }
