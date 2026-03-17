@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // All data pages use Client Components + SWR; no SSR needed for this
-  // local developer tool.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

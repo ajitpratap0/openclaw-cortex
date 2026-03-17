@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OpenClaw Cortex Admin
+
+A standalone Next.js 15 admin dashboard for browsing and managing OpenClaw Cortex memories, entities, and conflict resolution.
+
+## Features
+
+- **Dashboard** — memory collection stats (totals, by type, by scope)
+- **Memories** — list, search, filter, and view individual memories with full metadata
+- **Entities** — browse extracted entities and their relationships
+- **Conflicts** — review and resolve detected memory contradictions
+- **Settings** — configure the cortex API endpoint and auth token
 
 ## Getting Started
 
-First, run the development server:
+Copy the example environment file and fill in your cortex API details:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Edit `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_CORTEX_URL=http://localhost:8080
+NEXT_PUBLIC_CORTEX_TOKEN=your-api-token
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the development server (port 3001):
 
-## Learn More
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3001](http://localhost:3001) in your browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS v4
+- shadcn/ui (zinc palette, dark mode)
+- Geist font
+- SWR for data fetching
 
-## Deploy on Vercel
+## Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is a local developer tool — it has no authentication layer of its own. Keep the cortex API token in `.env.local` only and never commit it.
