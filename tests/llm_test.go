@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -66,14 +67,20 @@ func TestGatewayClient_Complete_InvalidJSON(t *testing.T) {
 }
 
 func TestGatewayClient_Complete_ContextCancelled(t *testing.T) {
-	_, client := gatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+	// Pre-cancel the context; the HTTP client should return a context error
+	// without ever reaching the server.
+	_, client := gatewayServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	cancel() // cancel before the call
 	_, err := client.Complete(ctx, "m", "sys", "usr", 100)
-	assert.Error(t, err)
+	require.Error(t, err)
+	// The error chain must contain a context error (Canceled or DeadlineExceeded).
+	assert.True(t,
+		errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded),
+		"expected context error, got: %v", err,
+	)
 }
 
 func TestGatewayClient_Complete_ConnectionRefused(t *testing.T) {
@@ -90,13 +97,17 @@ func TestNewClient_GatewayConfig(t *testing.T) {
 		GatewayToken: "tok",
 	}
 	c := llm.NewClient(cfg)
-	assert.NotNil(t, c, "gateway config should produce non-nil client")
+	require.NotNil(t, c, "gateway config should produce non-nil client")
+	_, ok := c.(*llm.GatewayClient)
+	assert.True(t, ok, "expected *llm.GatewayClient, got %T", c)
 }
 
 func TestNewClient_APIKeyConfig(t *testing.T) {
 	cfg := config.ClaudeConfig{APIKey: "sk-test"}
 	c := llm.NewClient(cfg)
-	assert.NotNil(t, c, "API key config should produce non-nil client")
+	require.NotNil(t, c, "API key config should produce non-nil client")
+	_, ok := c.(*llm.AnthropicClient)
+	assert.True(t, ok, "expected *llm.AnthropicClient, got %T", c)
 }
 
 func TestNewClient_EmptyConfig(t *testing.T) {
@@ -111,7 +122,9 @@ func TestNewClient_GatewayTakesPrecedence(t *testing.T) {
 		APIKey:       "sk-test",
 	}
 	c := llm.NewClient(cfg)
-	assert.NotNil(t, c)
+	require.NotNil(t, c)
+	_, ok := c.(*llm.GatewayClient)
+	assert.True(t, ok, "gateway URL+token should take precedence over API key, got %T", c)
 }
 
 // --- StripCodeFences ---

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
-	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -23,22 +22,8 @@ import (
 // highSimVec returns a vector that is very similar (nearly identical) to makeVec(1.0).
 func highSimVec() []float32 { return []float32{0.999, 0.1, 0.1, 0.1} }
 
-// putDeepMemory inserts a memory with arbitrary content and a caller-supplied vector.
-func putDeepMemory(t *testing.T, st store.Store, id, content string, vec []float32) models.Memory {
-	t.Helper()
-	m := models.Memory{
-		ID:        id,
-		Content:   content,
-		Type:      models.MemoryTypeFact,
-		Scope:     models.ScopePermanent,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-	}
-	if err := st.Upsert(context.Background(), m, vec); err != nil {
-		t.Fatalf("putDeepMemory(%s): %v", id, err)
-	}
-	return m
-}
+// Note: putMemory is defined in contradiction_test.go and is available here
+// since all files share package tests.
 
 // ---------------------------------------------------------------------------
 // DefaultContradictionConfig
@@ -95,7 +80,7 @@ func TestNewContradictionDetector_WithLogger(t *testing.T) {
 func TestNewContradictionDetector_Disabled(t *testing.T) {
 	st := store.NewMockStore()
 	// Seed a memory that would normally be found.
-	putDeepMemory(t, st, "mem-disabled", "Alice works at Acme Corp", makeVec(1.0))
+	putMemory(t, st, "mem-disabled", "Alice works at Acme Corp", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.Enabled = false
@@ -119,7 +104,7 @@ func TestNewContradictionDetector_Disabled(t *testing.T) {
 // The keywordHeuristicFilter should flag the old memory.
 func TestFindContradictions_EmploymentConflict(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-oldcorp", "Bob works at OldCorp", makeVec(1.0))
+	putMemory(t, st, "mem-oldcorp", "Bob works at OldCorp", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	// Lower threshold so the slightly-different vector still qualifies in Stage 1.
@@ -149,7 +134,7 @@ func TestFindContradictions_EmploymentConflict(t *testing.T) {
 func TestFindContradictions_NoCandidates(t *testing.T) {
 	st := store.NewMockStore()
 	// Seed a memory with a very different vector so cosine similarity is low.
-	putDeepMemory(t, st, "mem-irrelevant", "Carol lives in Denver", makeVec(0.01))
+	putMemory(t, st, "mem-irrelevant", "Carol lives in Denver", makeVec(0.01))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.95 // very high — nothing will pass Stage 1
@@ -169,7 +154,7 @@ func TestFindContradictions_NoCandidates(t *testing.T) {
 func TestFindContradictions_StopWordHeavy(t *testing.T) {
 	st := store.NewMockStore()
 	// Stored memory uses only stop-word / short-word content.
-	putDeepMemory(t, st, "mem-stopwords", "the and for that with from", makeVec(1.0))
+	putMemory(t, st, "mem-stopwords", "the and for that with from", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.5
@@ -181,13 +166,11 @@ func TestFindContradictions_StopWordHeavy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// No significant words in the stored fact → no predicate conflict flagged.
+	// No significant words in either memory → keyword heuristic finds no predicate
+	// conflict, so no contradiction should be flagged.
 	if len(results) != 0 {
-		t.Logf("results (may be zero or non-zero depending on keyword overlap): %+v", results)
+		t.Errorf("expected 0 results for stop-word-only content, got %d: %+v", len(results), results)
 	}
-	// We do not assert a hard expectation here because the keyword heuristic may
-	// flag based on content signals in the new memory; the important assertion is
-	// that the pipeline does not panic or error.
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +182,7 @@ func TestFindContradictions_StopWordHeavy(t *testing.T) {
 func TestFindContradictions_AutoConfirm(t *testing.T) {
 	st := store.NewMockStore()
 	// Store memory with vector 1.0 so it has very high cosine similarity to highSimVec().
-	putDeepMemory(t, st, "mem-autocfm", "Dave works at AlphaCo", makeVec(1.0))
+	putMemory(t, st, "mem-autocfm", "Dave works at AlphaCo", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.50
@@ -235,7 +218,7 @@ func TestFindContradictions_AutoConfirm(t *testing.T) {
 // returns {"contradicts":true,...}.
 func TestFindContradictions_LLMContradictionTrue(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-llm-yes", "Eve works at GammaCorp", makeVec(1.0))
+	putMemory(t, st, "mem-llm-yes", "Eve works at GammaCorp", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.50
@@ -267,7 +250,7 @@ func TestFindContradictions_LLMContradictionTrue(t *testing.T) {
 // returns {"contradicts":false,...} — no contradiction should be reported.
 func TestFindContradictions_LLMContradictionFalse(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-llm-no", "Frank works at EpsilonCo", makeVec(1.0))
+	putMemory(t, st, "mem-llm-no", "Frank works at EpsilonCo", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.50
@@ -294,7 +277,7 @@ func TestFindContradictions_LLMContradictionFalse(t *testing.T) {
 // degradation: the candidate is skipped and no error is propagated.
 func TestFindContradictions_LLMError(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-llm-err", "Grace works at ZetaCo", makeVec(1.0))
+	putMemory(t, st, "mem-llm-err", "Grace works at ZetaCo", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.50
@@ -321,7 +304,7 @@ func TestFindContradictions_LLMError(t *testing.T) {
 // is silently ignored (graceful degradation).
 func TestFindContradictions_LLMBadJSON(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-llm-json", "Hank works at ThetaCo", makeVec(1.0))
+	putMemory(t, st, "mem-llm-json", "Hank works at ThetaCo", makeVec(1.0))
 
 	cfg := capture.DefaultContradictionConfig()
 	cfg.SimilarityThreshold = 0.50
@@ -351,8 +334,8 @@ func TestFindContradictions_LLMBadJSON(t *testing.T) {
 // helper sets ValidTo on each identified memory and does not panic on nil logger.
 func TestInvalidateContradictions_SetsValidTo(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-inv-1", "Ivan works at KappaCo", makeVec(1.0))
-	putDeepMemory(t, st, "mem-inv-2", "Ivan lives in London", makeVec(0.8))
+	putMemory(t, st, "mem-inv-1", "Ivan works at KappaCo", makeVec(1.0))
+	putMemory(t, st, "mem-inv-2", "Ivan lives in London", makeVec(0.8))
 
 	results := []capture.ContradictionResult{
 		{CandidateID: "mem-inv-1", Reason: "employer changed"},
@@ -379,7 +362,7 @@ func TestInvalidateContradictions_SetsValidTo(t *testing.T) {
 // logger is nil.
 func TestInvalidateContradictions_NilLogger(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-inv-nil", "Judy works at LambdaCo", makeVec(0.9))
+	putMemory(t, st, "mem-inv-nil", "Judy works at LambdaCo", makeVec(0.9))
 
 	results := []capture.ContradictionResult{
 		{CandidateID: "mem-inv-nil", Reason: "nil logger test"},
@@ -428,7 +411,7 @@ func TestInvalidateContradictions_EmptyResults(t *testing.T) {
 // function matches the behavior of a manually constructed detector.
 func TestDetectContradictions_ConvenienceWrapper(t *testing.T) {
 	st := store.NewMockStore()
-	putDeepMemory(t, st, "mem-conv", "Liam works at MuCo", makeVec(1.0))
+	putMemory(t, st, "mem-conv", "Liam works at MuCo", makeVec(1.0))
 
 	newMem := models.Memory{
 		ID:      "mem-conv-new",
@@ -439,7 +422,9 @@ func TestDetectContradictions_ConvenienceWrapper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DetectContradictions: %v", err)
 	}
-	// We don't assert a specific count here — the test exercises the code path
-	// without panicking and returns a sensible (non-error) result.
-	t.Logf("DetectContradictions returned %d hits", len(hits))
+	// "Liam works at MuCo" vs "Liam works at NuCo" is a clear employment conflict.
+	// The keyword heuristic must flag this as a contradiction.
+	if len(hits) == 0 {
+		t.Errorf("expected at least 1 contradiction for employer change, got 0")
+	}
 }
