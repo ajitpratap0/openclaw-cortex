@@ -25,7 +25,7 @@ func TestSentry_NoopWhenDSNEmpty(t *testing.T) {
 func TestSentryMiddleware_PassthroughWhenNoDSN(t *testing.T) {
 	// Build a minimal server and confirm a normal request still gets 200.
 	st := store.NewMockStore()
-	srv := api.NewServer(st, nil, &apiTestEmbedder{}, newTestLogger(t), "")
+	srv := api.NewServer(st, nil, &apiTestEmbedder{}, newTestLogger(t), "", "")
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rr, req)
