@@ -87,8 +87,9 @@ type RecallWeightsConfig struct {
 
 // APIConfig holds HTTP API server settings.
 type APIConfig struct {
-	ListenAddr string `mapstructure:"listen_addr"`
-	AuthToken  string `mapstructure:"auth_token"`
+	ListenAddr   string `mapstructure:"listen_addr"`
+	AuthToken    string `mapstructure:"auth_token"`
+	CursorSecret string `mapstructure:"cursor_secret"`
 }
 
 // OllamaConfig holds Ollama embedding service settings.
@@ -191,6 +192,7 @@ func Load() (*Config, error) {
 
 	v.SetDefault("api.listen_addr", ":8080")
 	v.SetDefault("api.auth_token", "")
+	v.SetDefault("api.cursor_secret", "")
 
 	v.SetDefault("recall.rerank_score_spread_threshold", 0.15)
 	v.SetDefault("recall.rerank_latency_budget_hooks_ms", 100)
@@ -237,6 +239,7 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("ollama.base_url", "OPENCLAW_CORTEX_OLLAMA_BASE_URL")
 	_ = v.BindEnv("api.listen_addr", "OPENCLAW_CORTEX_API_LISTEN_ADDR")
 	_ = v.BindEnv("api.auth_token", "OPENCLAW_CORTEX_API_AUTH_TOKEN")
+	_ = v.BindEnv("api.cursor_secret", "OPENCLAW_CORTEX_API_CURSOR_SECRET")
 	_ = v.BindEnv("embedder.provider", "OPENCLAW_CORTEX_EMBEDDER_PROVIDER")
 	_ = v.BindEnv("embedder.openai_api_key", "OPENCLAW_CORTEX_OPENAI_API_KEY")
 	_ = v.BindEnv("embedder.openai_model", "OPENCLAW_CORTEX_OPENAI_MODEL")

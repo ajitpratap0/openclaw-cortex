@@ -95,16 +95,16 @@ func TestEntityPersistence_SearchEntitiesByName(t *testing.T) {
 		require.NoError(t, s.UpsertEntity(ctx, entities[i]))
 	}
 
-	results, err := s.SearchEntities(ctx, "Go")
+	results, err := s.SearchEntities(ctx, "Go", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 2, "expected 2 entities matching 'Go'")
 
-	results, err = s.SearchEntities(ctx, "python")
+	results, err = s.SearchEntities(ctx, "python", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "Python Interpreter", results[0].Name)
 
-	results, err = s.SearchEntities(ctx, "Nonexistent")
+	results, err = s.SearchEntities(ctx, "Nonexistent", "", 0)
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -118,7 +118,7 @@ func TestEntityPersistence_SearchEntitiesByAlias(t *testing.T) {
 	entity := newPersistenceTestEntity("ep-a1", "Anthropic Claude", models.EntityTypeSystem, "Claude AI", "Claude")
 	require.NoError(t, s.UpsertEntity(ctx, entity))
 
-	results, err := s.SearchEntities(ctx, "claude ai")
+	results, err := s.SearchEntities(ctx, "claude ai", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 1, "expected entity found by alias 'claude ai'")
 	assert.Equal(t, "ep-a1", results[0].ID)
@@ -202,7 +202,7 @@ func TestEntityPersistence_SearchCaseInsensitive(t *testing.T) {
 	require.NoError(t, s.UpsertEntity(ctx, entity))
 
 	for _, query := range []string{"openclaw", "OPENCLAW", "OpenClaw", "CORTEX", "cortex"} {
-		results, err := s.SearchEntities(ctx, query)
+		results, err := s.SearchEntities(ctx, query, "", 0)
 		require.NoError(t, err, "query: %q", query)
 		assert.Len(t, results, 1, "expected 1 result for query %q", query)
 	}

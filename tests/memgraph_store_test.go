@@ -92,7 +92,7 @@ func runCleanCypher(t *testing.T, st *memgraph.MemgraphStore, ctx context.Contex
 
 	// Delete all Entity nodes via the graph adapter.
 	ga := memgraph.NewGraphAdapter(st)
-	entities, searchErr := st.SearchEntities(ctx, "")
+	entities, searchErr := st.SearchEntities(ctx, "", "", 100)
 	if searchErr == nil {
 		for i := range entities {
 			// Invalidate any facts; entities cannot be directly deleted via the
@@ -566,7 +566,7 @@ func TestMemgraphUpsertEntity_Dedup(t *testing.T) {
 		"entity summary should reflect the second upsert")
 
 	// Verify only 1 node via SearchEntities.
-	entities, err := st.SearchEntities(ctx, "Alice")
+	entities, err := st.SearchEntities(ctx, "Alice", "", 100)
 	require.NoError(t, err)
 	assert.Len(t, entities, 1, "expected exactly 1 Entity node after dedup upsert")
 }
@@ -588,7 +588,7 @@ func TestMemgraphSearchEntities(t *testing.T) {
 	}
 
 	// Search for "alice" (case-insensitive).
-	results, err := st.SearchEntities(ctx, "alice")
+	results, err := st.SearchEntities(ctx, "alice", "", 100)
 	require.NoError(t, err)
 	require.NotEmpty(t, results, "expected at least 1 entity matching 'alice'")
 
@@ -601,7 +601,7 @@ func TestMemgraphSearchEntities(t *testing.T) {
 	assert.True(t, foundAlice, "Alice Smith should be in search results")
 
 	// "bob" should only return Bob, not Alice.
-	bobResults, err := st.SearchEntities(ctx, "bob")
+	bobResults, err := st.SearchEntities(ctx, "bob", "", 100)
 	require.NoError(t, err)
 	require.NotEmpty(t, bobResults)
 	for i := range bobResults {

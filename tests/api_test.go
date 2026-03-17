@@ -54,7 +54,7 @@ func newTestServer(t *testing.T, authToken string) (*httptest.Server, *store.Moc
 	st := store.NewMockStore()
 	rec := recall.NewRecaller(recall.DefaultWeights(), logger)
 	emb := &apiTestEmbedder{}
-	srv := api.NewServer(st, rec, emb, logger, authToken)
+	srv := api.NewServer(st, rec, emb, logger, authToken, "")
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts, st

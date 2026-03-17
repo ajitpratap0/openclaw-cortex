@@ -22,7 +22,7 @@ func TestEntitySearchEndpoint(t *testing.T) {
 	ms.UpsertEntity(ctx, models.Entity{ID: "e2", Name: "Bob", Type: models.EntityTypePerson})
 	ms.UpsertEntity(ctx, models.Entity{ID: "e3", Name: "Acme", Type: models.EntityTypeProject})
 
-	srv := api.NewServer(ms, nil, nil, nil, "test-token")
+	srv := api.NewServer(ms, nil, nil, nil, "test-token", "")
 	handler := srv.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/entities?query=Alice", nil)
@@ -55,7 +55,7 @@ func TestEntitySearchWithTypeFilter(t *testing.T) {
 	ms.UpsertEntity(ctx, models.Entity{ID: "e1", Name: "Alice", Type: models.EntityTypePerson})
 	ms.UpsertEntity(ctx, models.Entity{ID: "e2", Name: "Alice Project", Type: models.EntityTypeProject})
 
-	srv := api.NewServer(ms, nil, nil, nil, "test-token")
+	srv := api.NewServer(ms, nil, nil, nil, "test-token", "")
 	handler := srv.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/entities?query=Alice&type=person", nil)
@@ -84,7 +84,7 @@ func TestEntityGetEndpoint(t *testing.T) {
 
 	ms.UpsertEntity(ctx, models.Entity{ID: "e1", Name: "Alice", Type: models.EntityTypePerson})
 
-	srv := api.NewServer(ms, nil, nil, nil, "test-token")
+	srv := api.NewServer(ms, nil, nil, nil, "test-token", "")
 	handler := srv.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/entities/e1", nil)
@@ -107,7 +107,7 @@ func TestEntityGetEndpoint(t *testing.T) {
 
 func TestEntityGetNotFound(t *testing.T) {
 	ms := store.NewMockStore()
-	srv := api.NewServer(ms, nil, nil, nil, "test-token")
+	srv := api.NewServer(ms, nil, nil, nil, "test-token", "")
 	handler := srv.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/entities/nonexistent", nil)

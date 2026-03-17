@@ -49,7 +49,9 @@ type Store interface {
 	GetEntity(ctx context.Context, id string) (*models.Entity, error)
 
 	// SearchEntities finds entities whose name contains the given string.
-	SearchEntities(ctx context.Context, name string) ([]models.Entity, error)
+	// entityType filters by entity type (empty = all types).
+	// limit caps the number of results (0 = use implementation default).
+	SearchEntities(ctx context.Context, name, entityType string, limit int) ([]models.Entity, error)
 
 	// LinkMemoryToEntity adds a memory ID to an entity's memory list.
 	LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error

@@ -38,7 +38,7 @@ In scope:
 - Arbitrary command execution via config loading
 
 Out of scope:
-- Vulnerabilities in Qdrant, Ollama, or the Anthropic API themselves
+- Vulnerabilities in Memgraph, Ollama, or the Anthropic API themselves
 - Issues requiring physical access to the host machine
 - Denial-of-service attacks against local services
 

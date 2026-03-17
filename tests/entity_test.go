@@ -134,16 +134,16 @@ func TestMockStore_SearchEntities(t *testing.T) {
 		require.NoError(t, s.UpsertEntity(ctx, entities[i]))
 	}
 
-	results, err := s.SearchEntities(ctx, "Go")
+	results, err := s.SearchEntities(ctx, "Go", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 2)
 
-	results, err = s.SearchEntities(ctx, "Python")
+	results, err = s.SearchEntities(ctx, "Python", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "Python", results[0].Name)
 
-	results, err = s.SearchEntities(ctx, "Nonexistent")
+	results, err = s.SearchEntities(ctx, "Nonexistent", "", 0)
 	require.NoError(t, err)
 	assert.Empty(t, results)
 }
@@ -155,11 +155,11 @@ func TestMockStore_SearchEntities_CaseInsensitive(t *testing.T) {
 	entity := newTestEntity("ent-ci-1", "OpenClaw Cortex", models.EntityTypeProject)
 	require.NoError(t, s.UpsertEntity(ctx, entity))
 
-	results, err := s.SearchEntities(ctx, "openclaw")
+	results, err := s.SearchEntities(ctx, "openclaw", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	results, err = s.SearchEntities(ctx, "CORTEX")
+	results, err = s.SearchEntities(ctx, "CORTEX", "", 0)
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 }

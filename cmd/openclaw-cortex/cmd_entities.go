@@ -42,7 +42,7 @@ func entitiesListCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			entities, err := st.SearchEntities(ctx, "")
+			entities, err := st.SearchEntities(ctx, "", "", 100)
 			if err != nil {
 				return fmt.Errorf("entities list: %w", err)
 			}
@@ -140,7 +140,7 @@ func entitiesSearchCmd() *cobra.Command {
 			}
 			defer func() { _ = st.Close() }()
 
-			entities, err := st.SearchEntities(ctx, args[0])
+			entities, err := st.SearchEntities(ctx, args[0], "", 100)
 			if err != nil {
 				return fmt.Errorf("entities search: %w", err)
 			}
