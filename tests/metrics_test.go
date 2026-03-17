@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,9 +20,8 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-// newTestLogger returns a silent logger suitable for use in tests.
-func newTestLogger(t *testing.T) *slog.Logger {
-	t.Helper()
+// newTestLogger returns a logger that discards all output.
+func newTestLogger(_ *testing.T) *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
@@ -57,8 +57,27 @@ func (m *metricsMockEmbedder) Dimension() int {
 	return 3
 }
 
+func TestMetrics_RecallCounter(t *testing.T) {
+	before := testutil.ToFloat64(metrics.RecallsTotal)
+	metrics.RecallsTotal.Inc()
+	after := testutil.ToFloat64(metrics.RecallsTotal)
+	if after-before != 1.0 {
+		t.Fatalf("expected counter to increment by 1, got %f", after-before)
+	}
+}
+
+func TestMetrics_LLMCallsCounter(t *testing.T) {
+	const model = "claude-3-haiku-test"
+	before := testutil.ToFloat64(metrics.LLMCallsTotal.WithLabelValues(model))
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
+	after := testutil.ToFloat64(metrics.LLMCallsTotal.WithLabelValues(model))
+	if after-before != 1.0 {
+		t.Fatalf("expected LLMCallsTotal[%s] to increment by 1, got %f", model, after-before)
+	}
+}
+
 func TestMetricsCaptureIncrement(t *testing.T) {
-	before := metrics.CaptureTotal.Value()
+	before := testutil.ToFloat64(metrics.MemoriesStoredTotal.WithLabelValues("hook"))
 
 	st := store.NewMockStore()
 	logger := newTestLogger(t)
@@ -76,11 +95,12 @@ func TestMetricsCaptureIncrement(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Greater(t, metrics.CaptureTotal.Value(), before)
+	after := testutil.ToFloat64(metrics.MemoriesStoredTotal.WithLabelValues("hook"))
+	assert.Greater(t, after, before)
 }
 
 func TestMetricsDedupSkip(t *testing.T) {
-	before := metrics.DedupSkipped.Value()
+	before := testutil.ToFloat64(metrics.DedupSkippedTotal)
 
 	st := store.NewMockStore()
 	logger := newTestLogger(t)
@@ -109,5 +129,6 @@ func TestMetricsDedupSkip(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Greater(t, metrics.DedupSkipped.Value(), before)
+	after := testutil.ToFloat64(metrics.DedupSkippedTotal)
+	assert.Greater(t, after, before)
 }

@@ -159,7 +159,7 @@ func (m *Manager) expireTTL(ctx context.Context, dryRun bool) (int, error) {
 					m.logger.Error("deleting expired memory", "id", mem.ID, "error", delErr)
 					continue
 				}
-				metrics.Inc(metrics.LifecycleExpired) // only incremented on actual deletes, not dry-run
+				metrics.LifecycleExpiredTotal.Inc() // only incremented on actual deletes, not dry-run
 			}
 			expired++
 		}
@@ -196,7 +196,7 @@ func (m *Manager) decaySessions(ctx context.Context, dryRun bool) (int, error) {
 					m.logger.Error("deleting decayed memory", "id", mem.ID, "error", delErr)
 					continue
 				}
-				metrics.Inc(metrics.LifecycleDecayed) // only incremented on actual deletes, not dry-run
+				metrics.LifecycleDecayedTotal.Inc() // only incremented on actual deletes, not dry-run
 			}
 			decayed++
 		}
@@ -358,7 +358,7 @@ func (m *Manager) retireExpiredFacts(ctx context.Context, dryRun bool) (int, err
 					m.logger.Error("deleting retired memory", "id", mem.ID, "error", delErr)
 					continue
 				}
-				metrics.Inc(metrics.LifecycleRetired) // only incremented on actual deletes, not dry-run
+				metrics.LifecycleRetiredTotal.Inc() // only incremented on actual deletes, not dry-run
 			}
 			retired++
 		}

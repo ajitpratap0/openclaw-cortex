@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
@@ -61,8 +62,10 @@ func NewOllamaEmbedder(baseURL, model string, dimension int, logger *slog.Logger
 
 // Embed returns a vector embedding for the given text using the Ollama API.
 func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	start := time.Now()
 	finish := sentry.StartSpan(ctx, "embed.ollama", "OllamaEmbedder.Embed")
 	defer finish()
+	defer func() { metrics.EmbedLatencyMs.Observe(float64(time.Since(start).Milliseconds())) }()
 	reqBody := ollamaEmbedRequest{
 		Model:  o.model,
 		Prompt: text,
