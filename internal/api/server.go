@@ -65,6 +65,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/search", s.auth(s.handleSearch))
 	mux.HandleFunc("GET /v1/stats", s.auth(s.handleStats))
 
+	// Streaming recall endpoint.
+	mux.HandleFunc("GET /v1/recall/stream", s.auth(s.handleRecallStream))
+
 	// Entity endpoints.
 	mux.HandleFunc("GET /v1/entities/{id}", s.auth(s.handleGetEntity))
 	mux.HandleFunc("GET /v1/entities", s.auth(s.handleSearchEntities))
@@ -558,6 +561,116 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, stats)
+}
+
+// RecallStreamEvent is a single SSE payload sent by GET /v1/recall/stream.
+type RecallStreamEvent struct {
+	Index  int           `json:"index"`
+	Memory models.Memory `json:"memory"`
+	Score  float64       `json:"score"`
+}
+
+func (s *Server) handleRecallStream(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	query := q.Get("q")
+	if query == "" {
+		s.writeError(w, http.StatusBadRequest, "q is required")
+		return
+	}
+
+	project := q.Get("project")
+	userID := q.Get("user_id")
+
+	const maxStreamLimit = 50
+	limit := 10
+	if limitStr := q.Get("limit"); limitStr != "" {
+		if parsed, parseErr := strconv.Atoi(limitStr); parseErr == nil && parsed > 0 {
+			if parsed > maxStreamLimit {
+				limit = maxStreamLimit
+			} else {
+				limit = parsed
+			}
+		}
+	}
+
+	vec, err := s.embedder.Embed(r.Context(), query)
+	if err != nil {
+		s.logger.Error("handleRecallStream: embed failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "failed to generate embedding")
+		return
+	}
+
+	var filters *store.SearchFilters
+	if project != "" || userID != "" {
+		filters = &store.SearchFilters{}
+		if project != "" {
+			proj := project
+			filters.Project = &proj
+		}
+		if userID != "" {
+			filters.UserID = userID
+		}
+	}
+
+	fetchLimit := uint64(limit * 5)
+	results, err := s.store.Search(r.Context(), vec, fetchLimit, filters)
+	if err != nil {
+		s.logger.Error("handleRecallStream: search failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "failed to search memories")
+		return
+	}
+
+	ranked := s.recall.Rank(results, project, query)
+
+	// Trim to requested limit.
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+
+	// Set SSE headers before writing any body.
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, canFlush := w.(http.Flusher)
+
+	enc := json.NewEncoder(w)
+
+	for i := range ranked {
+		evt := RecallStreamEvent{
+			Index:  i,
+			Memory: ranked[i].Memory,
+			Score:  ranked[i].FinalScore,
+		}
+
+		if _, writeErr := fmt.Fprintf(w, "data: "); writeErr != nil {
+			s.logger.Warn("handleRecallStream: write prefix failed", "error", writeErr)
+			return
+		}
+		if encErr := enc.Encode(evt); encErr != nil {
+			s.logger.Warn("handleRecallStream: encode event failed", "index", i, "error", encErr)
+			return
+		}
+		// json.Encoder.Encode appends a newline; add a second one to form SSE double-newline.
+		if _, writeErr := fmt.Fprintf(w, "\n"); writeErr != nil {
+			s.logger.Warn("handleRecallStream: write newline failed", "error", writeErr)
+			return
+		}
+
+		if canFlush {
+			flusher.Flush()
+		}
+	}
+
+	// Send [DONE] sentinel.
+	if _, writeErr := fmt.Fprintf(w, "data: [DONE]\n\n"); writeErr != nil {
+		s.logger.Warn("handleRecallStream: write done sentinel failed", "error", writeErr)
+	}
+	if canFlush {
+		flusher.Flush()
+	}
 }
 
 // --- entity handlers ---
