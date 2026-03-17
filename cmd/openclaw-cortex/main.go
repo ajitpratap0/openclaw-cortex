@@ -101,7 +101,11 @@ func newEmbedder(logger *slog.Logger) embedder.Embedder {
 }
 
 func newMemgraphStore(ctx context.Context, logger *slog.Logger) (*memgraph.MemgraphStore, error) {
-	return memgraph.New(ctx, cfg.Memgraph.URI, cfg.Memgraph.Username, cfg.Memgraph.Password, cfg.Memgraph.Database, logger)
+	return memgraph.New(ctx,
+		cfg.Memgraph.URI, cfg.Memgraph.Username, cfg.Memgraph.Password, cfg.Memgraph.Database,
+		int(cfg.Memory.VectorDimension),
+		logger,
+	)
 }
 
 func truncate(s string, maxLen int) string {

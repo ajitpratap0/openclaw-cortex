@@ -33,7 +33,7 @@ func newIntegrationMemgraph(t *testing.T) *memgraph.MemgraphStore {
 	t.Helper()
 
 	ctx := context.Background()
-	st, err := memgraph.New(ctx, memgraphTestURI, "", "", "", slog.Default())
+	st, err := memgraph.New(ctx, memgraphTestURI, "", "", "", ollamaDimension, slog.Default())
 	if err != nil {
 		t.Skipf("Memgraph not available at %s: %v", memgraphTestURI, err)
 	}
@@ -621,7 +621,7 @@ func TestMemgraphEnsureSchema(t *testing.T) {
 	ga := memgraph.NewGraphAdapter(st)
 
 	// First call already happened in newIntegrationMemgraph; call it again.
-	require.NoError(t, ga.EnsureSchema(ctx), "second EnsureSchema call should be idempotent")
+	require.NoError(t, ga.EnsureSchema(ctx, ollamaDimension), "second EnsureSchema call should be idempotent")
 }
 
 // TestMemgraphUpsertFact_AndSearch creates two entities, upserts a fact between

@@ -40,10 +40,27 @@ func isAlreadyExistsErr(err error) bool {
 		strings.Contains(msg, "index already")
 }
 
+// BuildMemoryVectorIndexDDL returns the CREATE VECTOR INDEX DDL for the given dimension.
+// Exported for testing.
+func BuildMemoryVectorIndexDDL(dim int) string {
+	return fmt.Sprintf(
+		`CREATE VECTOR INDEX memory_embedding ON :Memory(embedding) WITH CONFIG {"dimension": %d, "metric": "cos", "capacity": 10000}`,
+		dim,
+	)
+}
+
+// BuildEntityVectorIndexDDL returns the CREATE VECTOR INDEX DDL for entities.
+func BuildEntityVectorIndexDDL(dim int) string {
+	return fmt.Sprintf(
+		`CREATE VECTOR INDEX entity_name_embedding ON :Entity(name_embedding) WITH CONFIG {"dimension": %d, "metric": "cos", "capacity": 10000}`,
+		dim,
+	)
+}
+
 // EnsureSchema creates indexes, constraints, and vector indexes on Memgraph.
 // Memgraph does not support IF NOT EXISTS on constraints, so "already exists" errors
 // are caught and logged as warnings.
-func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
+func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
@@ -53,8 +70,8 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context) error {
 		"CREATE CONSTRAINT ON (e:Entity) ASSERT e.name IS UNIQUE",
 
 		// Vector indexes for semantic search
-		`CREATE VECTOR INDEX memory_embedding ON :Memory(embedding) WITH CONFIG {"dimension": 768, "metric": "cos", "capacity": 10000}`,
-		`CREATE VECTOR INDEX entity_name_embedding ON :Entity(name_embedding) WITH CONFIG {"dimension": 768, "metric": "cos", "capacity": 10000}`,
+		BuildMemoryVectorIndexDDL(vectorDim),
+		BuildEntityVectorIndexDDL(vectorDim),
 
 		// Property indexes for filtering
 		"CREATE INDEX ON :Memory(type)",

@@ -12,7 +12,8 @@ import (
 // matching the pattern where ConflictDetector is separate from Store.
 type Client interface {
 	// EnsureSchema creates indexes and constraints if they don't exist.
-	EnsureSchema(ctx context.Context) error
+	// vectorDim is injected into the vector index DDL (e.g. 768 for nomic-embed-text).
+	EnsureSchema(ctx context.Context, vectorDim int) error
 
 	// UpsertEntity creates or updates an entity node.
 	UpsertEntity(ctx context.Context, entity models.Entity) error
