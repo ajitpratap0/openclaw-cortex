@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
@@ -84,7 +85,7 @@ func (h *PreTurnHook) WithReasoner(r *recall.Reasoner, cfg RerankConfig) *PreTur
 func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurnOutput, error) {
 	finish := sentry.StartSpan(ctx, "hook.pre_turn", "PreTurnHook")
 	defer finish()
-	metrics.Inc(metrics.RecallTotal)
+	metrics.RecallsTotal.Inc()
 
 	if input.TokenBudget <= 0 {
 		input.TokenBudget = 2000
@@ -277,7 +278,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			h.logger.Warn("post-turn dedup check failed, proceeding with store", "error", dedupErr)
 		} else if len(dupes) > 0 {
 			h.logger.Debug("post-turn skipping duplicate", "similar_to", dupes[0].Memory.ID)
-			metrics.Inc(metrics.DedupSkipped)
+			metrics.DedupSkippedTotal.Inc()
 			continue
 		}
 
@@ -336,8 +337,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			h.logger.Warn("post-turn store failed", "error", upsertErr)
 			continue
 		}
-		metrics.Inc(metrics.CaptureTotal)
-		metrics.Inc(metrics.StoreTotal)
+		metrics.MemoriesStoredTotal.With(prometheus.Labels{"source": "hook"}).Inc()
 		stored++
 	}
 

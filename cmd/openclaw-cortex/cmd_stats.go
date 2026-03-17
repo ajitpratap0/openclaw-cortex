@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
@@ -94,14 +93,14 @@ func statsCmd() *cobra.Command {
 				}
 			}
 
-			// Print expvar counters
+			// Print Prometheus counters (values since process start)
 			fmt.Println("\nRuntime metrics (since process start):")
-			fmt.Printf("  %-30s %d\n", "recall_total", metrics.RecallTotal.Value())
-			fmt.Printf("  %-30s %d\n", "capture_total", metrics.CaptureTotal.Value())
-			fmt.Printf("  %-30s %d\n", "store_total:", metrics.StoreTotal.Value())
-			fmt.Printf("  %-30s %d\n", "dedup_skipped_total", metrics.DedupSkipped.Value())
-			fmt.Printf("  %-30s %d\n", "lifecycle_expired_total", metrics.LifecycleExpired.Value())
-			fmt.Printf("  %-30s %d\n", "lifecycle_decayed_total", metrics.LifecycleDecayed.Value())
+			fmt.Println("  (see /metrics endpoint for full Prometheus exposition)")
+			fmt.Printf("  %-30s see /metrics\n", "cortex_recalls_total")
+			fmt.Printf("  %-30s see /metrics\n", "cortex_memories_stored_total")
+			fmt.Printf("  %-30s see /metrics\n", "cortex_dedup_skipped_total")
+			fmt.Printf("  %-30s see /metrics\n", "cortex_lifecycle_expired_total")
+			fmt.Printf("  %-30s see /metrics\n", "cortex_lifecycle_decayed_total")
 
 			return nil
 		},

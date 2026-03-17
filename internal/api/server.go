@@ -14,6 +14,7 @@ import (
 
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -46,8 +47,9 @@ func NewServer(st store.Store, rec *recall.Recaller, emb embedder.Embedder, logg
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	// Health check — no auth required.
+	// Health check and metrics — no auth required.
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	// Memory CRUD and search endpoints — wrapped with auth middleware.
 	mux.HandleFunc("POST /v1/remember", s.auth(s.handleRemember))
