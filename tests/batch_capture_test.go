@@ -427,7 +427,7 @@ func TestBatchCapture_StopOnError(t *testing.T) {
 	// First record is valid, second has empty content (triggers error), third is valid.
 	records := []batchCaptureCoreInput{
 		{Content: "first valid memory"},
-		{Content: ""},       // will trigger an error
+		{Content: ""},      // will trigger an error
 		{Content: "third"}, // should NOT be reached with stop-on-error
 	}
 
