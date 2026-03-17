@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
@@ -65,7 +66,7 @@ func TestLMStudioEmbedder_ServerError(t *testing.T) {
 		t.Fatal("expected error for 500 response, got nil")
 	}
 	// Error message must mention the status code.
-	if !containsString(err.Error(), "500") {
+	if !strings.Contains(err.Error(), "500") {
 		t.Errorf("error %q does not mention status 500", err.Error())
 	}
 }
@@ -192,7 +193,7 @@ func TestEmbedderFactory_LMStudioMissingModel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing lmstudio model, got nil")
 	}
-	if !containsString(err.Error(), "lmstudio.model") {
+	if !strings.Contains(err.Error(), "lmstudio.model") {
 		t.Errorf("error %q does not mention 'lmstudio.model'", err.Error())
 	}
 }
@@ -282,19 +283,3 @@ func TestLMStudioEmbedder_EmbedBatch_Success(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-// containsString is a local helper to avoid importing strings in test bodies.
-func containsString(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
-		func() bool {
-			for i := 0; i <= len(s)-len(sub); i++ {
-				if s[i:i+len(sub)] == sub {
-					return true
-				}
-			}
-			return false
-		}())
-}

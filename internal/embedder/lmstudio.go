@@ -100,8 +100,13 @@ func (e *LMStudioEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]
 	return results, nil
 }
 
-// Dimension returns 0 — LM Studio does not report dimension at construction
-// time; callers should use the length of the returned slice from Embed.
+// Dimension returns the vector size for the configured model. The value is
+// determined by the model loaded in LM Studio and cannot be known without
+// making an embeddings request, so this method always returns 0 at
+// construction time. Do not rely on this value for infrastructure setup
+// (e.g. creating vector DB indexes) — it may change if the model changes.
+// Use the length of the slice returned by Embed to determine the actual
+// dimension at runtime.
 func (e *LMStudioEmbedder) Dimension() int {
 	return 0
 }
