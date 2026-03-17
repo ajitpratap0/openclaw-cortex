@@ -18,7 +18,7 @@ func TestSentry_NoopWhenDSNEmpty(t *testing.T) {
 	finish := sentry.StartSpan("test.op", "test description")
 	finish()
 	sentry.Flush(0)
-	// If we get here without panic, the no-op behaviour works.
+	// If we get here without panic, the no-op behavior works.
 }
 
 func TestSentryMiddleware_PassthroughWhenNoDSN(t *testing.T) {

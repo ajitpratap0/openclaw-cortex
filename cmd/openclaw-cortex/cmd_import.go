@@ -48,7 +48,7 @@ Use - as the file path to read from stdin.`,
 			} else {
 				f, openErr := os.Open(filePath)
 				if openErr != nil {
-					return fmt.Errorf("import: opening file: %w", openErr)
+					return cmdErr("import: opening file", openErr)
 				}
 				defer func() { _ = f.Close() }()
 				r = f
@@ -60,12 +60,12 @@ Use - as the file path to read from stdin.`,
 			case "json":
 				dec := json.NewDecoder(r)
 				if _, tokErr := dec.Token(); tokErr != nil {
-					return fmt.Errorf("import: parsing JSON array start: %w", tokErr)
+					return cmdErr("import: parsing JSON array start", tokErr)
 				}
 				for dec.More() {
 					var m models.Memory
 					if decErr := dec.Decode(&m); decErr != nil {
-						return fmt.Errorf("import: reading JSON record: %w", decErr)
+						return cmdErr("import: reading JSON record", decErr)
 					}
 					memories = append(memories, m)
 				}
@@ -78,12 +78,12 @@ Use - as the file path to read from stdin.`,
 					}
 					var m models.Memory
 					if unmarshalErr := json.Unmarshal([]byte(line), &m); unmarshalErr != nil {
-						return fmt.Errorf("import: decoding JSONL line: %w", unmarshalErr)
+						return cmdErr("import: decoding JSONL line", unmarshalErr)
 					}
 					memories = append(memories, m)
 				}
 				if scanErr := scanner.Err(); scanErr != nil {
-					return fmt.Errorf("import: reading JSONL: %w", scanErr)
+					return cmdErr("import: reading JSONL", scanErr)
 				}
 			default:
 				return fmt.Errorf("import: unsupported format %q (use json or jsonl)", format)
@@ -93,12 +93,12 @@ Use - as the file path to read from stdin.`,
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("import: connecting to store: %w", err)
+				return cmdErr("import: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			if err = st.EnsureCollection(ctx); err != nil {
-				return fmt.Errorf("import: ensuring collection: %w", err)
+				return cmdErr("import: ensuring collection", err)
 			}
 
 			// Upsert each memory.
@@ -126,12 +126,12 @@ Use - as the file path to read from stdin.`,
 				vec, embedErr := emb.Embed(ctx, m.Content)
 				if embedErr != nil {
 					fmt.Printf("Import stopped after %d memories (%d skipped): %v\n", imported, skipped, embedErr)
-					return fmt.Errorf("import: embedding memory %q: %w", m.ID, embedErr)
+					return cmdErr("import: embedding memory", embedErr)
 				}
 
 				if upsertErr := st.Upsert(ctx, *m, vec); upsertErr != nil {
 					fmt.Printf("Import stopped after %d memories (%d skipped): %v\n", imported, skipped, upsertErr)
-					return fmt.Errorf("import: upserting memory %q: %w", m.ID, upsertErr)
+					return cmdErr("import: upserting memory", upsertErr)
 				}
 
 				imported++

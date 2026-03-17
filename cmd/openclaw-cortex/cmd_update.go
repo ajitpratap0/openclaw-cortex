@@ -40,14 +40,14 @@ link back to it. Superseded memories are automatically demoted during recall.`,
 			emb := newEmbedder(logger)
 			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
-				return fmt.Errorf("update: connecting to store: %w", storeErr)
+				return cmdErr("update: connecting to store", storeErr)
 			}
 			defer func() { _ = st.Close() }()
 
 			// Fetch the old memory.
 			old, getErr := st.Get(ctx, oldID)
 			if getErr != nil {
-				return fmt.Errorf("update: fetching memory %s: %w", oldID, getErr)
+				return cmdErr("update: fetching memory", getErr)
 			}
 
 			// Build new memory, carrying forward fields from old.
@@ -94,22 +94,22 @@ link back to it. Superseded memories are automatically demoted during recall.`,
 			// Embed new content.
 			vec, embedErr := emb.Embed(ctx, content)
 			if embedErr != nil {
-				return fmt.Errorf("update: embedding new content: %w", embedErr)
+				return cmdErr("update: embedding new content", embedErr)
 			}
 
 			// Ensure collection exists before upserting.
 			if ensureErr := st.EnsureCollection(ctx); ensureErr != nil {
-				return fmt.Errorf("update: ensuring collection: %w", ensureErr)
+				return cmdErr("update: ensuring collection", ensureErr)
 			}
 
 			if upsertErr := st.Upsert(ctx, newMem, vec); upsertErr != nil {
-				return fmt.Errorf("update: saving new memory: %w", upsertErr)
+				return cmdErr("update: saving new memory", upsertErr)
 			}
 
 			if outputJSON {
 				out, marshalErr := json.MarshalIndent(newMem, "", "  ")
 				if marshalErr != nil {
-					return fmt.Errorf("update: marshaling JSON: %w", marshalErr)
+					return cmdErr("update: marshaling JSON", marshalErr)
 				}
 				fmt.Println(string(out))
 			} else {

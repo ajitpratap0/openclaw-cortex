@@ -7,8 +7,20 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
+
+// cmdErr wraps an error with context and reports it to Sentry.
+// Returns nil if err is nil.
+func cmdErr(context string, err error) error {
+	if err == nil {
+		return nil
+	}
+	wrapped := fmt.Errorf("%s: %w", context, err)
+	sentry.CaptureException(wrapped)
+	return wrapped
+}
 
 // recallWeightsFromConfig converts the config weights struct into the recall
 // package's Weights type, avoiding an 8-line struct literal duplicated across

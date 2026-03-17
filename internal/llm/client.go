@@ -6,6 +6,8 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
 // LLMClient is the interface for sending a single-turn completion to a language model.
@@ -28,6 +30,8 @@ func NewAnthropicClient(apiKey string) *AnthropicClient {
 // Complete sends a single-turn request to the Anthropic Messages API and returns the
 // first text block from the response.
 func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
+	finish := sentry.StartSpan("llm.complete", "AnthropicClient.Complete")
+	defer finish()
 	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
 		MaxTokens: int64(maxTokens),

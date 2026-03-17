@@ -52,12 +52,12 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 			// Read all stdin.
 			data, readErr := io.ReadAll(os.Stdin)
 			if readErr != nil {
-				return fmt.Errorf("store-batch: reading stdin: %w", readErr)
+				return cmdErr("store-batch: reading stdin", readErr)
 			}
 
 			var inputs []batchStoreInput
 			if unmarshalErr := json.Unmarshal(data, &inputs); unmarshalErr != nil {
-				return fmt.Errorf("store-batch: parsing JSON input: %w", unmarshalErr)
+				return cmdErr("store-batch: parsing JSON input", unmarshalErr)
 			}
 
 			if len(inputs) == 0 {
@@ -96,12 +96,12 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 			emb := newEmbedder(logger)
 			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
-				return fmt.Errorf("store-batch: connecting to store: %w", storeErr)
+				return cmdErr("store-batch: connecting to store", storeErr)
 			}
 			defer func() { _ = st.Close() }()
 
 			if collErr := st.EnsureCollection(ctx); collErr != nil {
-				return fmt.Errorf("store-batch: ensuring collection: %w", collErr)
+				return cmdErr("store-batch: ensuring collection", collErr)
 			}
 
 			// Collect all content strings for batch embedding.
@@ -112,7 +112,7 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 
 			vectors, embedErr := emb.EmbedBatch(ctx, contents)
 			if embedErr != nil {
-				return fmt.Errorf("store-batch: embedding batch: %w", embedErr)
+				return cmdErr("store-batch: embedding batch", embedErr)
 			}
 
 			if len(vectors) != len(inputs) {
@@ -180,7 +180,7 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 
 			out, marshalErr := json.Marshal(results)
 			if marshalErr != nil {
-				return fmt.Errorf("store-batch: marshaling results: %w", marshalErr)
+				return cmdErr("store-batch: marshaling results", marshalErr)
 			}
 			fmt.Println(string(out))
 			return nil

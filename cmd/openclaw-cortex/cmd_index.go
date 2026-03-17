@@ -25,12 +25,12 @@ func indexCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("index: connecting to store: %w", err)
+				return cmdErr("index: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			if err = st.EnsureCollection(ctx); err != nil {
-				return fmt.Errorf("index: ensuring collection: %w", err)
+				return cmdErr("index: ensuring collection", err)
 			}
 
 			idx := indexer.NewIndexer(emb, st, cfg.Memory.ChunkSize, cfg.Memory.ChunkOverlap, logger)
@@ -41,7 +41,7 @@ func indexCmd() *cobra.Command {
 
 			count, err := idx.IndexDirectory(ctx, path)
 			if err != nil {
-				return fmt.Errorf("index: indexing directory: %w", err)
+				return cmdErr("index: indexing directory", err)
 			}
 
 			fmt.Printf("Indexed %d chunks from %s\n", count, path)

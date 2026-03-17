@@ -23,7 +23,14 @@ var version = "0.8.0"
 var cfg *config.Config
 
 func main() {
-	defer sentry.Flush(2 * time.Second)
+	if err := run(); err != nil {
+		sentry.Flush(2 * time.Second)
+		os.Exit(1)
+	}
+	sentry.Flush(2 * time.Second)
+}
+
+func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	rootCmd := &cobra.Command{
@@ -70,9 +77,7 @@ func main() {
 
 	err := rootCmd.Execute()
 	stop()
-	if err != nil {
-		os.Exit(1)
-	}
+	return err
 }
 
 func newLogger() *slog.Logger {

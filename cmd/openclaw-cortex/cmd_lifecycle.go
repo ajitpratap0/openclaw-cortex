@@ -34,7 +34,7 @@ Use --json for machine-readable output.`,
 
 			st, storeErr := newMemgraphStore(ctx, logger)
 			if storeErr != nil {
-				return fmt.Errorf("lifecycle: connecting to store: %w", storeErr)
+				return cmdErr("lifecycle: connecting to store", storeErr)
 			}
 			defer func() { _ = st.Close() }()
 
@@ -49,7 +49,7 @@ Use --json for machine-readable output.`,
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				if encErr := enc.Encode(report); encErr != nil {
-					return fmt.Errorf("lifecycle: encoding JSON: %w", encErr)
+					return cmdErr("lifecycle: encoding JSON", encErr)
 				}
 				return runErr
 			}
@@ -86,14 +86,14 @@ func consolidateCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("consolidate: connecting to store: %w", err)
+				return cmdErr("consolidate: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			lm := lifecycle.NewManager(st, newEmbedder(logger), logger)
 			report, err := lm.Run(ctx, dryRun)
 			if err != nil {
-				return fmt.Errorf("consolidate: running lifecycle: %w", err)
+				return cmdErr("consolidate: running lifecycle", err)
 			}
 
 			fmt.Printf("Lifecycle report:\n")
@@ -135,12 +135,12 @@ func forgetCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("forget: connecting to store: %w", err)
+				return cmdErr("forget: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			if err := st.Delete(ctx, id); err != nil {
-				return fmt.Errorf("forget: deleting memory: %w", err)
+				return cmdErr("forget: deleting memory", err)
 			}
 
 			fmt.Printf("Deleted memory %s\n", id)

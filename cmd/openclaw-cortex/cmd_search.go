@@ -32,13 +32,13 @@ func searchCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("search: connecting to store: %w", err)
+				return cmdErr("search: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			vec, err := emb.Embed(ctx, query)
 			if err != nil {
-				return fmt.Errorf("search: embedding query: %w", err)
+				return cmdErr("search: embedding query", err)
 			}
 
 			filters, filterErr := buildSearchFilters("search", memType, memScope, project, tagsFlag)
@@ -51,7 +51,7 @@ func searchCmd() *cobra.Command {
 
 			results, err := st.Search(ctx, vec, limit, filters)
 			if err != nil {
-				return fmt.Errorf("search: querying store: %w", err)
+				return cmdErr("search: querying store", err)
 			}
 
 			if jsonFlag {
@@ -60,7 +60,7 @@ func searchCmd() *cobra.Command {
 				}
 				out, marshalErr := json.MarshalIndent(results, "", "  ")
 				if marshalErr != nil {
-					return fmt.Errorf("search: marshaling results: %w", marshalErr)
+					return cmdErr("search: marshaling results", marshalErr)
 				}
 				fmt.Println(string(out))
 				return nil

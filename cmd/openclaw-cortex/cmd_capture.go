@@ -46,12 +46,12 @@ func captureCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("capture: connecting to store: %w", err)
+				return cmdErr("capture: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			if err = st.EnsureCollection(ctx); err != nil {
-				return fmt.Errorf("capture: ensuring collection: %w", err)
+				return cmdErr("capture: ensuring collection", err)
 			}
 
 			// Pre-capture quality filter: skip trivial exchanges.
@@ -68,7 +68,7 @@ func captureCmd() *cobra.Command {
 
 			memories, err := cap.Extract(ctx, userMsg, assistantMsg)
 			if err != nil {
-				return fmt.Errorf("capture: extracting memories: %w", err)
+				return cmdErr("capture: extracting memories", err)
 			}
 
 			logger.Info("extracted memories", "count", len(memories))

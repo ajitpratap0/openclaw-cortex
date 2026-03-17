@@ -38,13 +38,13 @@ func entitiesListCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("entities list: connecting to store: %w", err)
+				return cmdErr("entities list: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			entities, err := st.SearchEntities(ctx, "")
 			if err != nil {
-				return fmt.Errorf("entities list: %w", err)
+				return cmdErr("entities list", err)
 			}
 
 			if len(entities) == 0 {
@@ -55,7 +55,7 @@ func entitiesListCmd() *cobra.Command {
 			if outputJSON {
 				out, marshalErr := json.MarshalIndent(entities, "", "  ")
 				if marshalErr != nil {
-					return fmt.Errorf("entities list: marshaling JSON: %w", marshalErr)
+					return cmdErr("entities list: marshaling JSON", marshalErr)
 				}
 				fmt.Println(string(out))
 				return nil
@@ -87,7 +87,7 @@ func entitiesGetCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("entities get: connecting to store: %w", err)
+				return cmdErr("entities get: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
@@ -96,13 +96,13 @@ func entitiesGetCmd() *cobra.Command {
 				if errors.Is(err, store.ErrNotFound) {
 					return fmt.Errorf("entities get: entity %s not found", args[0])
 				}
-				return fmt.Errorf("entities get: %w", err)
+				return cmdErr("entities get", err)
 			}
 
 			if outputJSON {
 				out, marshalErr := json.MarshalIndent(entity, "", "  ")
 				if marshalErr != nil {
-					return fmt.Errorf("entities get: marshaling JSON: %w", marshalErr)
+					return cmdErr("entities get: marshaling JSON", marshalErr)
 				}
 				fmt.Println(string(out))
 				return nil
@@ -136,13 +136,13 @@ func entitiesSearchCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("entities search: connecting to store: %w", err)
+				return cmdErr("entities search: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			entities, err := st.SearchEntities(ctx, args[0])
 			if err != nil {
-				return fmt.Errorf("entities search: %w", err)
+				return cmdErr("entities search", err)
 			}
 
 			if len(entities) == 0 {
@@ -153,7 +153,7 @@ func entitiesSearchCmd() *cobra.Command {
 			if outputJSON {
 				out, marshalErr := json.MarshalIndent(entities, "", "  ")
 				if marshalErr != nil {
-					return fmt.Errorf("entities search: marshaling JSON: %w", marshalErr)
+					return cmdErr("entities search: marshaling JSON", marshalErr)
 				}
 				fmt.Println(string(out))
 				return nil

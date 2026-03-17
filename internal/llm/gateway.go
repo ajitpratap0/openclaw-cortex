@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
 // GatewayClient sends completions through an OpenAI-compatible HTTP gateway.
@@ -53,6 +55,8 @@ type gatewayResponse struct {
 
 // Complete sends a single-turn request to the gateway and returns the model reply.
 func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
+	finish := sentry.StartSpan("llm.complete", "GatewayClient.Complete")
+	defer finish()
 	reqBody := gatewayRequest{
 		Model: model,
 		Messages: []gatewayMessage{

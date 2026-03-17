@@ -20,19 +20,19 @@ func getCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("get: connecting to store: %w", err)
+				return cmdErr("get: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			mem, err := st.Get(ctx, args[0])
 			if err != nil {
-				return fmt.Errorf("get: %w", err)
+				return cmdErr("get", err)
 			}
 
 			if outputJSON {
 				out, err := json.MarshalIndent(mem, "", "  ")
 				if err != nil {
-					return fmt.Errorf("get: marshaling JSON: %w", err)
+					return cmdErr("get: marshaling JSON", err)
 				}
 				fmt.Println(string(out))
 				return nil
