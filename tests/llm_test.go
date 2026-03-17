@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,6 +88,19 @@ func TestGatewayClient_Complete_ConnectionRefused(t *testing.T) {
 	client := llm.NewGatewayClient("http://127.0.0.1:1", "tok", 0)
 	_, err := client.Complete(context.Background(), "m", "sys", "usr", 100)
 	assert.Error(t, err)
+}
+
+func TestGatewayClient_Timeout(t *testing.T) {
+	// Server deliberately delays 2 seconds; client timeout is 1 second.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	client := llm.NewGatewayClient(srv.URL, "tok", 1) // 1s timeout
+	_, err := client.Complete(context.Background(), "m", "sys", "usr", 100)
+	require.Error(t, err)
 }
 
 // --- NewClient factory ---

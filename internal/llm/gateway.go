@@ -15,9 +15,9 @@ import (
 // GatewayClient sends completions through an OpenAI-compatible HTTP gateway.
 // It implements LLMClient.
 type GatewayClient struct {
-	baseURL string
-	token   string
-	http    *http.Client
+	baseURL    string
+	token      string
+	httpClient *http.Client
 }
 
 // NewGatewayClient creates a GatewayClient that POSTs to baseURL/v1/chat/completions
@@ -25,9 +25,9 @@ type GatewayClient struct {
 func NewGatewayClient(baseURL, token string, timeoutSeconds int) *GatewayClient {
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	return &GatewayClient{
-		baseURL: baseURL,
-		token:   token,
-		http:    &http.Client{Timeout: timeout},
+		baseURL:    baseURL,
+		token:      token,
+		httpClient: &http.Client{Timeout: timeout},
 	}
 }
 
@@ -81,7 +81,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+g.token)
 
-	resp, err := g.http.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("gateway complete: do request: %w", err)
 	}
