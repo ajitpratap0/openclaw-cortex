@@ -64,7 +64,7 @@ individual tool calls will return MCP error responses on failure.`,
 			}()
 			select {
 			case err := <-errCh:
-				return err
+				return cmdErr("mcp: serve stdio", err)
 			case <-cmd.Context().Done():
 				logger.Info("mcp: shutting down")
 				return nil
