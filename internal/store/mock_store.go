@@ -423,8 +423,9 @@ func (m *MockStore) GetEntity(_ context.Context, id string) (*models.Entity, err
 }
 
 // SearchEntities finds entities whose Name or any Alias contains the given
-// substring (case-insensitive).
-func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Entity, error) {
+// substring (case-insensitive). entityType filters by type (empty = all).
+// limit caps results (0 = no cap).
+func (m *MockStore) SearchEntities(_ context.Context, name, entityType string, limit int) ([]models.Entity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -442,6 +443,9 @@ func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Ent
 		}
 
 		if matched {
+			if entityType != "" && string(e.Type) != entityType {
+				continue
+			}
 			cp := *e
 			if len(e.Aliases) > 0 {
 				cp.Aliases = make([]string, len(e.Aliases))
@@ -459,6 +463,9 @@ func (m *MockStore) SearchEntities(_ context.Context, name string) ([]models.Ent
 			}
 			results = append(results, cp)
 		}
+	}
+	if limit > 0 && len(results) > limit {
+		results = results[:limit]
 	}
 	return results, nil
 }

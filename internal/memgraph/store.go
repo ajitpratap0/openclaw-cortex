@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ func New(ctx context.Context, uri, username, password, database string, logger *
 		return nil, fmt.Errorf("memgraph new: verifying connectivity to %s: %w", uri, verifyErr)
 	}
 
-	logger.Info("connected to Memgraph", "uri", uri, "database", database)
+	logger.Debug("connected to Memgraph", "uri", redactURI(uri), "database", database)
 
 	return &MemgraphStore{
 		driver:   driver,
@@ -137,7 +138,7 @@ func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector
 			    m.valid_to         = $valid_to,
 			    m.reinforced_at_unix = $reinforced_at_unix,
 			    m.reinforced_count = $reinforced_count,
-			    m.embedding        = $embedding
+			    m.embedding        = CASE WHEN $has_embedding THEN $embedding ELSE m.embedding END
 		`, params)
 		return nil, txErr
 	})
@@ -703,19 +704,39 @@ func (s *MemgraphStore) GetEntity(ctx context.Context, id string) (*models.Entit
 }
 
 // SearchEntities finds entities whose name contains the given string (case-insensitive).
-func (s *MemgraphStore) SearchEntities(ctx context.Context, name string) ([]models.Entity, error) {
+// entityType filters by entity type (empty = all types).
+// limit caps the number of results (0 = default 100).
+func (s *MemgraphStore) SearchEntities(ctx context.Context, name, entityType string, limit int) ([]models.Entity, error) {
+	if limit <= 0 {
+		limit = 100
+	}
 	rctx, cancel := context.WithTimeout(ctx, memgraphReadTimeout)
 	defer cancel()
 
 	session := s.driver.NewSession(rctx, s.sessionConfig())
 	defer s.closeSession(ctx, session)
 
+	whereClauses := []string{}
+	params := map[string]any{"limit": int64(limit)}
+
+	if name != "" {
+		whereClauses = append(whereClauses, "toLower(e.name) CONTAINS toLower($name)")
+		params["name"] = name
+	}
+	if entityType != "" {
+		whereClauses = append(whereClauses, "e.type = $entityType")
+		params["entityType"] = entityType
+	}
+
+	where := ""
+	if len(whereClauses) > 0 {
+		where = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	query := fmt.Sprintf(`MATCH (e:Entity) %s RETURN e LIMIT $limit`, where)
+
 	raw, err := session.ExecuteRead(rctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		res, txErr := tx.Run(rctx, `
-			MATCH (e:Entity)
-			WHERE toLower(e.name) CONTAINS toLower($name)
-			RETURN e
-		`, map[string]any{"name": name})
+		res, txErr := tx.Run(rctx, query, params)
 		if txErr != nil {
 			return nil, txErr
 		}
@@ -730,6 +751,15 @@ func (s *MemgraphStore) SearchEntities(ctx context.Context, name string) ([]mode
 		return nil, fmt.Errorf("memgraph search entities: unexpected result type %T", raw)
 	}
 	return entities, nil
+}
+
+// redactURI returns a version of rawURI with credentials removed, safe to log.
+func redactURI(rawURI string) string {
+	u, err := url.Parse(rawURI)
+	if err != nil {
+		return "[unparseable URI]"
+	}
+	return u.Redacted()
 }
 
 // LinkMemoryToEntity appends a memory ID to an entity's memory_ids list (idempotent).
@@ -979,6 +1009,7 @@ func memoryToParams(m models.Memory, vector []float32) map[string]any {
 		}(),
 		"reinforced_at_unix": reinforcedAtUnix,
 		"reinforced_count":   int64(m.ReinforcedCount),
+		"has_embedding":      vector != nil,
 		"embedding":          float32SliceToAny(vector),
 	}
 }

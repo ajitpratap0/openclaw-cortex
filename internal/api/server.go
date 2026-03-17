@@ -18,26 +18,29 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/cursor"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
 // Server is an HTTP API server that exposes memory operations.
 type Server struct {
-	store     store.Store
-	recall    *recall.Recaller
-	embedder  embedder.Embedder
-	logger    *slog.Logger
-	authToken string // empty = no auth required
+	store        store.Store
+	recall       *recall.Recaller
+	embedder     embedder.Embedder
+	logger       *slog.Logger
+	authToken    string // empty = no auth required
+	cursorSecret string // empty = cursors are unsigned plain offsets
 }
 
 // NewServer creates a new Server with the given dependencies.
-func NewServer(st store.Store, rec *recall.Recaller, emb embedder.Embedder, logger *slog.Logger, authToken string) *Server {
+func NewServer(st store.Store, rec *recall.Recaller, emb embedder.Embedder, logger *slog.Logger, authToken, cursorSecret string) *Server {
 	return &Server{
-		store:     st,
-		recall:    rec,
-		embedder:  emb,
-		logger:    logger,
-		authToken: authToken,
+		store:        st,
+		recall:       rec,
+		embedder:     emb,
+		logger:       logger,
+		authToken:    authToken,
+		cursorSecret: cursorSecret,
 	}
 }
 
@@ -313,21 +316,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var vec []float32
 	if req.Content != "" {
 		mem.Content = req.Content
-		vec, err = s.embedder.Embed(r.Context(), req.Content)
-		if err != nil {
-			s.logger.Error("failed to embed updated content", "id", id, "error", err)
+		var embedErr error
+		vec, embedErr = s.embedder.Embed(r.Context(), req.Content)
+		if embedErr != nil {
+			s.logger.Error("failed to embed updated content", "id", id, "error", embedErr)
 			s.writeError(w, http.StatusInternalServerError, "failed to generate embedding")
 			return
 		}
-	} else {
-		// Re-embed existing content to preserve the vector (no content change).
-		vec, err = s.embedder.Embed(r.Context(), mem.Content)
-		if err != nil {
-			s.logger.Error("failed to re-embed existing content", "id", id, "error", err)
-			s.writeError(w, http.StatusInternalServerError, "embedding failed: "+err.Error())
-			return
-		}
 	}
+	// When content is unchanged, vec stays nil — Upsert will preserve the existing embedding.
 
 	mem.UpdatedAt = time.Now().UTC()
 	if upsertErr := s.store.Upsert(r.Context(), *mem, vec); upsertErr != nil {
@@ -397,9 +394,19 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cursor := q.Get("cursor")
+	// Decode incoming signed cursor.
+	secret := []byte(s.cursorSecret)
+	skip, verifyErr := cursor.Verify(q.Get("cursor"), secret)
+	if verifyErr != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid cursor")
+		return
+	}
+	var rawCursor string
+	if skip > 0 {
+		rawCursor = strconv.FormatInt(skip, 10)
+	}
 
-	memories, nextCursor, err := s.store.List(r.Context(), filters, limit, cursor)
+	memories, nextRawCursor, err := s.store.List(r.Context(), filters, limit, rawCursor)
 	if err != nil {
 		s.logger.Error("failed to list memories", "error", err)
 		s.writeError(w, http.StatusInternalServerError, "failed to list memories")
@@ -408,6 +415,13 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 
 	if memories == nil {
 		memories = []models.Memory{}
+	}
+
+	// Encode outgoing cursor.
+	var nextCursor string
+	if nextRawCursor != "" {
+		nextSkip, _ := strconv.ParseInt(nextRawCursor, 10, 64)
+		nextCursor = cursor.Sign(nextSkip, secret)
 	}
 
 	s.writeJSON(w, http.StatusOK, listResponse{Memories: memories, NextCursor: nextCursor})
@@ -563,25 +577,10 @@ func (s *Server) handleSearchEntities(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	entities, err := s.store.SearchEntities(r.Context(), query)
+	entities, err := s.store.SearchEntities(r.Context(), query, typeFilter, limit)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Sprintf("search failed: %s", err))
 		return
-	}
-
-	// In-process type filtering (store.SearchEntities has no type param).
-	if typeFilter != "" {
-		filtered := make([]models.Entity, 0, len(entities))
-		for i := range entities {
-			if string(entities[i].Type) == typeFilter {
-				filtered = append(filtered, entities[i])
-			}
-		}
-		entities = filtered
-	}
-
-	if len(entities) > limit {
-		entities = entities[:limit]
 	}
 
 	s.writeJSON(w, http.StatusOK, map[string]any{"entities": entities})

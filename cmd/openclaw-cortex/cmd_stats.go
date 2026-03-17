@@ -32,7 +32,7 @@ func statsCmd() *cobra.Command {
 			}
 
 			// Entity count (count via SearchEntities with empty query)
-			entities, entErr := st.SearchEntities(ctx, "")
+			entities, entErr := st.SearchEntities(ctx, "", "", 100)
 			entityCount := 0
 			if entErr == nil {
 				entityCount = len(entities)

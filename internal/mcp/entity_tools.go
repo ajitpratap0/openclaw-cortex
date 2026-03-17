@@ -40,7 +40,7 @@ func (s *Server) handleEntitySearch(ctx context.Context, req mcpgo.CallToolReque
 		return mcpgo.NewToolResultError("query is required and must not be empty"), nil
 	}
 
-	entities, searchErr := s.st.SearchEntities(ctx, query)
+	entities, searchErr := s.st.SearchEntities(ctx, query, "", 100)
 	if searchErr != nil {
 		return mcpgo.NewToolResultErrorf("entity search failed: %s", searchErr.Error()), nil
 	}

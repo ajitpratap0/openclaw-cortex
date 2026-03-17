@@ -42,7 +42,7 @@ func TestCaptureWithEntityExtraction(t *testing.T) {
 		}
 	}
 
-	found, err := ms.SearchEntities(ctx, "Alice")
+	found, err := ms.SearchEntities(ctx, "Alice", "", 100)
 	if err != nil {
 		t.Fatalf("search entities: %v", err)
 	}

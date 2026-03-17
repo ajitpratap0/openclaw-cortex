@@ -64,8 +64,8 @@ func (f *failingUpsertStore) GetEntity(ctx context.Context, id string) (*models.
 	return f.inner.GetEntity(ctx, id)
 }
 
-func (f *failingUpsertStore) SearchEntities(ctx context.Context, name string) ([]models.Entity, error) {
-	return f.inner.SearchEntities(ctx, name)
+func (f *failingUpsertStore) SearchEntities(ctx context.Context, name, entityType string, limit int) ([]models.Entity, error) {
+	return f.inner.SearchEntities(ctx, name, entityType, limit)
 }
 
 func (f *failingUpsertStore) LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error {

@@ -33,7 +33,7 @@ func serveCmd() *cobra.Command {
 			gc := memgraph.NewGraphAdapter(st)
 			rec.SetGraphClient(gc, st, cfg.Recall.GraphBudgetCLIMs)
 
-			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken)
+			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken, cfg.API.CursorSecret)
 
 			if cfg.API.AuthToken == "" {
 				logger.Warn("HTTP API: auth is DISABLED; set OPENCLAW_CORTEX_API_AUTH_TOKEN or cfg.api.auth_token for production use")
