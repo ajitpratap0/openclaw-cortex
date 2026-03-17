@@ -127,6 +127,12 @@ type ClaudeConfig struct {
 	Model        string `mapstructure:"model"`
 	GatewayURL   string `mapstructure:"gateway_url"`
 	GatewayToken string `mapstructure:"gateway_token"`
+
+	// LLM resilience settings
+	MaxConcurrentLLMCalls int `mapstructure:"max_concurrent_llm_calls"` // default: 4
+	CBFailureThreshold    int `mapstructure:"cb_failure_threshold"`     // default: 5
+	CBRecoverySeconds     int `mapstructure:"cb_recovery_seconds"`      // default: 30
+	MaxRetries            int `mapstructure:"max_retries"`              // default: 3
 }
 
 // String returns a safe representation of ClaudeConfig with the API key masked.
@@ -185,6 +191,10 @@ func Load() (*Config, error) {
 	v.SetDefault("embedder.openai_dimensions", 768)
 
 	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
+	v.SetDefault("claude.max_concurrent_llm_calls", 4)
+	v.SetDefault("claude.cb_failure_threshold", 5)
+	v.SetDefault("claude.cb_recovery_seconds", 30)
+	v.SetDefault("claude.max_retries", 3)
 
 	v.SetDefault("memory.memory_dir", filepath.Join(homeDir(), ".openclaw", "workspace", "memory"))
 	v.SetDefault("memory.chunk_size", DefaultChunkSize)
