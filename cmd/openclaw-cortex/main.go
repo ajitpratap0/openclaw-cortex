@@ -46,6 +46,7 @@ func main() {
 		forgetCmd(),
 		listCmd(),
 		captureCmd(),
+		captureBatchCmd(),
 		recallCmd(),
 		statsCmd(),
 		consolidateCmd(),
