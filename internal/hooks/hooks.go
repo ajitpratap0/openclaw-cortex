@@ -342,5 +342,13 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	}
 
 	h.logger.Info("post-turn hook completed", "extracted", len(captured), "stored", stored)
+
+	// Update memory_count gauge with the current total after writes.
+	if stored > 0 {
+		if stats, statsErr := h.store.Stats(ctx); statsErr == nil {
+			metrics.MemoryCount.Set(float64(stats.TotalMemories))
+		}
+	}
+
 	return nil
 }

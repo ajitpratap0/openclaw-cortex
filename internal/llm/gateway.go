@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
@@ -57,6 +58,7 @@ type gatewayResponse struct {
 func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
 	finish := sentry.StartSpan(ctx, "llm.complete", "GatewayClient.Complete")
 	defer finish()
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 	reqBody := gatewayRequest{
 		Model: model,
 		Messages: []gatewayMessage{
@@ -81,6 +83,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 
 	resp, err := g.http.Do(req)
 	if err != nil {
+		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: do request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -91,6 +94,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: unexpected status %d: %s", resp.StatusCode, body)
 	}
 
@@ -100,6 +104,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	}
 
 	if gwResp.Error != nil {
+		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: api error: %s", gwResp.Error.Message)
 	}
 

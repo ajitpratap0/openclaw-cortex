@@ -4,12 +4,10 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,23 +67,12 @@ func TestMetrics_RecallCounter(t *testing.T) {
 }
 
 func TestMetrics_LLMCallsCounter(t *testing.T) {
-	metrics.LLMCallsTotal.WithLabelValues("capture").Inc()
-	// Verify via text exposition using the default Prometheus gatherer (not nil).
-	out, err := testutil.GatherAndCount(prometheus.DefaultGatherer)
-	if err != nil {
-		t.Fatalf("gather error: %v", err)
-	}
-	if out == 0 {
-		t.Fatal("expected at least one metric")
-	}
-	// Confirm our counter is in the output.
-	if err := testutil.GatherAndCompare(
-		prometheus.DefaultGatherer,
-		strings.NewReader(""),
-		"cortex_llm_calls_total",
-	); err != nil {
-		// GatherAndCompare with empty expected will only fail on format errors — just log
-		t.Logf("gather compare (informational): %v", err)
+	const model = "claude-3-haiku-test"
+	before := testutil.ToFloat64(metrics.LLMCallsTotal.WithLabelValues(model))
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
+	after := testutil.ToFloat64(metrics.LLMCallsTotal.WithLabelValues(model))
+	if after-before != 1.0 {
+		t.Fatalf("expected LLMCallsTotal[%s] to increment by 1, got %f", model, after-before)
 	}
 }
 

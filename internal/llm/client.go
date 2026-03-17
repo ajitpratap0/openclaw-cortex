@@ -7,6 +7,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
@@ -32,6 +33,7 @@ func NewAnthropicClient(apiKey string) *AnthropicClient {
 func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
 	finish := sentry.StartSpan(ctx, "llm.complete", "AnthropicClient.Complete")
 	defer finish()
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
 		MaxTokens: int64(maxTokens),
@@ -45,6 +47,7 @@ func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, use
 		},
 	})
 	if err != nil {
+		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("anthropic complete: %w", err)
 	}
 

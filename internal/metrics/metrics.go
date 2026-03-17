@@ -20,17 +20,17 @@ var (
 		Help: "Total number of recall operations.",
 	})
 
-	// LLMCallsTotal counts LLM completions, by operation name.
+	// LLMCallsTotal counts LLM completions, by model name.
 	LLMCallsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "cortex_llm_calls_total",
-		Help: "Total number of LLM completion calls, by operation.",
-	}, []string{"op"})
+		Help: "Total number of LLM completion calls, by model.",
+	}, []string{"model"})
 
-	// LLMErrorsTotal counts LLM completion errors, by operation name.
+	// LLMErrorsTotal counts LLM completion errors, by model name.
 	LLMErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "cortex_llm_errors_total",
-		Help: "Total number of LLM completion errors, by operation.",
-	}, []string{"op"})
+		Help: "Total number of LLM completion errors, by model.",
+	}, []string{"model"})
 
 	// RecallLatencyMs is a histogram of recall operation latency in milliseconds.
 	RecallLatencyMs = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -46,18 +46,18 @@ var (
 		Buckets: []float64{5, 20, 50, 100, 250, 500},
 	})
 
-	// LLMLatencyMs is a histogram of LLM completion latency, by operation.
+	// LLMLatencyMs is a histogram of LLM completion latency, by model.
 	LLMLatencyMs = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "cortex_llm_latency_ms",
-		Help:    "LLM completion latency in milliseconds, by operation.",
+		Help:    "LLM completion latency in milliseconds, by model.",
 		Buckets: []float64{100, 250, 500, 1000, 2500, 5000},
-	}, []string{"op"})
+	}, []string{"model"})
 
-	// MemoryCount is a gauge of current memory count, by type and scope.
-	MemoryCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	// MemoryCount is a gauge of the total number of memories in the store.
+	MemoryCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "cortex_memory_count",
-		Help: "Current number of memories, by type and scope.",
-	}, []string{"type", "scope"})
+		Help: "Current total number of memories in the store.",
+	})
 
 	// DedupSkippedTotal counts memories skipped due to deduplication.
 	DedupSkippedTotal = promauto.NewCounter(prometheus.CounterOpts{
