@@ -101,22 +101,22 @@ const (
 
 // Memory is the core data structure for a stored memory.
 type Memory struct {
-	ID           string           `json:"id"`
-	Type         MemoryType       `json:"type"`
-	Scope        MemoryScope      `json:"scope"`
-	Visibility   MemoryVisibility `json:"visibility"`
-	Content      string           `json:"content"`
-	Confidence   float64          `json:"confidence"`
-	Source       string           `json:"source"`
-	Tags         []string         `json:"tags"`
-	Project      string           `json:"project,omitempty"`
+	ID         string           `json:"id"`
+	Type       MemoryType       `json:"type"`
+	Scope      MemoryScope      `json:"scope"`
+	Visibility MemoryVisibility `json:"visibility"`
+	Content    string           `json:"content"`
+	Confidence float64          `json:"confidence"`
+	Source     string           `json:"source"`
+	Tags       []string         `json:"tags"`
+	Project    string           `json:"project,omitempty"`
 	// UserID is the owner of this memory. Empty string means unscoped (legacy/shared).
-	UserID       string           `json:"user_id,omitempty" db:"user_id"`
-	TTLSeconds   int64            `json:"ttl_seconds,omitempty"`
-	CreatedAt    time.Time        `json:"created_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
-	LastAccessed time.Time        `json:"last_accessed"`
-	AccessCount  int64            `json:"access_count"`
+	UserID       string    `json:"user_id,omitempty" db:"user_id"`
+	TTLSeconds   int64     `json:"ttl_seconds,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	LastAccessed time.Time `json:"last_accessed"`
+	AccessCount  int64     `json:"access_count"`
 
 	// ReinforcedAt is the last time this memory's confidence was boosted
 	// because a similar memory was captured again.
