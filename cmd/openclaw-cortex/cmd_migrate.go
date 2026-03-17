@@ -22,7 +22,7 @@ func migrateCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("migrate: connecting to store: %w", err)
+				return cmdErr("migrate: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
@@ -35,7 +35,7 @@ func migrateCmd() *cobra.Command {
 
 				fmt.Println("Running temporal versioning migration...")
 				if migrateErr := st.MigrateTemporalFields(ctx); migrateErr != nil {
-					return fmt.Errorf("migrate: temporal fields: %w", migrateErr)
+					return cmdErr("migrate: temporal fields", migrateErr)
 				}
 				fmt.Println("✓ Temporal migration complete: valid_from backfilled, indexes created.")
 			} else {

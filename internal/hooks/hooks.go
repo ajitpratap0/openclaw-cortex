@@ -14,6 +14,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
@@ -81,6 +82,8 @@ func (h *PreTurnHook) WithReasoner(r *recall.Reasoner, cfg RerankConfig) *PreTur
 
 // Execute runs the pre-turn hook.
 func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurnOutput, error) {
+	finish := sentry.StartSpan(ctx, "hook.pre_turn", "PreTurnHook")
+	defer finish()
 	metrics.Inc(metrics.RecallTotal)
 
 	if input.TokenBudget <= 0 {
@@ -212,6 +215,8 @@ func (h *PostTurnHook) WithReinforcement(threshold, boost float64) *PostTurnHook
 
 // Execute runs the post-turn hook: extract → classify → embed → reinforce/dedup → store.
 func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
+	finish := sentry.StartSpan(ctx, "hook.post_turn", "PostTurnHook")
+	defer finish()
 	h.logger.Info("post-turn hook starting",
 		"session_id", input.SessionID,
 		"project", input.Project,

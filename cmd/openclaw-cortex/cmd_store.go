@@ -49,17 +49,17 @@ func storeCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("store: connecting to store: %w", err)
+				return cmdErr("store: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			if err = st.EnsureCollection(ctx); err != nil {
-				return fmt.Errorf("store: ensuring collection: %w", err)
+				return cmdErr("store: ensuring collection", err)
 			}
 
 			vec, err := emb.Embed(ctx, content)
 			if err != nil {
-				return fmt.Errorf("store: embedding content: %w", err)
+				return cmdErr("store: embedding content", err)
 			}
 
 			// Check for duplicates
@@ -106,7 +106,7 @@ func storeCmd() *cobra.Command {
 			}
 
 			if err := st.Upsert(ctx, mem, vec); err != nil {
-				return fmt.Errorf("store: upserting memory: %w", err)
+				return cmdErr("store: upserting memory", err)
 			}
 
 			fmt.Printf("Stored memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)

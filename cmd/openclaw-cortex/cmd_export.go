@@ -24,7 +24,7 @@ func exportCmd() *cobra.Command {
 
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("export: connecting to store: %w", err)
+				return cmdErr("export: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
@@ -34,7 +34,7 @@ func exportCmd() *cobra.Command {
 			for {
 				memories, next, listErr := st.List(ctx, nil, 500, cursor)
 				if listErr != nil {
-					return fmt.Errorf("export: listing memories: %w", listErr)
+					return cmdErr("export: listing memories", listErr)
 				}
 				for i := range memories {
 					m := &memories[i]
@@ -65,7 +65,7 @@ func exportCmd() *cobra.Command {
 			} else {
 				w, err = os.Create(output)
 				if err != nil {
-					return fmt.Errorf("export: creating output file: %w", err)
+					return cmdErr("export: creating output file", err)
 				}
 				defer func() { _ = w.Close() }()
 			}
@@ -75,13 +75,13 @@ func exportCmd() *cobra.Command {
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
 				if encErr := enc.Encode(all); encErr != nil {
-					return fmt.Errorf("export: encoding JSON: %w", encErr)
+					return cmdErr("export: encoding JSON", encErr)
 				}
 			case "csv":
 				cw := csv.NewWriter(w)
 				headers := []string{"id", "type", "scope", "visibility", "content", "confidence", "source", "project", "access_count", "created_at"}
 				if writeErr := cw.Write(headers); writeErr != nil {
-					return fmt.Errorf("export: writing CSV header: %w", writeErr)
+					return cmdErr("export: writing CSV header", writeErr)
 				}
 				for _, m := range all {
 					row := []string{
@@ -97,12 +97,12 @@ func exportCmd() *cobra.Command {
 						fmt.Sprint(m["created_at"]),
 					}
 					if writeErr := cw.Write(row); writeErr != nil {
-						return fmt.Errorf("export: writing CSV row: %w", writeErr)
+						return cmdErr("export: writing CSV row", writeErr)
 					}
 				}
 				cw.Flush()
 				if flushErr := cw.Error(); flushErr != nil {
-					return fmt.Errorf("export: flushing CSV: %w", flushErr)
+					return cmdErr("export: flushing CSV", flushErr)
 				}
 			default:
 				return fmt.Errorf("export: unsupported format %q (use json or csv)", format)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -23,7 +22,7 @@ func serveCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("serve: connecting to store: %w", err)
+				return cmdErr("serve: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
@@ -52,7 +51,7 @@ func serveCmd() *cobra.Command {
 			go func() {
 				logger.Info("HTTP API server starting", "addr", cfg.API.ListenAddr)
 				if listenErr := httpSrv.ListenAndServe(); listenErr != nil && listenErr != http.ErrServerClosed {
-					errCh <- fmt.Errorf("serve: HTTP server: %w", listenErr)
+					errCh <- cmdErr("serve: HTTP server", listenErr)
 				}
 				close(errCh)
 			}()
@@ -69,7 +68,7 @@ func serveCmd() *cobra.Command {
 
 			const shutdownTimeout = 10 * time.Second
 			if shutdownErr := api.Shutdown(httpSrv, shutdownTimeout); shutdownErr != nil {
-				return fmt.Errorf("serve: graceful shutdown: %w", shutdownErr)
+				return cmdErr("serve: graceful shutdown", shutdownErr)
 			}
 
 			// Drain the errCh in case ListenAndServe returned after Shutdown.

@@ -19,6 +19,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -158,6 +159,7 @@ func hookPreCmd() *cobra.Command {
 				SessionID:   input.SessionID,
 			})
 			if execErr != nil {
+				sentry.CaptureException(execErr)
 				logger.Error("hook pre: executing hook", "error", execErr)
 				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory recall failed (%v), continuing without memory context\n", execErr)
 				writePreOutput(hookPreOutput{})
@@ -261,6 +263,7 @@ func hookPostCmd() *cobra.Command {
 				PriorTurns:       priorTurns,
 			})
 			if execErr != nil {
+				sentry.CaptureException(execErr)
 				logger.Error("hook post: executing hook", "error", execErr)
 				_, _ = fmt.Fprintf(os.Stderr, "openclaw-cortex hook: memory capture failed (%v), skipping\n", execErr)
 				writePostOutput(hookPostOutput{Stored: false})

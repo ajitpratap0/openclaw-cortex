@@ -29,6 +29,12 @@ type CaptureQualityConfig struct {
 	BlocklistPatterns            []string `mapstructure:"blocklist_patterns"`
 }
 
+// SentryConfig holds Sentry error tracking settings.
+type SentryConfig struct {
+	DSN         string `mapstructure:"dsn"`
+	Environment string `mapstructure:"environment"`
+}
+
 // Config holds all configuration for cortex.
 type Config struct {
 	Memgraph         MemgraphConfig         `mapstructure:"memgraph"`
@@ -42,6 +48,7 @@ type Config struct {
 	CaptureQuality   CaptureQualityConfig   `mapstructure:"capture_quality"`
 	EntityResolution EntityResolutionConfig `mapstructure:"entity_resolution"`
 	FactExtraction   FactExtractionConfig   `mapstructure:"fact_extraction"`
+	Sentry           SentryConfig           `mapstructure:"sentry"`
 }
 
 // MemgraphConfig holds Memgraph database connection settings.
@@ -219,6 +226,11 @@ func Load() (*Config, error) {
 	v.SetDefault("capture_quality.min_user_message_length", 20)
 	v.SetDefault("capture_quality.min_assistant_message_length", 20)
 	v.SetDefault("capture_quality.blocklist_patterns", []string{"HEARTBEAT_OK", "NO_REPLY"})
+
+	v.SetDefault("sentry.dsn", "")
+	v.SetDefault("sentry.environment", "production")
+	_ = v.BindEnv("sentry.dsn", "SENTRY_DSN")
+	_ = v.BindEnv("sentry.environment", "SENTRY_ENVIRONMENT")
 
 	// Config file
 	v.SetConfigName("config")

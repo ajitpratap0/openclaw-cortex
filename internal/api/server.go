@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/google/uuid"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
@@ -64,7 +65,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/entities/{id}", s.auth(s.handleGetEntity))
 	mux.HandleFunc("GET /v1/entities", s.auth(s.handleSearchEntities))
 
-	return mux
+	sentryHandler := sentryhttp.New(sentryhttp.Options{
+		Repanic: true,
+	})
+	return sentryHandler.Handle(mux)
 }
 
 // --- middleware ---

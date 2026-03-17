@@ -11,6 +11,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -40,13 +41,13 @@ func recallCmd() *cobra.Command {
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
-				return fmt.Errorf("recall: connecting to store: %w", err)
+				return cmdErr("recall: connecting to store", err)
 			}
 			defer func() { _ = st.Close() }()
 
 			vec, err := emb.Embed(ctx, query)
 			if err != nil {
-				return fmt.Errorf("recall: embedding query: %w", err)
+				return cmdErr("recall: embedding query", err)
 			}
 
 			filters, filterErr := buildSearchFilters("recall", memType, memScope, project, tagsFlag)
@@ -54,6 +55,9 @@ func recallCmd() *cobra.Command {
 				return filterErr
 			}
 			if includeHistory {
+				if filters == nil {
+					filters = &store.SearchFilters{}
+				}
 				filters.IncludeInvalidated = true
 			}
 
@@ -61,7 +65,7 @@ func recallCmd() *cobra.Command {
 			searchLimit := uint64(50)
 			results, err := st.Search(ctx, vec, searchLimit, filters)
 			if err != nil {
-				return fmt.Errorf("recall: searching store: %w", err)
+				return cmdErr("recall: searching store", err)
 			}
 
 			// Re-rank with multi-factor scoring using config-loaded weights.
@@ -112,7 +116,7 @@ func recallCmd() *cobra.Command {
 				}
 				out, err := json.MarshalIndent(jsonResults, "", "  ")
 				if err != nil {
-					return fmt.Errorf("recall: marshaling JSON output: %w", err)
+					return cmdErr("recall: marshaling JSON output", err)
 				}
 				fmt.Println(string(out))
 			} else {

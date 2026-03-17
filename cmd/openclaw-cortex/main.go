@@ -8,12 +8,14 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
+	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
 var version = "0.8.0"
@@ -21,6 +23,14 @@ var version = "0.8.0"
 var cfg *config.Config
 
 func main() {
+	if err := run(); err != nil {
+		sentry.Flush(2 * time.Second)
+		os.Exit(1)
+	}
+	sentry.Flush(2 * time.Second)
+}
+
+func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	rootCmd := &cobra.Command{
@@ -34,6 +44,7 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
+			sentry.Init(cfg.Sentry.DSN, cfg.Sentry.Environment, version)
 			return nil
 		},
 	}
@@ -66,9 +77,7 @@ func main() {
 
 	err := rootCmd.Execute()
 	stop()
-	if err != nil {
-		os.Exit(1)
-	}
+	return err
 }
 
 func newLogger() *slog.Logger {
