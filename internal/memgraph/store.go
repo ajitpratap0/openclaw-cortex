@@ -1147,15 +1147,35 @@ func recordToEntity(record *neo4j.Record, alias string) (*models.Entity, error) 
 // --- Filter builder ---
 
 // buildWhereClause constructs WHERE clause conditions from SearchFilters.
-// nodeAlias is the Cypher variable name (e.g. "m" or "node").
+// nodeAlias MUST be a hard-coded Cypher variable name ("m" or "node") — never user-supplied input.
 // Returns the condition strings and a parameter map.
 func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[string]any) {
+	// Allowlist guard: nodeAlias is interpolated into Cypher; only known literals are safe.
+	switch nodeAlias {
+	case "m", "node":
+	default:
+		panic(fmt.Sprintf("buildWhereClause: invalid nodeAlias %q (must be \"m\" or \"node\")", nodeAlias))
+	}
+
+	// Sensitive memories are opt-in: excluded by default unless visibility filter explicitly requests them.
+	// This mirrors the matchesFilters logic in MockStore for consistent behavior across implementations.
+	var sensitiveRequested bool
+	if f != nil && f.Visibility != nil && *f.Visibility == models.VisibilitySensitive {
+		sensitiveRequested = true
+	}
+
 	if f == nil {
-		return nil, nil
+		return []string{fmt.Sprintf("%s.visibility <> $exclude_sensitive", nodeAlias)},
+			map[string]any{"exclude_sensitive": string(models.VisibilitySensitive)}
 	}
 
 	var clauses []string
 	params := make(map[string]any)
+
+	if !sensitiveRequested {
+		clauses = append(clauses, fmt.Sprintf("%s.visibility <> $exclude_sensitive", nodeAlias))
+		params["exclude_sensitive"] = string(models.VisibilitySensitive)
+	}
 
 	if f.Type != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.type = $filter_type", nodeAlias))
