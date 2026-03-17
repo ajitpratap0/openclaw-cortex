@@ -142,6 +142,9 @@ func buildRememberTool() mcpgo.Tool {
 		mcpgo.WithNumber("confidence",
 			mcpgo.Description("Confidence score 0.0-1.0 (default: 1.0)"),
 		),
+		mcpgo.WithString("user_id",
+			mcpgo.Description("Optional user identifier for user-scoped memories"),
+		),
 	)
 }
 
@@ -157,6 +160,9 @@ func buildRecallTool() mcpgo.Tool {
 		),
 		mcpgo.WithNumber("budget",
 			mcpgo.Description("Token budget for returned context (default: 2000)"),
+		),
+		mcpgo.WithString("user_id",
+			mcpgo.Description("Optional user identifier to filter results to memories owned by this user"),
 		),
 	)
 }
@@ -233,6 +239,7 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 	}
 
 	project := req.GetString("project", "")
+	userID := req.GetString("user_id", "")
 
 	vec, err := s.emb.Embed(ctx, content)
 	if err != nil {
@@ -249,6 +256,7 @@ func (s *Server) handleRemember(ctx context.Context, req mcpgo.CallToolRequest) 
 		Confidence:   confidence,
 		Source:       "mcp",
 		Project:      project,
+		UserID:       userID,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		LastAccessed: now,
@@ -289,6 +297,7 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 	if budget <= 0 {
 		budget = defaultRecallBudget
 	}
+	userID := req.GetString("user_id", "")
 
 	vec, err := s.emb.Embed(ctx, message)
 	if err != nil {
@@ -296,8 +305,12 @@ func (s *Server) handleRecall(ctx context.Context, req mcpgo.CallToolRequest) (*
 	}
 
 	var filters *store.SearchFilters
-	if project != "" {
-		filters = &store.SearchFilters{Project: &project}
+	if project != "" || userID != "" {
+		filters = &store.SearchFilters{}
+		if project != "" {
+			filters.Project = &project
+		}
+		filters.UserID = userID
 	}
 
 	results, err := s.st.Search(ctx, vec, recallSearchLimit, filters)

@@ -51,6 +51,7 @@ type PreTurnInput struct {
 	Project     string `json:"project"`
 	TokenBudget int    `json:"token_budget"`
 	SessionID   string `json:"session_id"`
+	UserID      string `json:"user_id,omitempty"`
 }
 
 // PreTurnOutput contains the memories to inject into context.
@@ -93,10 +94,15 @@ func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurn
 		return nil, fmt.Errorf("embedding message: %w", err)
 	}
 
-	// Search for relevant memories — filter by project to prevent cross-project leakage.
+	// Search for relevant memories — filter by project and/or user to prevent cross-project/user leakage.
 	var filter *store.SearchFilters
-	if input.Project != "" {
-		filter = &store.SearchFilters{Project: &input.Project}
+	if input.Project != "" || input.UserID != "" {
+		filter = &store.SearchFilters{}
+		if input.Project != "" {
+			proj := input.Project
+			filter.Project = &proj
+		}
+		filter.UserID = input.UserID
 	}
 	results, err := h.store.Search(ctx, vec, preTurnSearchLimit, filter)
 	if err != nil {
@@ -174,6 +180,7 @@ type PostTurnInput struct {
 	SessionID        string                     `json:"session_id"`
 	Project          string                     `json:"project"`
 	PriorTurns       []capture.ConversationTurn `json:"prior_turns,omitempty"`
+	UserID           string                     `json:"user_id,omitempty"`
 }
 
 // NewPostTurnHook creates a post-turn hook handler.
@@ -315,6 +322,7 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 			Tags:            cm.Tags,
 			Source:          "post-turn-hook",
 			Project:         input.Project,
+			UserID:          input.UserID,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 			LastAccessed:    now,

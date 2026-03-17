@@ -22,6 +22,7 @@ func captureCmd() *cobra.Command {
 		assistantMsg string
 		sessionID    string
 		scope        string
+		userID       string
 	)
 
 	cmd := &cobra.Command{
@@ -109,6 +110,7 @@ func captureCmd() *cobra.Command {
 					Confidence:   cm.Confidence,
 					Source:       "inferred",
 					Tags:         cm.Tags,
+					UserID:       userID,
 					CreatedAt:    now,
 					UpdatedAt:    now,
 					LastAccessed: now,
@@ -200,6 +202,7 @@ func captureCmd() *cobra.Command {
 	cmd.Flags().StringVar(&assistantMsg, "assistant", "", "assistant response")
 	cmd.Flags().StringVar(&sessionID, "session-id", "", "session identifier")
 	cmd.Flags().StringVar(&scope, "scope", "permanent", "memory scope (permanent|project|session|ttl)")
+	cmd.Flags().StringVar(&userID, "user-id", "", "user identifier for user-scoped memories")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("assistant")
 	return cmd

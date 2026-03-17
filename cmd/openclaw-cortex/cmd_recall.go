@@ -11,6 +11,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -22,6 +23,7 @@ func recallCmd() *cobra.Command {
 		memType          string
 		memScope         string
 		tagsFlag         string
+		userID           string
 		reason           bool
 		reasonCandidates int
 		graphDepth       int
@@ -53,8 +55,12 @@ func recallCmd() *cobra.Command {
 			if filterErr != nil {
 				return filterErr
 			}
-			if includeHistory {
-				filters.IncludeInvalidated = true
+			if includeHistory || userID != "" {
+				if filters == nil {
+					filters = &store.SearchFilters{}
+				}
+				filters.IncludeInvalidated = includeHistory
+				filters.UserID = userID
 			}
 
 			// Fetch more results than needed for re-ranking
@@ -141,5 +147,6 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&reasonCandidates, "reason-candidates", 10, "number of top candidates to pass to Claude for re-ranking")
 	cmd.Flags().IntVar(&graphDepth, "graph-depth", 2, "graph traversal depth for graph-aware recall (1=direct entity facts only, 2=also traverse neighbor entities)")
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
+	cmd.Flags().StringVar(&userID, "user-id", "", "filter results to memories owned by this user")
 	return cmd
 }

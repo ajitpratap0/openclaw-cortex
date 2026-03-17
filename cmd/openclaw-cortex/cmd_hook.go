@@ -35,6 +35,7 @@ type hookPreInput struct {
 	// Keep these as optional with omitempty for backward compat:
 	Project     string `json:"project,omitempty"`      // override project name if provided
 	TokenBudget int    `json:"token_budget,omitempty"` // override budget if provided
+	UserID      string `json:"user_id,omitempty"`      // optional user identifier for user-scoped memories
 }
 
 // hookPreOutput is the JSON output shape for `cortex hook pre`.
@@ -55,6 +56,7 @@ type hookPostInput struct {
 	AssistantMessage string `json:"assistant_message,omitempty"`
 	Project          string `json:"project,omitempty"`
 	TranscriptPath   string `json:"transcript_path,omitempty"`
+	UserID           string `json:"user_id,omitempty"` // optional user identifier for user-scoped memories
 }
 
 // hookPostOutput is the JSON output shape for `cortex hook post`.
@@ -156,6 +158,7 @@ func hookPreCmd() *cobra.Command {
 				Project:     project,
 				TokenBudget: input.TokenBudget,
 				SessionID:   input.SessionID,
+				UserID:      input.UserID,
 			})
 			if execErr != nil {
 				logger.Error("hook pre: executing hook", "error", execErr)
@@ -259,6 +262,7 @@ func hookPostCmd() *cobra.Command {
 				SessionID:        input.SessionID,
 				Project:          input.Project,
 				PriorTurns:       priorTurns,
+				UserID:           input.UserID,
 			})
 			if execErr != nil {
 				logger.Error("hook post: executing hook", "error", execErr)

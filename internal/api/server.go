@@ -21,6 +21,8 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
+const userIDHeader = "X-User-ID"
+
 // Server is an HTTP API server that exposes memory operations.
 type Server struct {
 	store     store.Store
@@ -144,6 +146,8 @@ func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.Header.Get(userIDHeader)
+
 	now := time.Now().UTC()
 	mem := models.Memory{
 		ID:           uuid.NewString(),
@@ -155,6 +159,7 @@ func (s *Server) handleRemember(w http.ResponseWriter, r *http.Request) {
 		Source:       "api",
 		Tags:         req.Tags,
 		Project:      req.Project,
+		UserID:       userID,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		LastAccessed: now,
@@ -354,8 +359,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	scopeStr := q.Get("scope")
 	projectStr := q.Get("project")
 	tagsStr := q.Get("tags") // comma-separated
+	userID := r.Header.Get(userIDHeader)
 
-	if typeStr != "" || scopeStr != "" || projectStr != "" || tagsStr != "" {
+	if typeStr != "" || scopeStr != "" || projectStr != "" || tagsStr != "" || userID != "" {
 		filters = &store.SearchFilters{}
 		if typeStr != "" {
 			mt := models.MemoryType(typeStr)
@@ -379,6 +385,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		if tagsStr != "" {
 			filters.Tags = strings.Split(tagsStr, ",")
 		}
+		filters.UserID = userID
 	}
 
 	const maxListLimit uint64 = 1000
