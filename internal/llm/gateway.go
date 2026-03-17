@@ -91,7 +91,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("gateway complete: unexpected status %d: %s", resp.StatusCode, body)
+		return "", &HTTPError{StatusCode: resp.StatusCode, Body: string(body)}
 	}
 
 	var gwResp gatewayResponse
