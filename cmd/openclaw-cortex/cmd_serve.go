@@ -32,6 +32,10 @@ func serveCmd() *cobra.Command {
 				logger.Warn("HTTP API: auth is DISABLED (--unsafe-no-auth); do not expose this port")
 			}
 
+			if (tlsCert == "") != (tlsKey == "") {
+				return fmt.Errorf("serve: --tls-cert and --tls-key must both be set or both be empty")
+			}
+
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
 			if err != nil {
@@ -47,7 +51,7 @@ func serveCmd() *cobra.Command {
 
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken, cfg.API.CursorSecret)
 
-			rl := api.RateLimitMiddleware(cfg.API.RateLimitRPS, cfg.API.RateLimitBurst)
+			rl := api.RateLimitMiddleware(ctx, cfg.API.RateLimitRPS, cfg.API.RateLimitBurst)
 			httpSrv := &http.Server{
 				Addr:              cfg.API.ListenAddr,
 				Handler:           rl(srv.Handler()),
