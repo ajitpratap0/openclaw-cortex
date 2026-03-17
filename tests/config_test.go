@@ -200,6 +200,19 @@ func TestConfigClaudeStringShortKey(t *testing.T) {
 	assert.Contains(t, s, "***")
 }
 
+func TestAPIConfig_RateLimitDefaults(t *testing.T) {
+	cfg, err := config.Load()
+	if err != nil {
+		t.Skipf("config.Load() failed (likely missing Memgraph in CI): %v", err)
+	}
+	if cfg.API.RateLimitRPS != 100.0 {
+		t.Errorf("expected RateLimitRPS=100.0, got %v", cfg.API.RateLimitRPS)
+	}
+	if cfg.API.RateLimitBurst != 20 {
+		t.Errorf("expected RateLimitBurst=20, got %d", cfg.API.RateLimitBurst)
+	}
+}
+
 func validBaseConfig() config.Config {
 	return config.Config{
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},

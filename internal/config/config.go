@@ -94,9 +94,11 @@ type RecallWeightsConfig struct {
 
 // APIConfig holds HTTP API server settings.
 type APIConfig struct {
-	ListenAddr   string `mapstructure:"listen_addr"`
-	AuthToken    string `mapstructure:"auth_token"`
-	CursorSecret string `mapstructure:"cursor_secret"`
+	ListenAddr     string  `mapstructure:"listen_addr"`
+	AuthToken      string  `mapstructure:"auth_token"`
+	CursorSecret   string  `mapstructure:"cursor_secret"`
+	RateLimitRPS   float64 `mapstructure:"rate_limit_rps"`
+	RateLimitBurst int     `mapstructure:"rate_limit_burst"`
 }
 
 // OllamaConfig holds Ollama embedding service settings.
@@ -200,6 +202,8 @@ func Load() (*Config, error) {
 	v.SetDefault("api.listen_addr", ":8080")
 	v.SetDefault("api.auth_token", "")
 	v.SetDefault("api.cursor_secret", "")
+	v.SetDefault("api.rate_limit_rps", 100.0)
+	v.SetDefault("api.rate_limit_burst", 20)
 
 	v.SetDefault("recall.rerank_score_spread_threshold", 0.15)
 	v.SetDefault("recall.rerank_latency_budget_hooks_ms", 100)
@@ -252,6 +256,8 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("api.listen_addr", "OPENCLAW_CORTEX_API_LISTEN_ADDR")
 	_ = v.BindEnv("api.auth_token", "OPENCLAW_CORTEX_API_AUTH_TOKEN")
 	_ = v.BindEnv("api.cursor_secret", "OPENCLAW_CORTEX_API_CURSOR_SECRET")
+	_ = v.BindEnv("api.rate_limit_rps", "OPENCLAW_CORTEX_API_RATE_LIMIT_RPS")
+	_ = v.BindEnv("api.rate_limit_burst", "OPENCLAW_CORTEX_API_RATE_LIMIT_BURST")
 	_ = v.BindEnv("embedder.provider", "OPENCLAW_CORTEX_EMBEDDER_PROVIDER")
 	_ = v.BindEnv("embedder.openai_api_key", "OPENCLAW_CORTEX_OPENAI_API_KEY")
 	_ = v.BindEnv("embedder.openai_model", "OPENCLAW_CORTEX_OPENAI_MODEL")
