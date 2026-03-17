@@ -110,6 +110,8 @@ type Memory struct {
 	Source       string           `json:"source"`
 	Tags         []string         `json:"tags"`
 	Project      string           `json:"project,omitempty"`
+	// UserID is the owner of this memory. Empty string means unscoped (legacy/shared).
+	UserID       string           `json:"user_id,omitempty" db:"user_id"`
 	TTLSeconds   int64            `json:"ttl_seconds,omitempty"`
 	CreatedAt    time.Time        `json:"created_at"`
 	UpdatedAt    time.Time        `json:"updated_at"`

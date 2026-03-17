@@ -594,6 +594,9 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 	if f.Project != nil && mem.Project != *f.Project {
 		return false
 	}
+	if f.UserID != "" && mem.UserID != f.UserID {
+		return false
+	}
 	if f.Source != nil && mem.Source != *f.Source {
 		return false
 	}

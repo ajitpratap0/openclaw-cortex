@@ -105,6 +105,9 @@ type SearchFilters struct {
 	Source         *string                  `json:"source,omitempty"`
 	ConflictStatus *models.ConflictStatus   `json:"conflict_status,omitempty"` // filter by conflict status ("active", "resolved", "")
 
+	// UserID filters results to memories owned by this user. Empty = no filter (returns all).
+	UserID string `json:"user_id,omitempty"`
+
 	// IncludeInvalidated includes memories with valid_to set (historical versions).
 	// Default: false (only return currently-valid memories).
 	IncludeInvalidated bool `json:"include_invalidated,omitempty"`

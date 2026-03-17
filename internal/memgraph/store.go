@@ -137,6 +137,7 @@ func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector
 			    m.valid_to         = $valid_to,
 			    m.reinforced_at_unix = $reinforced_at_unix,
 			    m.reinforced_count = $reinforced_count,
+			    m.user_id          = $user_id,
 			    m.embedding        = $embedding
 		`, params)
 		return nil, txErr
@@ -979,6 +980,7 @@ func memoryToParams(m models.Memory, vector []float32) map[string]any {
 		}(),
 		"reinforced_at_unix": reinforcedAtUnix,
 		"reinforced_count":   int64(m.ReinforcedCount),
+		"user_id":            m.UserID,
 		"embedding":          float32SliceToAny(vector),
 	}
 }
@@ -1004,6 +1006,7 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 		Confidence:      propFloat64(props, "confidence"),
 		Source:          propString(props, "source"),
 		Project:         propString(props, "project"),
+		UserID:          propString(props, "user_id"),
 		TTLSeconds:      propInt64(props, "ttl_seconds"),
 		AccessCount:     propInt64(props, "access_count"),
 		SupersedesID:    propString(props, "supersedes_id"),
@@ -1173,6 +1176,10 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 	if f.Source != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.source = $filter_source", nodeAlias))
 		params["filter_source"] = *f.Source
+	}
+	if f.UserID != "" {
+		clauses = append(clauses, fmt.Sprintf("%s.user_id = $filter_user_id", nodeAlias))
+		params["filter_user_id"] = f.UserID
 	}
 	if f.ConflictStatus != nil {
 		clauses = append(clauses, fmt.Sprintf("%s.conflict_status = $filter_conflict_status", nodeAlias))
