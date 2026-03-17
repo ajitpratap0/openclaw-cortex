@@ -118,7 +118,7 @@ func TestPostTurnHook_HappyPath(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{dim: 8} // distinct vectors per call — no false dedup
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -146,7 +146,7 @@ func TestPostTurnHook_DedupSkip(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: vec} // Same vector -> cosine similarity = 1.0 -> dedup triggers.
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestPostTurnHook_EmptyExtraction(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: newHookMockVec()}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
 
@@ -184,7 +184,7 @@ func TestPostTurnHook_CaptureError(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{vec: newHookMockVec()}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 	err := hook.Execute(ctx, hookTestInput())
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "claude API down")
@@ -328,7 +328,7 @@ func TestPostTurnHook_Reinforcement(t *testing.T) {
 	emb := &hookMockEmbedder{vec: vec}
 
 	// reinforcementThreshold=0.80 (1.0 >= 0.80 → fires), dedupThreshold=1.01 (1.0 < 1.01 → reinforce wins).
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 1.01).
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 1.01, 1).
 		WithReinforcement(0.80, 0.05)
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
@@ -357,7 +357,7 @@ func TestPostTurnHook_WithPriorTurns(t *testing.T) {
 	cls := &hookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &hookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 
 	// Execute with prior turns — should not error and should store the memory.
 	err := hook.Execute(ctx, hooks.PostTurnInput{

@@ -68,7 +68,7 @@ func TestMetricsCaptureIncrement(t *testing.T) {
 	}}
 	emb := &metricsMockEmbedder{}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, 0.95, 1)
 	err := hook.Execute(context.Background(), hooks.PostTurnInput{
 		UserMessage:      "test",
 		AssistantMessage: "response",
@@ -92,7 +92,7 @@ func TestMetricsDedupSkip(t *testing.T) {
 	}}
 	emb := &metricsMockEmbedder{}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, st, logger, 0.95, 1)
 
 	// Pre-populate with the same vector so FindDuplicates returns a match.
 	_ = st.Upsert(context.Background(), models.Memory{

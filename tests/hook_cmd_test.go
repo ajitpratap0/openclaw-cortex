@@ -200,7 +200,7 @@ func TestHookCmd_Post_GracefulDegradation_CaptureError(t *testing.T) {
 	cls := &cmdHookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &cmdHookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95, 1)
 
 	err := hook.Execute(ctx, hooks.PostTurnInput{
 		UserMessage:      "How do I deploy?",
@@ -227,7 +227,7 @@ func TestHookCmd_Post_GracefulDegradation_EmbedError(t *testing.T) {
 	cls := &cmdHookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &cmdHookMockEmbedder{err: errors.New("ollama unavailable"), dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95, 1)
 
 	// Embed errors for individual memories are skipped — hook returns nil.
 	err := hook.Execute(ctx, hooks.PostTurnInput{
@@ -258,7 +258,7 @@ func TestHookCmd_Post_HappyPath(t *testing.T) {
 	cls := &cmdHookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &cmdHookMockEmbedder{dim: 8} // distinct vectors — no false dedup
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95, 1)
 
 	err := hook.Execute(ctx, hooks.PostTurnInput{
 		UserMessage:      "What tests should I run?",
@@ -283,7 +283,7 @@ func TestHookCmd_Post_EmptyExtraction(t *testing.T) {
 	cls := &cmdHookMockClassifier{memType: models.MemoryTypeFact}
 	emb := &cmdHookMockEmbedder{dim: 8}
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, slog.Default(), 0.95, 1)
 
 	err := hook.Execute(ctx, hooks.PostTurnInput{
 		UserMessage:      "Hello",

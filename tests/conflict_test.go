@@ -81,7 +81,7 @@ func TestPostTurnHook_WithConflictDetector_GracefulDegradation(t *testing.T) {
 	// ConflictDetector with a fake key — API call will fail, must degrade gracefully.
 	cd := capture.NewConflictDetector(llm.NewAnthropicClient("invalid-api-key-xxx"), "claude-haiku-4-5-20251001", logger)
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95).
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1).
 		WithConflictDetector(cd)
 
 	err := hook.Execute(ctx, hookTestInput())
@@ -109,7 +109,7 @@ func TestPostTurnHook_WithConflictDetector_NilDetector(t *testing.T) {
 	emb := &hookMockEmbedder{dim: 8}
 
 	// No conflict detector attached — hook should work normally.
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 
 	err := hook.Execute(ctx, hookTestInput())
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestPostTurnHook_WithConflictDetector_WithExistingMemories(t *testing.T) {
 
 	cd := capture.NewConflictDetector(llm.NewAnthropicClient("invalid-api-key-xxx"), "claude-haiku-4-5-20251001", logger)
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.50).
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.50, 1).
 		WithConflictDetector(cd)
 
 	err := hook.Execute(ctx, hookTestInput())
@@ -166,7 +166,7 @@ func TestPostTurnHook_WithConflictDetector_ChainedCall(t *testing.T) {
 	emb := &hookMockEmbedder{dim: 8}
 	cd := capture.NewConflictDetector(llm.NewAnthropicClient("fake-key"), "claude-haiku-4-5-20251001", logger)
 
-	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95)
+	hook := hooks.NewPostTurnHook(cap, cls, emb, ms, logger, 0.95, 1)
 	returned := hook.WithConflictDetector(cd)
 	assert.Equal(t, hook, returned, "WithConflictDetector should return the same hook instance")
 }

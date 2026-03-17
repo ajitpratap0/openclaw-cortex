@@ -35,6 +35,13 @@ type SentryConfig struct {
 	Environment string `mapstructure:"environment"`
 }
 
+// HooksConfig holds configuration for the PostTurn hook pipeline.
+type HooksConfig struct {
+	// PostTurnConcurrency controls the number of memories processed concurrently
+	// in PostTurnHook.Execute. Must be between 1 and 16; defaults to 4.
+	PostTurnConcurrency int `mapstructure:"post_turn_concurrency"`
+}
+
 // Config holds all configuration for cortex.
 type Config struct {
 	Memgraph         MemgraphConfig         `mapstructure:"memgraph"`
@@ -49,6 +56,7 @@ type Config struct {
 	EntityResolution EntityResolutionConfig `mapstructure:"entity_resolution"`
 	FactExtraction   FactExtractionConfig   `mapstructure:"fact_extraction"`
 	Sentry           SentryConfig           `mapstructure:"sentry"`
+	Hooks            HooksConfig            `mapstructure:"hooks"`
 }
 
 // MemgraphConfig holds Memgraph database connection settings.
@@ -231,6 +239,9 @@ func Load() (*Config, error) {
 	v.SetDefault("sentry.environment", "production")
 	_ = v.BindEnv("sentry.dsn", "SENTRY_DSN")
 	_ = v.BindEnv("sentry.environment", "SENTRY_ENVIRONMENT")
+
+	v.SetDefault("hooks.post_turn_concurrency", 4)
+	_ = v.BindEnv("hooks.post_turn_concurrency", "OPENCLAW_CORTEX_HOOKS_POST_TURN_CONCURRENCY")
 
 	// Config file
 	v.SetConfigName("config")
