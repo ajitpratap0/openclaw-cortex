@@ -83,8 +83,10 @@ func (h *PreTurnHook) WithReasoner(r *recall.Reasoner, cfg RerankConfig) *PreTur
 
 // Execute runs the pre-turn hook.
 func (h *PreTurnHook) Execute(ctx context.Context, input PreTurnInput) (*PreTurnOutput, error) {
+	start := time.Now()
 	finish := sentry.StartSpan(ctx, "hook.pre_turn", "PreTurnHook")
 	defer finish()
+	defer func() { metrics.RecallLatencyMs.Observe(float64(time.Since(start).Milliseconds())) }()
 	metrics.RecallsTotal.Inc()
 
 	if input.TokenBudget <= 0 {
@@ -347,6 +349,8 @@ func (h *PostTurnHook) Execute(ctx context.Context, input PostTurnInput) error {
 	if stored > 0 {
 		if stats, statsErr := h.store.Stats(ctx); statsErr == nil {
 			metrics.MemoryCount.Set(float64(stats.TotalMemories))
+		} else {
+			h.logger.Warn("post-turn hook: Stats failed, memory_count gauge not updated", "error", statsErr)
 		}
 	}
 

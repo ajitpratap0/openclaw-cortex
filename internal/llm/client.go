@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -31,9 +32,9 @@ func NewAnthropicClient(apiKey string) *AnthropicClient {
 // Complete sends a single-turn request to the Anthropic Messages API and returns the
 // first text block from the response.
 func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
+	start := time.Now()
 	finish := sentry.StartSpan(ctx, "llm.complete", "AnthropicClient.Complete")
 	defer finish()
-	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
 		MaxTokens: int64(maxTokens),
@@ -47,9 +48,12 @@ func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, use
 		},
 	})
 	if err != nil {
+		metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("anthropic complete: %w", err)
 	}
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
+	metrics.LLMLatencyMs.WithLabelValues(model).Observe(float64(time.Since(start).Milliseconds()))
 
 	for i := range resp.Content {
 		if resp.Content[i].Type == "text" {

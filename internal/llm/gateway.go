@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/metrics"
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
@@ -56,9 +57,9 @@ type gatewayResponse struct {
 
 // Complete sends a single-turn request to the gateway and returns the model reply.
 func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userMessage string, maxTokens int) (string, error) {
+	start := time.Now()
 	finish := sentry.StartSpan(ctx, "llm.complete", "GatewayClient.Complete")
 	defer finish()
-	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 	reqBody := gatewayRequest{
 		Model: model,
 		Messages: []gatewayMessage{
@@ -83,6 +84,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 
 	resp, err := g.http.Do(req)
 	if err != nil {
+		metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: do request: %w", err)
 	}
@@ -94,6 +96,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: unexpected status %d: %s", resp.StatusCode, body)
 	}
@@ -104,6 +107,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 	}
 
 	if gwResp.Error != nil {
+		metrics.LLMCallsTotal.WithLabelValues(model).Inc()
 		metrics.LLMErrorsTotal.WithLabelValues(model).Inc()
 		return "", fmt.Errorf("gateway complete: api error: %s", gwResp.Error.Message)
 	}
@@ -112,5 +116,7 @@ func (g *GatewayClient) Complete(ctx context.Context, model, systemPrompt, userM
 		return "", fmt.Errorf("gateway complete: no choices in response")
 	}
 
+	metrics.LLMCallsTotal.WithLabelValues(model).Inc()
+	metrics.LLMLatencyMs.WithLabelValues(model).Observe(float64(time.Since(start).Milliseconds()))
 	return gwResp.Choices[0].Message.Content, nil
 }
