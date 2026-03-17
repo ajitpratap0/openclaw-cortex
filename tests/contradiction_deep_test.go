@@ -425,7 +425,7 @@ func TestInvalidateContradictions_EmptyResults(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestDetectContradictions_ConvenienceWrapper verifies the top-level convenience
-// function matches the behaviour of a manually constructed detector.
+// function matches the behavior of a manually constructed detector.
 func TestDetectContradictions_ConvenienceWrapper(t *testing.T) {
 	st := store.NewMockStore()
 	putDeepMemory(t, st, "mem-conv", "Liam works at MuCo", makeVec(1.0))
