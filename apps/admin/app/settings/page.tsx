@@ -63,8 +63,9 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-zinc-400">API URL</label>
+            <label htmlFor="api-url" className="text-xs text-zinc-400">API URL</label>
             <Input
+              id="api-url"
               value={apiURL}
               onChange={(e) => setApiURL(e.target.value)}
               placeholder="http://localhost:8080"
@@ -72,11 +73,12 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-zinc-400">
+            <label htmlFor="api-token" className="text-xs text-zinc-400">
               Bearer Token{" "}
               <span className="text-zinc-600">(leave empty if auth disabled)</span>
             </label>
             <Input
+              id="api-token"
               type="password"
               value={apiToken}
               onChange={(e) => setApiToken(e.target.value)}

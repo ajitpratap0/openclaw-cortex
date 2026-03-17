@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Badge }   from "@/components/ui/badge";
 import { Button }  from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -52,12 +53,12 @@ export function ConflictCard({ memory, onResolve, onDismiss }: ConflictCardProps
           >
             Dismiss
           </Button>
-          <a
+          <Link
             href={`/memories/${memory.id}`}
             className="ml-auto text-xs text-zinc-500 hover:text-zinc-300"
           >
             view detail
-          </a>
+          </Link>
         </div>
       </CardContent>
     </Card>

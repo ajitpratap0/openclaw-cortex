@@ -105,20 +105,22 @@ export function MemoryDetail({ memory, onUpdate, onDelete }: MemoryDetailProps) 
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <label className="text-xs text-zinc-400">
+              <label htmlFor="confidence" className="text-xs text-zinc-400">
                 Confidence (0.0 – 1.0)
               </label>
               <Input
+                id="confidence"
                 value={confidence}
                 onChange={(e) => setConfidence(e.target.value)}
                 className="font-mono text-sm"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-zinc-400">
+              <label htmlFor="tags" className="text-xs text-zinc-400">
                 Tags (comma-separated)
               </label>
               <Input
+                id="tags"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 className="font-mono text-sm"

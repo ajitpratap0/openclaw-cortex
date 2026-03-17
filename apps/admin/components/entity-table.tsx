@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { cortex } from "@/lib/api";
@@ -13,7 +14,7 @@ import type { Entity } from "@/lib/types";
 function LinkedMemories({ entityId }: { entityId: string }) {
   const [open, setOpen] = useState(false);
 
-  const { data, isLoading } = useSWR(
+  const { data, isLoading } = useSWR<Entity>(
     open ? `/v1/entities/${entityId}` : null,
     () => cortex.getEntity(entityId)
   );
@@ -33,7 +34,7 @@ function LinkedMemories({ entityId }: { entityId: string }) {
     return <span className="text-xs text-zinc-500">loading...</span>;
   }
 
-  const memoryIds: string[] = (data as Entity)?.memory_ids ?? [];
+  const memoryIds: string[] = data?.memory_ids ?? [];
 
   return (
     <ul className="mt-1 space-y-0.5 text-xs">
@@ -42,12 +43,12 @@ function LinkedMemories({ entityId }: { entityId: string }) {
       )}
       {memoryIds.map((mid) => (
         <li key={mid}>
-          <a
+          <Link
             href={`/memories/${mid}`}
             className="font-mono text-zinc-400 underline hover:text-zinc-100"
           >
             {mid}
-          </a>
+          </Link>
         </li>
       ))}
     </ul>

@@ -6,7 +6,6 @@ import type {
   UpdateMemoryRequest,
   RememberRequest,
   SearchEntitiesResponse,
-  SearchResult,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -149,24 +148,6 @@ export const cortex = {
       "/v1/remember",
       body
     );
-  },
-
-  // POST /v1/search — returns raw SearchResult[] (preferred over /v1/recall
-  // which returns a formatted context string, not individual memories)
-  searchMemories(params: {
-    message: string;
-    limit?: number;
-    project?: string;
-    type?: string;
-    scope?: string;
-  }): Promise<{ results: SearchResult[] }> {
-    return request<{ results: SearchResult[] }>("POST", "/v1/search", {
-      message: params.message,
-      limit:   params.limit   ?? 20,
-      project: params.project ?? "",
-      type:    params.type    ?? "",
-      scope:   params.scope   ?? "",
-    });
   },
 
   // Entities — GET /v1/entities?query=...&type=...&limit=...
