@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,12 +13,24 @@ import (
 )
 
 func serveCmd() *cobra.Command {
+	var unsafeNoAuth bool
+	var tlsCert, tlsKey string
+
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start the HTTP/JSON API server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := newLogger()
 			ctx := cmd.Context()
+
+			// Auth gate — fail fast unless the operator explicitly opts out.
+			if cfg.API.AuthToken == "" && !unsafeNoAuth {
+				return fmt.Errorf("serve: api.auth_token is not set; " +
+					"set OPENCLAW_CORTEX_API_AUTH_TOKEN or pass --unsafe-no-auth to disable auth (insecure)")
+			}
+			if cfg.API.AuthToken == "" {
+				logger.Warn("HTTP API: auth is DISABLED (--unsafe-no-auth); do not expose this port")
+			}
 
 			emb := newEmbedder(logger)
 			st, err := newMemgraphStore(ctx, logger)
@@ -34,23 +47,28 @@ func serveCmd() *cobra.Command {
 
 			srv := api.NewServer(st, rec, emb, logger, cfg.API.AuthToken, cfg.API.CursorSecret)
 
-			if cfg.API.AuthToken == "" {
-				logger.Warn("HTTP API: auth is DISABLED; set OPENCLAW_CORTEX_API_AUTH_TOKEN or cfg.api.auth_token for production use")
-			}
-
+			rl := api.RateLimitMiddleware(cfg.API.RateLimitRPS, cfg.API.RateLimitBurst)
 			httpSrv := &http.Server{
 				Addr:              cfg.API.ListenAddr,
-				Handler:           srv.Handler(),
+				Handler:           rl(srv.Handler()),
 				ReadHeaderTimeout: 10 * time.Second,
 				ReadTimeout:       30 * time.Second,
 				WriteTimeout:      60 * time.Second,
 				IdleTimeout:       120 * time.Second,
 			}
 
+			startServer := func() error {
+				if tlsCert != "" && tlsKey != "" {
+					logger.Info("HTTP API server starting (TLS)", "addr", cfg.API.ListenAddr)
+					return httpSrv.ListenAndServeTLS(tlsCert, tlsKey)
+				}
+				logger.Info("HTTP API server starting", "addr", cfg.API.ListenAddr)
+				return httpSrv.ListenAndServe()
+			}
+
 			errCh := make(chan error, 1)
 			go func() {
-				logger.Info("HTTP API server starting", "addr", cfg.API.ListenAddr)
-				if listenErr := httpSrv.ListenAndServe(); listenErr != nil && listenErr != http.ErrServerClosed {
+				if listenErr := startServer(); listenErr != nil && listenErr != http.ErrServerClosed {
 					errCh <- cmdErr("serve: HTTP server", listenErr)
 				}
 				close(errCh)
@@ -79,5 +97,13 @@ func serveCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&unsafeNoAuth, "unsafe-no-auth", false,
+		"Allow serving without authentication (insecure)")
+	cmd.Flags().StringVar(&tlsCert, "tls-cert", "",
+		"Path to TLS certificate file (PEM). Must be paired with --tls-key.")
+	cmd.Flags().StringVar(&tlsKey, "tls-key", "",
+		"Path to TLS private key file (PEM). Must be paired with --tls-cert.")
+
 	return cmd
 }
