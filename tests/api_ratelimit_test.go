@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -14,7 +15,7 @@ import (
 // TestRateLimitMiddleware_AllowsUnderLimit verifies that requests well below
 // the burst capacity all receive 200 OK.
 func TestRateLimitMiddleware_AllowsUnderLimit(t *testing.T) {
-	handler := api.RateLimitMiddleware(10, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := api.RateLimitMiddleware(context.Background(), 10, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	req := httptest.NewRequest(http.MethodGet, "/v1/recall", nil)
@@ -34,7 +35,7 @@ func TestRateLimitMiddleware_AllowsUnderLimit(t *testing.T) {
 // rps=1, burst=2: after 2 immediate requests the bucket is empty; the third
 // (and beyond) must receive 429.
 func TestRateLimitMiddleware_Returns429OnBurst(t *testing.T) {
-	handler := api.RateLimitMiddleware(1, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := api.RateLimitMiddleware(context.Background(), 1, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	req := httptest.NewRequest(http.MethodGet, "/v1/recall", nil)
@@ -59,7 +60,7 @@ func TestRateLimitMiddleware_Returns429OnBurst(t *testing.T) {
 func TestRateLimitMiddleware_ExemptPaths(t *testing.T) {
 	// rps=0.001, burst=1 — essentially a closed limiter.
 	// Any non-exempt path would 429 immediately after the first request.
-	handler := api.RateLimitMiddleware(0.001, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := api.RateLimitMiddleware(context.Background(), 0.001, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -85,7 +86,7 @@ func TestRateLimitMiddleware_ExemptPaths(t *testing.T) {
 // TestRateLimitMiddleware_PerIPIsolation verifies that two different IPs have
 // independent token buckets — exhausting one does not affect the other.
 func TestRateLimitMiddleware_PerIPIsolation(t *testing.T) {
-	handler := api.RateLimitMiddleware(1, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := api.RateLimitMiddleware(context.Background(), 1, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -111,7 +112,7 @@ func TestRateLimitMiddleware_PerIPIsolation(t *testing.T) {
 func TestRateLimitMiddleware_429ResponseBody(t *testing.T) {
 	// rps=0, burst=0 is not valid for the token bucket; use rps=1, burst=1
 	// and fire 3 immediate requests so the second/third will be 429.
-	handler := api.RateLimitMiddleware(1, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := api.RateLimitMiddleware(context.Background(), 1, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	req := httptest.NewRequest(http.MethodPost, "/v1/remember", nil)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,8 +19,9 @@ var exemptPaths = map[string]bool{
 // RateLimitMiddleware returns per-IP token bucket middleware.
 // rps is the sustained rate (requests per second); burst is the bucket capacity.
 // Each unique client IP gets its own limiter. Visitors not seen for 3 minutes
-// are purged from the in-memory map by a background goroutine.
-func RateLimitMiddleware(rps float64, burst int) func(http.Handler) http.Handler {
+// are purged from the in-memory map by a background goroutine that exits when
+// ctx is canceled.
+func RateLimitMiddleware(ctx context.Context, rps float64, burst int) func(http.Handler) http.Handler {
 	type visitor struct {
 		limiter  *rate.Limiter
 		lastSeen time.Time
@@ -31,17 +33,24 @@ func RateLimitMiddleware(rps float64, burst int) func(http.Handler) http.Handler
 	)
 
 	// Background goroutine purges stale visitors every minute to prevent
-	// unbounded memory growth in long-running servers.
+	// unbounded memory growth in long-running servers. It exits when ctx is
+	// canceled so the goroutine does not leak after server shutdown.
 	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
 		for {
-			time.Sleep(time.Minute)
-			mu.Lock()
-			for ip, v := range visitors {
-				if time.Since(v.lastSeen) > 3*time.Minute {
-					delete(visitors, ip)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				mu.Lock()
+				for ip, v := range visitors {
+					if time.Since(v.lastSeen) > 3*time.Minute {
+						delete(visitors, ip)
+					}
 				}
+				mu.Unlock()
 			}
-			mu.Unlock()
 		}
 	}()
 
