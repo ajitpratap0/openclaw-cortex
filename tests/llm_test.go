@@ -21,7 +21,7 @@ func gatewayServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *l
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return srv, llm.NewGatewayClient(srv.URL, "test-token")
+	return srv, llm.NewGatewayClient(srv.URL, "test-token", 0)
 }
 
 func TestGatewayClient_Complete_Success(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGatewayClient_Complete_ContextCancelled(t *testing.T) {
 }
 
 func TestGatewayClient_Complete_ConnectionRefused(t *testing.T) {
-	client := llm.NewGatewayClient("http://127.0.0.1:1", "tok")
+	client := llm.NewGatewayClient("http://127.0.0.1:1", "tok", 0)
 	_, err := client.Complete(context.Background(), "m", "sys", "usr", 100)
 	assert.Error(t, err)
 }
@@ -98,16 +98,16 @@ func TestNewClient_GatewayConfig(t *testing.T) {
 	}
 	c := llm.NewClient(cfg)
 	require.NotNil(t, c, "gateway config should produce non-nil client")
-	_, ok := c.(*llm.GatewayClient)
-	assert.True(t, ok, "expected *llm.GatewayClient, got %T", c)
+	_, ok := c.(*llm.ResilientClient)
+	assert.True(t, ok, "expected *llm.ResilientClient wrapping GatewayClient, got %T", c)
 }
 
 func TestNewClient_APIKeyConfig(t *testing.T) {
 	cfg := config.ClaudeConfig{APIKey: "sk-test"}
 	c := llm.NewClient(cfg)
 	require.NotNil(t, c, "API key config should produce non-nil client")
-	_, ok := c.(*llm.AnthropicClient)
-	assert.True(t, ok, "expected *llm.AnthropicClient, got %T", c)
+	_, ok := c.(*llm.ResilientClient)
+	assert.True(t, ok, "expected *llm.ResilientClient wrapping AnthropicClient, got %T", c)
 }
 
 func TestNewClient_EmptyConfig(t *testing.T) {
@@ -123,7 +123,7 @@ func TestNewClient_GatewayTakesPrecedence(t *testing.T) {
 	}
 	c := llm.NewClient(cfg)
 	require.NotNil(t, c)
-	_, ok := c.(*llm.GatewayClient)
+	_, ok := c.(*llm.ResilientClient)
 	assert.True(t, ok, "gateway URL+token should take precedence over API key, got %T", c)
 }
 
