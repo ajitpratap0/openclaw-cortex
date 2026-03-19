@@ -24,21 +24,17 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # No plugin system — use the action's native inline-comment buffering.
-          #
-          # Previous setup used code-review@claude-code-plugins (a Superpowers plugin).
-          # That plugin posted review comments via GitHub MCP tools directly, which are
-          # not in the action's default allowed-tools list → 2 permission denials per run.
-          # The action's buffer (post-buffered-inline-comments.ts) was never written to,
-          # so every run silently spent ~$1.78 and posted zero comments.
-          #
-          # In native mode Claude writes formatted inline comments via its built-in
-          # Write tool (always allowed); the action's post-processing posts them.
+          # mcp__github_inline_comment__create_inline_comment is the action's built-in
+          # buffering tool — Claude calls it to queue inline review comments, then
+          # post-buffered-inline-comments.ts posts them all after Claude finishes.
+          # Without this in allowedTools, Claude tries other GitHub tools (denied) and
+          # the buffer stays empty → zero comments posted despite a successful run.
+          claude_args: --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Read,Glob,Grep"
           prompt: |
-            You are reviewing a pull request on the openclaw-cortex repository.
+            Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
 
-            Start by reading CLAUDE.md to understand project conventions, then inspect
-            the diff with: git diff origin/main...HEAD
+            Start by reading CLAUDE.md to understand project conventions, then get the diff:
+              gh pr diff ${{ github.event.pull_request.number }}
 
             Review the changed code for:
             - Correctness: logic errors, race conditions, nil/panic risks
@@ -49,6 +45,6 @@ jobs:
             - Missing tests for new exported behaviour
             - Module paths: imports must use github.com/ajitpratap0/openclaw-cortex/...
 
-            Post inline review comments on the specific changed lines where you find
-            issues. If the PR looks good overall, say so in a brief summary.
-
+            Use mcp__github_inline_comment__create_inline_comment for each issue found,
+            pointing to the specific file and line. If the PR looks good overall,
+            post a brief approval summary with gh pr comment.
