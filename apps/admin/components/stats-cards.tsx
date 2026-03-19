@@ -7,9 +7,19 @@ interface StatsCardsProps {
   stats: CollectionStats;
 }
 
+const colorClassMap: Record<string, string> = {
+  amber: 'text-[--color-warning]',
+  green: 'text-green-400',
+  blue:  'text-blue-400',
+  red:   'text-red-400',
+  zinc:  'text-zinc-100',
+}
+
 export function StatsCards({ stats }: StatsCardsProps) {
   const typeEntries  = Object.entries(stats.by_type  ?? {}).sort((a, b) => b[1] - a[1]);
   const scopeEntries = Object.entries(stats.by_scope ?? {}).sort((a, b) => b[1] - a[1]);
+  const conflictColor = stats.active_conflicts > 0 ? 'amber' : 'zinc';
+  const conflictClass = colorClassMap[conflictColor] ?? 'text-zinc-100';
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -33,11 +43,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p
-            className={`font-mono text-3xl font-semibold ${
-              stats.active_conflicts > 0 ? "text-amber-400" : "text-zinc-100"
-            }`}
-          >
+          <p className={`font-mono text-3xl font-semibold ${conflictClass}`}>
             {stats.active_conflicts}
           </p>
         </CardContent>

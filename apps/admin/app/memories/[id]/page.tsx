@@ -34,7 +34,8 @@ export default function MemoryDetailPage({
       <div className="space-y-2">
         <button
           onClick={() => router.back()}
-          className="text-xs text-zinc-500 hover:text-zinc-300"
+          aria-label="Back to memories list"
+          className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 rounded transition-colors"
         >
           Back
         </button>
@@ -50,7 +51,8 @@ export default function MemoryDetailPage({
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="text-xs text-zinc-500 hover:text-zinc-300"
+          aria-label="Back to memories list"
+          className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 rounded transition-colors"
         >
           Back
         </button>

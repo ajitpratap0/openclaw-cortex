@@ -36,10 +36,10 @@ export default function EntitiesPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search entities..."
-          className="w-56 text-sm"
+          className="w-full sm:w-56 text-sm"
         />
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "")}>
-          <SelectTrigger className="w-36 text-xs">
+          <SelectTrigger aria-label="Filter by entity type" className="w-full sm:w-36 text-xs">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>

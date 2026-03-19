@@ -16,27 +16,12 @@ export default function ConflictsPage() {
     (m) => m.conflict_status === "active"
   );
 
-  // "Mark Resolved" optimistically updates the cache and triggers revalidation.
-  // Note: PUT /v1/memories/{id} does not currently accept conflict_status in the
-  // request body (server's updateRequest struct omits it). The optimistic update
-  // makes the UI responsive; a server-side extension is tracked in Known
-  // Limitations.
+  // "Mark Resolved" re-fetches from the server so the UI always reflects actual
+  // server state. The server API does not yet expose a conflict_status endpoint.
+  // TODO: wire up PATCH /memories/:id { conflict_status: "resolved" } when available.
   const handleResolve = useCallback(
-    async (id: string) => {
-      await mutate(
-        (prev) =>
-          prev
-            ? {
-                ...prev,
-                memories: prev.memories.map((m) =>
-                  m.id === id
-                    ? { ...m, conflict_status: "resolved" as const }
-                    : m
-                ),
-              }
-            : prev,
-        { revalidate: true }
-      );
+    async (_id: string) => {
+      await mutate();
     },
     [mutate]
   );

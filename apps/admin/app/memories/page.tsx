@@ -10,6 +10,14 @@ import {
   Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import type { ListMemoriesResponse } from "@/lib/types";
 
 const MEMORY_TYPES  = ["", "rule", "fact", "episode", "procedure", "preference"];
@@ -20,6 +28,8 @@ export default function MemoriesPage() {
   const [scopeFilter,   setScopeFilter]   = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [cursor,        setCursor]        = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [pendingDeleteId,  setPendingDeleteId]  = useState<string | null>(null);
 
   const swrKey = ["/v1/memories", typeFilter, scopeFilter, projectFilter, cursor];
 
@@ -35,18 +45,23 @@ export default function MemoriesPage() {
       })
   );
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm(`Delete memory ${id}?`)) return;
-      try {
-        await cortex.deleteMemory(id);
-        await mutate();
-      } catch (e) {
-        alert(e instanceof Error ? e.message : String(e));
-      }
-    },
-    [mutate]
-  );
+  const handleDeleteClick = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setShowDeleteDialog(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!pendingDeleteId) return;
+    setShowDeleteDialog(false);
+    try {
+      await cortex.deleteMemory(pendingDeleteId);
+      await mutate();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, mutate]);
 
   function handleReset() {
     setTypeFilter("");
@@ -62,7 +77,7 @@ export default function MemoriesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "")}>
-          <SelectTrigger className="w-36 text-xs">
+          <SelectTrigger aria-label="Filter by type" className="w-full sm:w-36 text-xs">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
@@ -75,7 +90,7 @@ export default function MemoriesPage() {
         </Select>
 
         <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v ?? "")}>
-          <SelectTrigger className="w-36 text-xs">
+          <SelectTrigger aria-label="Filter by scope" className="w-full sm:w-36 text-xs">
             <SelectValue placeholder="All scopes" />
           </SelectTrigger>
           <SelectContent>
@@ -91,7 +106,7 @@ export default function MemoriesPage() {
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
           placeholder="Filter by project"
-          className="w-44 text-xs"
+          className="w-full sm:w-44 text-xs"
         />
 
         {(typeFilter || scopeFilter || projectFilter || cursor) && (
@@ -111,7 +126,7 @@ export default function MemoriesPage() {
           {error instanceof Error ? error.message : "Failed to load memories"}
         </p>
       )}
-      {data && <MemoryTable memories={data.memories} onDelete={handleDelete} />}
+      {data && <MemoryTable memories={data.memories} onDelete={handleDeleteClick} />}
 
       {/* Pagination */}
       <div className="flex items-center gap-3">
@@ -130,6 +145,26 @@ export default function MemoriesPage() {
           </Button>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete memory?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
