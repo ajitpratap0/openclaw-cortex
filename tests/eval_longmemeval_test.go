@@ -1,20 +1,21 @@
-package longmemeval_test
+package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/longmemeval"
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
 )
 
-func TestDatasetSize(t *testing.T) {
+func TestLongMemEvalDatasetSize(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	if len(pairs) != 10 {
 		t.Errorf("Dataset() returned %d pairs, want 10", len(pairs))
 	}
 }
 
-func TestDatasetIDs(t *testing.T) {
+func TestLongMemEvalDatasetIDs(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	seen := make(map[string]bool, len(pairs))
 	for i := range pairs {
@@ -29,7 +30,7 @@ func TestDatasetIDs(t *testing.T) {
 	}
 }
 
-func TestDatasetCategories(t *testing.T) {
+func TestLongMemEvalDatasetCategories(t *testing.T) {
 	valid := map[string]bool{
 		"temporal":         true,
 		"multi-hop":        true,
@@ -44,7 +45,7 @@ func TestDatasetCategories(t *testing.T) {
 	}
 }
 
-func TestDatasetHasAllThreeCategories(t *testing.T) {
+func TestLongMemEvalDatasetHasAllThreeCategories(t *testing.T) {
 	counts := map[string]int{}
 	pairs := longmemeval.Dataset()
 	for i := range pairs {
@@ -57,7 +58,7 @@ func TestDatasetHasAllThreeCategories(t *testing.T) {
 	}
 }
 
-func TestDatasetHasFacts(t *testing.T) {
+func TestLongMemEvalDatasetHasFacts(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
@@ -72,7 +73,7 @@ func TestDatasetHasFacts(t *testing.T) {
 	}
 }
 
-func TestDatasetNonEmptyQA(t *testing.T) {
+func TestLongMemEvalDatasetNonEmptyQA(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
@@ -85,9 +86,9 @@ func TestDatasetNonEmptyQA(t *testing.T) {
 	}
 }
 
-// TestKnowledgeUpdateFactsHaveValidTo verifies that knowledge-update pairs
+// TestLongMemEvalKnowledgeUpdateFactsHaveValidTo verifies that knowledge-update pairs
 // include at least one fact marked with a ValidTo (superseded fact).
-func TestKnowledgeUpdateFactsHaveValidTo(t *testing.T) {
+func TestLongMemEvalKnowledgeUpdateFactsHaveValidTo(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
@@ -107,17 +108,16 @@ func TestKnowledgeUpdateFactsHaveValidTo(t *testing.T) {
 	}
 }
 
-// TestGroundTruthInFacts checks that each pair's GroundTruth appears (as a
-// substring) in at least one of its ingested facts.  This validates that the
-// synthetic data is self-consistent: the answer can in principle be retrieved.
-func TestGroundTruthInFacts(t *testing.T) {
+// TestLongMemEvalGroundTruthInFacts checks that each pair's GroundTruth appears (as a
+// substring) in at least one of its ingested facts.
+func TestLongMemEvalGroundTruthInFacts(t *testing.T) {
 	pairs := longmemeval.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
 		gt := qp.GroundTruth
 		found := false
 		for j := range qp.Facts {
-			if containsCI(qp.Facts[j].Content, gt) {
+			if strings.Contains(strings.ToLower(qp.Facts[j].Content), strings.ToLower(gt)) {
 				found = true
 				break
 			}
@@ -128,23 +128,21 @@ func TestGroundTruthInFacts(t *testing.T) {
 	}
 }
 
-// TestScoringOnSyntheticData runs scoring functions against hand-crafted
+// TestLongMemEvalScoringOnSyntheticData runs scoring functions against hand-crafted
 // retrieved strings to assert correctness without any binary dependency.
-func TestScoringOnSyntheticData(t *testing.T) {
+func TestLongMemEvalScoringOnSyntheticData(t *testing.T) {
 	pairs := longmemeval.Dataset()
-	// For each pair, simulate a perfect retrieval (return a fact containing GT).
 	for i := range pairs {
 		qp := &pairs[i]
-		// Find the fact that contains the ground truth.
 		perfectRetrieval := ""
 		for j := range qp.Facts {
-			if containsCI(qp.Facts[j].Content, qp.GroundTruth) {
+			if strings.Contains(strings.ToLower(qp.Facts[j].Content), strings.ToLower(qp.GroundTruth)) {
 				perfectRetrieval = qp.Facts[j].Content
 				break
 			}
 		}
 		if perfectRetrieval == "" {
-			continue // already caught by TestGroundTruthInFacts
+			continue // already caught by TestLongMemEvalGroundTruthInFacts
 		}
 
 		if !runner.ExactMatch(perfectRetrieval, qp.GroundTruth) {
@@ -158,27 +156,4 @@ func TestScoringOnSyntheticData(t *testing.T) {
 			t.Errorf("pair %s: RecallAtK=1 failed with perfect retrieval", qp.ID)
 		}
 	}
-}
-
-func containsCI(s, sub string) bool {
-	sl := toLower(s)
-	subl := toLower(sub)
-	for i := 0; i+len(subl) <= len(sl); i++ {
-		if sl[i:i+len(subl)] == subl {
-			return true
-		}
-	}
-	return false
-}
-
-func toLower(s string) string {
-	b := make([]byte, len(s))
-	for i := range s {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 32
-		}
-		b[i] = c
-	}
-	return string(b)
 }

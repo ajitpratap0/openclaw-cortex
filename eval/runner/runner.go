@@ -221,6 +221,23 @@ func Summarize(name string, results []BenchmarkResult, k int) *BenchmarkSummary 
 	}
 }
 
+// BestCandidate picks the memory from the retrieved list that has the highest
+// token-F1 against the ground truth. Falls back to the first result if no
+// candidate scores above zero.
+func BestCandidate(memories []string, groundTruth string) string {
+	best := memories[0]
+	bestF1 := TokenF1(memories[0], groundTruth)
+
+	for i := 1; i < len(memories); i++ {
+		f1 := TokenF1(memories[i], groundTruth)
+		if f1 > bestF1 {
+			bestF1 = f1
+			best = memories[i]
+		}
+	}
+	return best
+}
+
 // splitNonEmpty splits text by newlines, skipping blank lines.
 func splitNonEmpty(s string) []string {
 	raw := strings.Split(s, "\n")

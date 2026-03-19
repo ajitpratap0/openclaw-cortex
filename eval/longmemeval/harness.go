@@ -43,7 +43,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		// Select the best candidate.
 		best := ""
 		if len(memories) > 0 {
-			best = bestCandidate(memories, qp.GroundTruth)
+			best = runner.BestCandidate(memories, qp.GroundTruth)
 		}
 
 		result := runner.BenchmarkResult{
@@ -61,19 +61,3 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	return runner.Summarize(benchmarkName, results, k), nil
 }
 
-// bestCandidate picks the memory from the retrieved list that has the highest
-// token-F1 against the ground truth. Falls back to the first result if no
-// candidate scores above zero.
-func bestCandidate(memories []string, groundTruth string) string {
-	best := memories[0]
-	bestF1 := runner.TokenF1(memories[0], groundTruth)
-
-	for i := 1; i < len(memories); i++ {
-		f1 := runner.TokenF1(memories[i], groundTruth)
-		if f1 > bestF1 {
-			bestF1 = f1
-			best = memories[i]
-		}
-	}
-	return best
-}

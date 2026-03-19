@@ -1,4 +1,4 @@
-package runner_test
+package tests
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
 )
 
-func TestExactMatch(t *testing.T) {
+func TestRunnerExactMatch(t *testing.T) {
 	tests := []struct {
 		name        string
 		retrieved   string
@@ -31,7 +31,7 @@ func TestExactMatch(t *testing.T) {
 	}
 }
 
-func TestTokenF1(t *testing.T) {
+func TestRunnerTokenF1(t *testing.T) {
 	tests := []struct {
 		name        string
 		retrieved   string
@@ -94,7 +94,7 @@ func TestTokenF1(t *testing.T) {
 	}
 }
 
-func TestRecallAtK(t *testing.T) {
+func TestRunnerRecallAtK(t *testing.T) {
 	memories := []string{
 		"Alice's favorite language is Go",
 		"Bob worked at Google for 5 years",
@@ -128,7 +128,7 @@ func TestRecallAtK(t *testing.T) {
 	}
 }
 
-func TestSummarize(t *testing.T) {
+func TestRunnerSummarize(t *testing.T) {
 	results := []runner.BenchmarkResult{
 		{QuestionID: "q1", ExactMatch: true, F1Score: 1.0, RecalledAtK: true},
 		{QuestionID: "q2", ExactMatch: false, F1Score: 0.5, RecalledAtK: true},
@@ -164,7 +164,7 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
-func TestSummarizeEmpty(t *testing.T) {
+func TestRunnerSummarizeEmpty(t *testing.T) {
 	summary := runner.Summarize("empty", nil, 5)
 	if summary.TotalQuestions != 0 {
 		t.Errorf("TotalQuestions = %d, want 0", summary.TotalQuestions)

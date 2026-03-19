@@ -1,20 +1,21 @@
-package locomo_test
+package tests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/locomo"
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
 )
 
-func TestDatasetSize(t *testing.T) {
+func TestLoCoMoDatasetSize(t *testing.T) {
 	pairs := locomo.Dataset()
 	if len(pairs) != 10 {
 		t.Errorf("Dataset() returned %d pairs, want 10", len(pairs))
 	}
 }
 
-func TestDatasetIDs(t *testing.T) {
+func TestLoCoMoDatasetIDs(t *testing.T) {
 	pairs := locomo.Dataset()
 	seen := make(map[string]bool, len(pairs))
 	for i := range pairs {
@@ -29,7 +30,7 @@ func TestDatasetIDs(t *testing.T) {
 	}
 }
 
-func TestDatasetCategories(t *testing.T) {
+func TestLoCoMoDatasetCategories(t *testing.T) {
 	valid := map[string]bool{
 		"single-hop": true,
 		"multi-hop":  true,
@@ -44,7 +45,7 @@ func TestDatasetCategories(t *testing.T) {
 	}
 }
 
-func TestDatasetHasAllThreeCategories(t *testing.T) {
+func TestLoCoMoDatasetHasAllThreeCategories(t *testing.T) {
 	counts := map[string]int{}
 	pairs := locomo.Dataset()
 	for i := range pairs {
@@ -57,7 +58,7 @@ func TestDatasetHasAllThreeCategories(t *testing.T) {
 	}
 }
 
-func TestDatasetConversations(t *testing.T) {
+func TestLoCoMoDatasetConversations(t *testing.T) {
 	pairs := locomo.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
@@ -76,7 +77,7 @@ func TestDatasetConversations(t *testing.T) {
 	}
 }
 
-func TestDatasetNonEmptyQA(t *testing.T) {
+func TestLoCoMoDatasetNonEmptyQA(t *testing.T) {
 	pairs := locomo.Dataset()
 	for i := range pairs {
 		qp := &pairs[i]
@@ -89,11 +90,7 @@ func TestDatasetNonEmptyQA(t *testing.T) {
 	}
 }
 
-func TestCategoryBreakdown(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live binary test in short mode")
-	}
-
+func TestLoCoMoCategoryBreakdown(t *testing.T) {
 	// Build a synthetic summary matching the dataset's QA pair IDs.
 	pairs := locomo.Dataset()
 	results := make([]runner.BenchmarkResult, len(pairs))
@@ -118,7 +115,7 @@ func TestCategoryBreakdown(t *testing.T) {
 	}
 }
 
-func TestFormatCategoryTable(t *testing.T) {
+func TestLoCoMoFormatCategoryTable(t *testing.T) {
 	breakdown := map[string]float64{
 		"single-hop": 1.0,
 		"multi-hop":  0.5,
@@ -129,21 +126,8 @@ func TestFormatCategoryTable(t *testing.T) {
 		t.Error("FormatCategoryTable returned empty string")
 	}
 	for _, cat := range []string{"single-hop", "multi-hop", "temporal"} {
-		if !containsStr(table, cat) {
+		if !strings.Contains(table, cat) {
 			t.Errorf("table missing category %q", cat)
 		}
 	}
-}
-
-func containsStr(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && searchStr(s, substr))
-}
-
-func searchStr(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
