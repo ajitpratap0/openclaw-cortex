@@ -46,6 +46,14 @@ cmd/cmd_recall.go
   → tokenizer.FormatMemoriesWithBudget (pkg/tokenizer/) — trim to token budget
 ```
 
+**Store flow** (`cmd store [memory text]`) — direct memory write, bypassing Claude extraction:
+```
+cmd/cmd_store.go
+  → embedder.Embedder        (internal/embedder/)    — embed content
+  → memgraph.Client          (internal/memgraph/)    — dedup + upsert memory
+```
+Flags: `--type fact|rule|episode|procedure|preference`, `--scope permanent|project|session|ttl`, `--tags`, `--confidence`, `--ttl-hours`, `--supersedes`.
+
 **Capture flow** (`cmd capture`) with contradiction detection and temporal versioning:
 ```
 cmd/cmd_capture.go
