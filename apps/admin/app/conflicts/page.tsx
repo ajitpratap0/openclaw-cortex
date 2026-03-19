@@ -20,7 +20,7 @@ export default function ConflictsPage() {
   // server state. The server API does not yet expose a conflict_status endpoint.
   // TODO: wire up PATCH /memories/:id { conflict_status: "resolved" } when available.
   const handleResolve = useCallback(
-    async (id: string) => {
+    async (_id: string) => {
       await mutate();
     },
     [mutate]
