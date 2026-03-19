@@ -60,4 +60,3 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 
 	return runner.Summarize(benchmarkName, results, k), nil
 }
-
