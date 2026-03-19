@@ -15,7 +15,7 @@ type BenchmarkResult struct {
 	QuestionID  string  `json:"question_id"`
 	Question    string  `json:"question"`
 	GroundTruth string  `json:"ground_truth"`
-	Retrieved   string  `json:"retrieved"`    // best recalled memory content
+	Retrieved   string  `json:"retrieved"` // best recalled memory content
 	ExactMatch  bool    `json:"exact_match"`
 	F1Score     float64 `json:"f1_score"`
 	RecalledAtK bool    `json:"recalled_at_k"` // was ground truth in top-k results?
