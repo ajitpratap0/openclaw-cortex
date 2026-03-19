@@ -1,0 +1,175 @@
+package runner_test
+
+import (
+	"testing"
+
+	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
+)
+
+func TestExactMatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		retrieved   string
+		groundTruth string
+		want        bool
+	}{
+		{"exact", "Alice uses Go for her projects", "Go", true},
+		{"case insensitive", "Alice uses go for her projects", "Go", true},
+		{"substring", "She prefers Python over Java", "Python", true},
+		{"no match", "Alice likes hiking", "Go", false},
+		{"empty ground truth", "Alice likes hiking", "", false},
+		{"empty retrieved", "", "Go", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runner.ExactMatch(tt.retrieved, tt.groundTruth)
+			if got != tt.want {
+				t.Errorf("ExactMatch(%q, %q) = %v, want %v", tt.retrieved, tt.groundTruth, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTokenF1(t *testing.T) {
+	tests := []struct {
+		name        string
+		retrieved   string
+		groundTruth string
+		wantMin     float64
+		wantMax     float64
+	}{
+		{
+			name:        "perfect match",
+			retrieved:   "Alice uses Go",
+			groundTruth: "Alice uses Go",
+			wantMin:     1.0,
+			wantMax:     1.0,
+		},
+		{
+			name:        "no overlap",
+			retrieved:   "Bob likes hiking",
+			groundTruth: "Alice uses Go",
+			wantMin:     0.0,
+			wantMax:     0.0,
+		},
+		{
+			name:        "partial overlap",
+			retrieved:   "Alice uses Python",
+			groundTruth: "Alice uses Go",
+			wantMin:     0.5,
+			wantMax:     0.75,
+		},
+		{
+			name:        "both empty",
+			retrieved:   "",
+			groundTruth: "",
+			wantMin:     1.0,
+			wantMax:     1.0,
+		},
+		{
+			name:        "retrieved empty",
+			retrieved:   "",
+			groundTruth: "Alice",
+			wantMin:     0.0,
+			wantMax:     0.0,
+		},
+		{
+			name:        "ground truth empty",
+			retrieved:   "Alice",
+			groundTruth: "",
+			wantMin:     0.0,
+			wantMax:     0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runner.TokenF1(tt.retrieved, tt.groundTruth)
+			if got < tt.wantMin || got > tt.wantMax {
+				t.Errorf("TokenF1(%q, %q) = %.4f, want [%.4f, %.4f]",
+					tt.retrieved, tt.groundTruth, got, tt.wantMin, tt.wantMax)
+			}
+		})
+	}
+}
+
+func TestRecallAtK(t *testing.T) {
+	memories := []string{
+		"Alice's favorite language is Go",
+		"Bob worked at Google for 5 years",
+		"Carol prefers Python for data science",
+		"Dave uses Rust for systems programming",
+		"Eve enjoys functional programming in Haskell",
+	}
+
+	tests := []struct {
+		name        string
+		groundTruth string
+		k           int
+		want        bool
+	}{
+		{"found at k=1", "Go", 1, true},
+		{"found at k=3", "Python", 3, true},
+		{"not found at k=2", "Python", 2, false},
+		{"found at k=5", "Haskell", 5, true},
+		{"not found at all", "JavaScript", 5, false},
+		{"k=0 never found", "Go", 0, false},
+		{"k larger than slice", "Haskell", 100, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runner.RecallAtK(memories, tt.groundTruth, tt.k)
+			if got != tt.want {
+				t.Errorf("RecallAtK(memories, %q, %d) = %v, want %v", tt.groundTruth, tt.k, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSummarize(t *testing.T) {
+	results := []runner.BenchmarkResult{
+		{QuestionID: "q1", ExactMatch: true, F1Score: 1.0, RecalledAtK: true},
+		{QuestionID: "q2", ExactMatch: false, F1Score: 0.5, RecalledAtK: true},
+		{QuestionID: "q3", ExactMatch: false, F1Score: 0.0, RecalledAtK: false},
+		{QuestionID: "q4", ExactMatch: true, F1Score: 0.8, RecalledAtK: true},
+	}
+
+	summary := runner.Summarize("test", results, 5)
+
+	if summary.Name != "test" {
+		t.Errorf("Name = %q, want %q", summary.Name, "test")
+	}
+	if summary.TotalQuestions != 4 {
+		t.Errorf("TotalQuestions = %d, want 4", summary.TotalQuestions)
+	}
+	if summary.K != 5 {
+		t.Errorf("K = %d, want 5", summary.K)
+	}
+
+	wantEM := 0.5 // 2/4
+	if summary.ExactMatchAcc != wantEM {
+		t.Errorf("ExactMatchAcc = %.4f, want %.4f", summary.ExactMatchAcc, wantEM)
+	}
+
+	wantF1 := (1.0 + 0.5 + 0.0 + 0.8) / 4.0
+	if summary.AvgF1 != wantF1 {
+		t.Errorf("AvgF1 = %.4f, want %.4f", summary.AvgF1, wantF1)
+	}
+
+	wantRecall := 0.75 // 3/4
+	if summary.RecallAtK != wantRecall {
+		t.Errorf("RecallAtK = %.4f, want %.4f", summary.RecallAtK, wantRecall)
+	}
+}
+
+func TestSummarizeEmpty(t *testing.T) {
+	summary := runner.Summarize("empty", nil, 5)
+	if summary.TotalQuestions != 0 {
+		t.Errorf("TotalQuestions = %d, want 0", summary.TotalQuestions)
+	}
+	if summary.ExactMatchAcc != 0.0 {
+		t.Errorf("ExactMatchAcc = %.4f, want 0.0", summary.ExactMatchAcc)
+	}
+}
