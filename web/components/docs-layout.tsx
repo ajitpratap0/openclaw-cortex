@@ -94,7 +94,7 @@ export default function DocsLayout({
             {frontmatter.title}
           </h1>
           {frontmatter.description && (
-            <p className="text-lg text-zinc-400 mb-8 mt-0">
+            <p className="text-lg text-zinc-300 mb-8 mt-0">
               {frontmatter.description}
             </p>
           )}

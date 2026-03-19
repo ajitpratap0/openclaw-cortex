@@ -489,7 +489,7 @@ export default function PlaygroundUI() {
               />
             </svg>
           </div>
-          <p className="text-zinc-400 text-sm font-medium">
+          <p className="text-zinc-300 text-sm font-medium">
             Type a query to see ranked results
           </p>
           <p className="text-zinc-600 text-xs mt-1">

@@ -43,7 +43,7 @@ export default function CodeExample() {
           <h2 className="text-3xl sm:text-4xl font-bold text-zinc-50">
             See It In Action
           </h2>
-          <p className="text-zinc-400 mt-4 max-w-xl mx-auto">
+          <p className="text-zinc-300 mt-4 max-w-xl mx-auto">
             Capture memories from conversations and recall them with intelligent
             ranking — from the terminal or via the MCP plugin.
           </p>

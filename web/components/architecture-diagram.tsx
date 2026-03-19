@@ -77,7 +77,7 @@ export default function ArchitectureDiagram() {
           <h2 className="text-3xl sm:text-4xl font-bold text-zinc-50">
             Architecture
           </h2>
-          <p className="text-zinc-400 mt-4 max-w-xl mx-auto">
+          <p className="text-zinc-300 mt-4 max-w-xl mx-auto">
             A clean layered design: your agent talks to the cortex, the cortex
             talks to the infrastructure.
           </p>

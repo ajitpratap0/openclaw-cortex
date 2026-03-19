@@ -40,7 +40,7 @@ export default function BlogPage() {
       {/* Header */}
       <div className="mb-12">
         <h1 className="text-4xl font-bold text-zinc-50 mb-3">Blog</h1>
-        <p className="text-zinc-400 text-lg">Release notes and technical deep dives</p>
+        <p className="text-zinc-300 text-lg">Release notes and technical deep dives</p>
       </div>
 
       {/* Post grid */}
@@ -75,7 +75,7 @@ export default function BlogPage() {
                   </h2>
 
                   {excerpt && (
-                    <p className="text-sm text-zinc-400 leading-relaxed mb-4 flex-1">
+                    <p className="text-sm text-zinc-300 leading-relaxed mb-4 flex-1">
                       {excerpt}
                     </p>
                   )}

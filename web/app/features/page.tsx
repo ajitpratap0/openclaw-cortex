@@ -22,7 +22,7 @@ export default function FeaturesPage() {
       {/* Page header */}
       <div className="mb-16 max-w-2xl">
         <h1 className="text-4xl sm:text-5xl font-bold text-zinc-50 mb-4">Features</h1>
-        <p className="text-lg text-zinc-400 leading-relaxed">
+        <p className="text-lg text-zinc-300 leading-relaxed">
           A deep dive into the technical capabilities that make OpenClaw Cortex the most
           sophisticated open-source memory system for AI agents.
         </p>
@@ -39,7 +39,7 @@ export default function FeaturesPage() {
           {/* ── 1. Recall Scoring ── */}
           <section id="recall-scoring" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Recall Scoring</h2>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               Every retrieved memory receives a composite score from eight independent factors.
               The weighted sum balances immediate semantic relevance with long-term signals like
               access frequency and memory type, ensuring the most useful facts surface first —
@@ -96,13 +96,13 @@ export default function FeaturesPage() {
           {/* ── 2. Graph-Aware Recall ── */}
           <section id="graph-aware-recall" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Graph-Aware Recall</h2>
-            <p className="text-zinc-400 leading-relaxed mb-3">
+            <p className="text-zinc-300 leading-relaxed mb-3">
               Vector similarity search finds memories that look like the query. Graph traversal
               finds memories that are connected to entities mentioned in the query. Reciprocal Rank
               Fusion combines both ranked lists into a single result without requiring careful weight
               tuning — making graph-aware recall robust across diverse query types.
             </p>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               RRF score for each result:{" "}
               <code className="text-emerald-400 bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono">
                 Σ 1 / (60 + rank_i)
@@ -161,14 +161,14 @@ export default function FeaturesPage() {
           {/* ── 3. Temporal Versioning ── */}
           <section id="temporal-versioning" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Temporal Versioning</h2>
-            <p className="text-zinc-400 leading-relaxed mb-3">
+            <p className="text-zinc-300 leading-relaxed mb-3">
               Every memory carries <code className="text-emerald-400 bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono">valid_from</code> and{" "}
               <code className="text-emerald-400 bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono">valid_to</code> timestamps.
               When a fact is superseded by newer information, the old version is preserved with{" "}
               <code className="text-emerald-400 bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono">valid_to</code> set rather than deleted,
               maintaining full history for audit and debugging.
             </p>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               Superseded memories receive a 0.3× recall score penalty, keeping them accessible for
               historical queries while ensuring current facts dominate. The bi-temporal model tracks
               both when a fact was true in the world (valid time) and when Cortex learned about it
@@ -247,13 +247,13 @@ export default function FeaturesPage() {
           {/* ── 4. Contradiction Detection ── */}
           <section id="contradiction-detection" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Contradiction Detection</h2>
-            <p className="text-zinc-400 leading-relaxed mb-3">
+            <p className="text-zinc-300 leading-relaxed mb-3">
               When a new memory contradicts an existing one, both are placed in a conflict group
               rather than silently overwriting the older fact. Conflicting memories receive a
               0.8× recall penalty, and the conflict is surfaced in recall metadata so agents can
               prompt for clarification rather than guessing.
             </p>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               Conflicts resolve through three paths: a superseding memory closes the group,
               an explicit API resolution, or TTL lifecycle expiry. Contradiction detection runs
               at capture time against recent memories in the same scope and project.
@@ -306,13 +306,13 @@ export default function FeaturesPage() {
           {/* ── 5. Episodic Extraction ── */}
           <section id="episodic-extraction" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Episodic Extraction</h2>
-            <p className="text-zinc-400 leading-relaxed mb-3">
+            <p className="text-zinc-300 leading-relaxed mb-3">
               Related memories captured in the same session are grouped into Episode nodes in the
               graph. An episode represents a coherent narrative arc — a debugging session, an
               onboarding conversation, a decision-making thread — with a synthesized summary and
               links to all participating memories and entities.
             </p>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               Episodic context feeds into RRF fusion during recall, allowing queries about past
               events to surface the full narrative context rather than isolated fragments.
               Episodes are created automatically at session boundaries.
@@ -352,13 +352,13 @@ export default function FeaturesPage() {
           {/* ── 6. Smart Capture ── */}
           <section id="smart-capture" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Smart Capture</h2>
-            <p className="text-zinc-400 leading-relaxed mb-3">
+            <p className="text-zinc-300 leading-relaxed mb-3">
               The capture pipeline transforms raw conversation turns into structured memories,
               entities, and facts in a single LLM round-trip using Claude Haiku. Every step
               — memory extraction, entity resolution, fact extraction, deduplication — runs
               automatically with no configuration required.
             </p>
-            <p className="text-zinc-400 leading-relaxed mb-8">
+            <p className="text-zinc-300 leading-relaxed mb-8">
               User and assistant content is XML-escaped before prompt interpolation to prevent
               injection attacks. Memories below 0.5 confidence are filtered at capture time.
               The heuristic classifier assigns memory types (rule, fact, episode, procedure,

@@ -15,7 +15,7 @@ export default function NotFound() {
       <h1 className="text-2xl font-semibold text-zinc-100 mb-3">
         Page not found
       </h1>
-      <p className="text-zinc-400 mb-8 max-w-sm">
+      <p className="text-zinc-300 mb-8 max-w-sm">
         The page you are looking for does not exist or has been moved.
       </p>
       <div className="flex items-center gap-3">

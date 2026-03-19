@@ -21,7 +21,7 @@ export default function ComparePage() {
         <h1 className="text-4xl sm:text-5xl font-bold text-zinc-50 mb-4">
           Why OpenClaw Cortex?
         </h1>
-        <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
+        <p className="text-lg text-zinc-300 max-w-2xl mx-auto">
           See how Cortex compares to other AI memory solutions
         </p>
       </div>
@@ -61,7 +61,7 @@ export default function ComparePage() {
           <h2 className="text-xl font-semibold text-zinc-100 mb-3">
             Graph-aware recall changes what agents can know
           </h2>
-          <p className="text-zinc-400 leading-relaxed">
+          <p className="text-zinc-300 leading-relaxed">
             Most AI memory systems store facts as isolated text fragments and retrieve them by
             semantic similarity. This works for simple lookups but breaks down when the answer
             requires traversing a chain of relationships: Alice manages project-X, project-X
@@ -77,7 +77,7 @@ export default function ComparePage() {
           <h2 className="text-xl font-semibold text-zinc-100 mb-3">
             Temporal versioning means no silent stale data
           </h2>
-          <p className="text-zinc-400 leading-relaxed">
+          <p className="text-zinc-300 leading-relaxed">
             When a fact changes — a team member moves projects, a preference is updated, a tool
             is deprecated — Cortex preserves the old version with a{" "}
             <code className="text-emerald-400 bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono">
@@ -96,7 +96,7 @@ export default function ComparePage() {
           <h2 className="text-xl font-semibold text-zinc-100 mb-3">
             One container, zero infrastructure complexity
           </h2>
-          <p className="text-zinc-400 leading-relaxed">
+          <p className="text-zinc-300 leading-relaxed">
             Cortex v0.7.0 consolidated from Qdrant + Neo4j to a single Memgraph instance —
             vector search and graph traversal in one container speaking the Bolt protocol.
             The result is a memory backend that starts with{" "}
