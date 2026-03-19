@@ -62,7 +62,7 @@ func (c *CortexClient) baseArgs() []string {
 // Recall runs `openclaw-cortex recall <query>` and returns up to limit lines of
 // output, each representing one recalled memory's content.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
-	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*200), "--", query)
+	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -76,21 +76,6 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		lines = lines[:limit]
 	}
 	return lines, nil
-}
-
-// Capture runs `openclaw-cortex capture --user <u> --assistant <a>`.
-func (c *CortexClient) Capture(ctx context.Context, userMsg, assistantMsg string) error {
-	args := append(c.baseArgs(), "capture",
-		"--user", userMsg,
-		"--assistant", assistantMsg,
-		"--scope", "permanent",
-	)
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("runner: capture binary error: %w (output: %s)", err, out)
-	}
-	return nil
 }
 
 // Store runs `openclaw-cortex store <content>` to persist a fact memory.
