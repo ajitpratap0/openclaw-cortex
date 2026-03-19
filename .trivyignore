@@ -1,0 +1,5 @@
+# GHSA-6g7g-w4f8-9c9x: github.com/buger/jsonparser
+# Indirect Go dependency via mcp-go → invopop/jsonschema → wk8/go-ordered-map/v2.
+# Upgraded to v1.1.2 (latest available). Advisory has no listed fixed version yet;
+# suppressed here until upstream publishes a patch or the advisory is updated.
+GHSA-6g7g-w4f8-9c9x
