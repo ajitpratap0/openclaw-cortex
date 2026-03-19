@@ -3,6 +3,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -63,11 +64,14 @@ func (c *CortexClient) baseArgs() []string {
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*200), "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
-	out, err := exec.CommandContext(ctx, c.BinaryPath, args...).CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("runner: recall binary error: %w (output: %s)", err, out)
+	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("runner: recall binary error: %w (stderr: %s)", err, stderr.String())
 	}
-	lines := splitNonEmpty(string(out))
+	lines := splitNonEmpty(stdout.String())
 	if len(lines) > limit {
 		lines = lines[:limit]
 	}
@@ -137,14 +141,15 @@ func isAlphaNum(r rune) bool {
 }
 
 // TokenF1 computes token-level F1 between retrieved and ground truth.
+// Returns 0 if groundTruth is empty (consistent with ExactMatch).
 func TokenF1(retrieved, groundTruth string) float64 {
+	if groundTruth == "" {
+		return 0.0
+	}
 	predTokens := tokenize(retrieved)
 	goldTokens := tokenize(groundTruth)
 
-	if len(predTokens) == 0 && len(goldTokens) == 0 {
-		return 1.0
-	}
-	if len(predTokens) == 0 || len(goldTokens) == 0 {
+	if len(predTokens) == 0 {
 		return 0.0
 	}
 
@@ -172,11 +177,7 @@ func TokenF1(retrieved, groundTruth string) float64 {
 
 	precision := float64(overlap) / float64(len(predTokens))
 	recallScore := float64(overlap) / float64(len(goldTokens))
-	denom := precision + recallScore
-	if denom == 0 {
-		return 0.0
-	}
-	return 2 * precision * recallScore / denom
+	return 2 * precision * recallScore / (precision + recallScore)
 }
 
 // RecallAtK checks if any of the top-k retrieved memories contains the ground truth.

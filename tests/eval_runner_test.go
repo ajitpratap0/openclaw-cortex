@@ -64,8 +64,8 @@ func TestRunnerTokenF1(t *testing.T) {
 			name:        "both empty",
 			retrieved:   "",
 			groundTruth: "",
-			wantMin:     1.0,
-			wantMax:     1.0,
+			wantMin:     0.0,
+			wantMax:     0.0,
 		},
 		{
 			name:        "retrieved empty",
