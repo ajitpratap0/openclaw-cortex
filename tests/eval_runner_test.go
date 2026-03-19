@@ -173,3 +173,52 @@ func TestRunnerSummarizeEmpty(t *testing.T) {
 		t.Errorf("ExactMatchAcc = %.4f, want 0.0", summary.ExactMatchAcc)
 	}
 }
+
+func TestRunnerBestCandidate(t *testing.T) {
+	tests := []struct {
+		name        string
+		memories    []string
+		groundTruth string
+		want        string
+	}{
+		{
+			name:        "empty memories",
+			memories:    []string{},
+			groundTruth: "Go",
+			want:        "",
+		},
+		{
+			name:        "single memory",
+			memories:    []string{"Alice uses Go"},
+			groundTruth: "Go",
+			want:        "Alice uses Go",
+		},
+		{
+			name:        "picks highest F1",
+			memories:    []string{"Bob likes hiking", "Alice uses Go for projects"},
+			groundTruth: "Go",
+			want:        "Alice uses Go for projects",
+		},
+		{
+			name:        "all zero F1 falls back to first",
+			memories:    []string{"Bob likes hiking", "Carol enjoys running"},
+			groundTruth: "Go",
+			want:        "Bob likes hiking",
+		},
+		{
+			name:        "first wins on tie",
+			memories:    []string{"Alice uses Go", "Go is used by Alice"},
+			groundTruth: "Go Alice",
+			want:        "Alice uses Go",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runner.BestCandidate(tt.memories, tt.groundTruth)
+			if got != tt.want {
+				t.Errorf("BestCandidate(%v, %q) = %q, want %q", tt.memories, tt.groundTruth, got, tt.want)
+			}
+		})
+	}
+}
