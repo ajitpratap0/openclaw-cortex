@@ -259,4 +259,3 @@ func BestCandidate(memories []string, groundTruth string) string {
 	}
 	return best
 }
-
