@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -45,6 +46,10 @@ func (a *AnthropicClient) Complete(ctx context.Context, model, systemPrompt, use
 		},
 	})
 	if err != nil {
+		var apiErr *anthropic.Error
+		if errors.As(err, &apiErr) {
+			return "", fmt.Errorf("anthropic complete: %w", &HTTPError{StatusCode: apiErr.StatusCode, Body: apiErr.Error()})
+		}
 		return "", fmt.Errorf("anthropic complete: %w", err)
 	}
 

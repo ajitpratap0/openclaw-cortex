@@ -18,7 +18,7 @@ const execFileAsync = promisify(execFile);
 
 // Plugin version — bump this when making changes to the plugin.
 // The binary also has its own version (set via ldflags at build time).
-const PLUGIN_VERSION = "0.8.0";
+const PLUGIN_VERSION = "0.10.0";
 
 // ============================================================================
 // Types
@@ -199,7 +199,7 @@ class CortexClient {
 
   async forget(id: string): Promise<boolean> {
     try {
-      await this.run(["forget", id]);
+      await this.run(["forget", "--yes", id]);
       return true;
     } catch {
       return false;
@@ -250,12 +250,17 @@ class CortexClient {
     }
   }
 
-  async health(): Promise<boolean> {
+  async health(): Promise<{ ok: boolean; failing: string[] }> {
     try {
-      await this.run(["health"]);
-      return true;
+      const out = await this.run(["health", "--json"], 5_000);
+      const parsed = JSON.parse(out) as { ok: boolean; memgraph: boolean; ollama: boolean; llm: boolean };
+      const failing: string[] = [];
+      if (!parsed.memgraph) failing.push("Memgraph");
+      if (!parsed.ollama) failing.push("Ollama");
+      if (!parsed.llm) failing.push("Claude LLM");
+      return { ok: parsed.ok, failing };
     } catch {
-      return false;
+      return { ok: false, failing: ["Memgraph", "Ollama", "Claude LLM"] };
     }
   }
 }
@@ -476,7 +481,7 @@ const memoryCortexPlugin = {
             }
 
             const list = results
-              .map((m) => `- ${m.id.slice(0, 8)}... [${m.type}] ${m.content.slice(0, 60)}`)
+              .map((m) => `- ${m.id} [${m.type}] ${m.content.slice(0, 60)}`)
               .join("\n");
 
             return {
@@ -641,9 +646,13 @@ const memoryCortexPlugin = {
         const health = (cmd as { command(n: string): Record<string, unknown> }).command("health");
         (health as Record<string, Function>).description("Check Cortex health");
         (health as Record<string, Function>).action(async () => {
-          const ok = await cortex.health();
-          console.log(ok ? "Cortex: healthy" : "Cortex: unhealthy");
-          if (!ok) process.exitCode = 1;
+          const health = await cortex.health();
+          if (health.ok) {
+            console.log("Cortex: healthy");
+          } else {
+            console.log(`Cortex: unhealthy — ${health.failing.join(", ")} not reachable`);
+          }
+          if (!health.ok) process.exitCode = 1;
         });
 
         const ver = (cmd as { command(n: string): Record<string, unknown> }).command("version");
@@ -762,11 +771,14 @@ const memoryCortexPlugin = {
           );
         }
 
-        const healthy = await cortex.health();
-        if (healthy) {
+        const health = await cortex.health();
+        if (health.ok) {
           api.logger.info("memory-cortex: connected to Memgraph + Ollama");
         } else {
-          api.logger.warn("memory-cortex: backend unhealthy — ensure Memgraph and Ollama are running");
+          const svcs = health.failing.join(", ");
+          api.logger.warn(
+            `memory-cortex: ${svcs} not reachable — run 'docker compose up -d' to start required services`,
+          );
         }
       },
       stop() {

@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "15.5.13",
+    "next": "16.1.7",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "swr": "^2.3.3",
@@ -35,7 +35,7 @@
     "@types/react-dom": "^19",
     "typescript": "^5",
     "eslint": "^9",
-    "eslint-config-next": "15.5.13",
+    "eslint-config-next": "16.1.7",
     "tailwindcss": "^4",
     "@tailwindcss/postcss": "^4"
   }
