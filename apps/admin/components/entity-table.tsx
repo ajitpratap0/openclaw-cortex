@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import type { Entity } from "@/lib/types";
 
-function LinkedMemories({ entityId }: { entityId: string }) {
+function LinkedMemories({ entityId, entityName }: { entityId: string; entityName: string }) {
   const [open, setOpen] = useState(false);
 
   const { data, isLoading } = useSWR<Entity>(
@@ -23,7 +23,9 @@ function LinkedMemories({ entityId }: { entityId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-zinc-600 hover:text-zinc-300"
+        aria-label={`Show linked memories for ${entityName}`}
+        aria-expanded={false}
+        className="text-xs text-zinc-600 hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-500 rounded underline underline-offset-2"
       >
         show linked memories
       </button>
@@ -92,7 +94,7 @@ export function EntityTable({ entities }: EntityTableProps) {
               </span>
             </TableCell>
             <TableCell>
-              <LinkedMemories entityId={e.id} />
+              <LinkedMemories entityId={e.id} entityName={e.name} />
             </TableCell>
           </TableRow>
         ))}

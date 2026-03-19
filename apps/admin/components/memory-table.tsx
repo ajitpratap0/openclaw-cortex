@@ -77,7 +77,8 @@ export function MemoryTable({ memories, onDelete }: MemoryTableProps) {
               {onDelete && (
                 <button
                   onClick={() => onDelete(m.id)}
-                  className="text-xs text-zinc-600 transition-colors hover:text-red-400"
+                  aria-label="Delete memory"
+                  className="text-xs text-zinc-600 transition-colors hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
                 >
                   delete
                 </button>
