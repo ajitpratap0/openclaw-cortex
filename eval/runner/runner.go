@@ -181,11 +181,7 @@ func TokenF1(retrieved, groundTruth string) float64 {
 
 // RecallAtK checks if any of the top-k retrieved memories contains the ground truth.
 func RecallAtK(memories []string, groundTruth string, k int) bool {
-	limit := k
-	if limit > len(memories) {
-		limit = len(memories)
-	}
-	for i := 0; i < limit; i++ {
+	for i := range min(k, len(memories)) {
 		if ExactMatch(memories[i], groundTruth) {
 			return true
 		}
