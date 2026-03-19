@@ -992,7 +992,7 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 // DeleteAllMemories removes all nodes and relationships from the graph.
 // This is intended for eval benchmark isolation only — it is destructive.
 func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
-	wctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
 	defer cancel()
 
 	session := s.driver.NewSession(wctx, s.sessionConfig())

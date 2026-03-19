@@ -14,7 +14,7 @@ func resetCmd() *cobra.Command {
 		Short: "Delete all memories and entities from the store",
 		Long: `WARNING: Deletes every Memory, Entity, and Episode from the graph database.
 This operation is irreversible. Intended for eval benchmark isolation.
-Pass --yes to skip the confirmation prompt.`,
+Pass --yes to confirm; without it the command exits non-zero without deleting anything.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
 				return fmt.Errorf("this will permanently delete ALL memories — pass --yes to confirm")

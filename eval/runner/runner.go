@@ -5,6 +5,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os/exec"
@@ -59,14 +60,18 @@ func (c *CortexClient) baseArgs() []string {
 	return nil
 }
 
-// Recall runs `openclaw-cortex recall <query>` and returns up to limit lines of
-// output, each representing one recalled memory's content.
-//
-// Output format contract: `openclaw-cortex recall` prints one memory content
-// string per line to stdout (plain text, no JSON or headers). If the binary's
-// output format changes, splitNonEmpty and the scoring pipeline must be updated.
+// recallJSONResult is a minimal struct for parsing JSON output from
+// `openclaw-cortex recall --context _`.
+type recallJSONResult struct {
+	Memory struct {
+		Content string `json:"content"`
+	} `json:"memory"`
+}
+
+// Recall runs `openclaw-cortex recall --context _ <query>` and returns up to
+// limit memory content strings parsed from the JSON output.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
-	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--", query)
+	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", "_", "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -75,11 +80,18 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("runner: recall binary error: %w (stderr: %s)", err, stderr.String())
 	}
-	lines := splitNonEmpty(stdout.String())
-	if len(lines) > limit {
-		lines = lines[:limit]
+	var results []recallJSONResult
+	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
+		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
 	}
-	return lines, nil
+	contents := make([]string, 0, len(results))
+	for i := range results {
+		contents = append(contents, results[i].Memory.Content)
+	}
+	if len(contents) > limit {
+		contents = contents[:limit]
+	}
+	return contents, nil
 }
 
 // Store runs `openclaw-cortex store <content>` to persist a fact memory.
@@ -150,6 +162,9 @@ func TokenF1(retrieved, groundTruth string) float64 {
 	predTokens := tokenize(retrieved)
 	goldTokens := tokenize(groundTruth)
 
+	if len(goldTokens) == 0 {
+		return 0.0
+	}
 	if len(predTokens) == 0 {
 		return 0.0
 	}
@@ -243,15 +258,3 @@ func BestCandidate(memories []string, groundTruth string) string {
 	return best
 }
 
-// splitNonEmpty splits text by newlines, skipping blank lines.
-func splitNonEmpty(s string) []string {
-	raw := strings.Split(s, "\n")
-	out := make([]string, 0, len(raw))
-	for _, line := range raw {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
-}
