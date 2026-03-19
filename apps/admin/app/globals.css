@@ -51,6 +51,11 @@
   --radius: 0.5rem;
 }
 
+:root {
+  --color-surface: theme('colors.zinc.950');
+  --color-warning: theme('colors.amber.400');
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

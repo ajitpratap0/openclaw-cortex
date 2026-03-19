@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input }  from "@/components/ui/input";
 import { Badge }  from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import type { Memory } from "@/lib/types";
 
 interface MemoryDetailProps {
@@ -15,10 +23,11 @@ interface MemoryDetailProps {
 }
 
 export function MemoryDetail({ memory, onUpdate, onDelete }: MemoryDetailProps) {
-  const [confidence, setConfidence] = useState(String(memory.confidence));
-  const [tags,       setTags]       = useState((memory.tags ?? []).join(", "));
-  const [saving,     setSaving]     = useState(false);
-  const [error,      setError]      = useState("");
+  const [confidence,       setConfidence]       = useState(String(memory.confidence));
+  const [tags,             setTags]             = useState((memory.tags ?? []).join(", "));
+  const [saving,           setSaving]           = useState(false);
+  const [error,            setError]            = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -43,8 +52,8 @@ export function MemoryDetail({ memory, onUpdate, onDelete }: MemoryDetailProps) 
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Permanently delete this memory?")) return;
+  async function handleDeleteConfirm() {
+    setShowDeleteDialog(false);
     try {
       await cortex.deleteMemory(memory.id);
       onDelete();
@@ -132,13 +141,33 @@ export function MemoryDetail({ memory, onUpdate, onDelete }: MemoryDetailProps) 
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
               </Button>
-              <Button size="sm" variant="destructive" onClick={handleDelete}>
+              <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)}>
                 Delete
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete memory?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

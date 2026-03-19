@@ -20,11 +20,17 @@ export default function RootLayout({
       lang="en"
       className={`dark ${GeistSans.variable} ${GeistMono.variable}`}
     >
-      <body className="bg-zinc-950 text-zinc-100 antialiased">
+      <body className="bg-[--color-surface] text-zinc-100 antialiased">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:rounded"
+        >
+          Skip to content
+        </a>
         <SWRProvider>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />
-            <main className="flex-1 overflow-auto p-6">{children}</main>
+            <main id="main-content" className="flex-1 overflow-auto p-6">{children}</main>
           </div>
         </SWRProvider>
       </body>
