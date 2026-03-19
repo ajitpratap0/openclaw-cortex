@@ -47,7 +47,7 @@ func TestBuildSearchEntitiesCypher_WithBeforeWhere(t *testing.T) {
 	}
 
 	// Order must be: YIELD ... WITH ... WHERE
-	if !(yieldIdx < withIdx && withIdx < whereIdx) {
+	if yieldIdx >= withIdx || withIdx >= whereIdx {
 		t.Errorf(
 			"clause order must be YIELD < WITH < WHERE; got positions YIELD=%d WITH=%d WHERE=%d in:\n%s",
 			yieldIdx, withIdx, whereIdx, cypher,
