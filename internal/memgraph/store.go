@@ -240,6 +240,8 @@ func (s *MemgraphStore) Get(ctx context.Context, id string) (*models.Memory, err
 }
 
 // Delete removes a memory by ID. Returns store.ErrNotFound if nothing was deleted.
+// If id is shorter than 36 characters (a full UUID), prefix matching is used instead
+// of exact matching. If the prefix matches more than one memory, an error is returned.
 func (s *MemgraphStore) Delete(ctx context.Context, id string) error {
 	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
 	defer cancel()
@@ -247,13 +249,58 @@ func (s *MemgraphStore) Delete(ctx context.Context, id string) error {
 	session := s.driver.NewSession(wctx, s.sessionConfig())
 	defer s.closeSession(ctx, session)
 
+	// For partial IDs, verify the prefix is unambiguous before deleting.
+	if len(id) < 36 {
+		count, err := session.ExecuteRead(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+			res, txErr := tx.Run(wctx, `
+				MATCH (m:Memory) WHERE m.uuid STARTS WITH $id
+				RETURN count(m) AS n
+			`, map[string]any{"id": id})
+			if txErr != nil {
+				return 0, txErr
+			}
+			if !res.Next(wctx) {
+				return 0, res.Err()
+			}
+			n, _ := res.Record().Get("n")
+			if consumeErr := res.Err(); consumeErr != nil {
+				return 0, consumeErr
+			}
+			return n, nil
+		})
+		if err != nil {
+			return fmt.Errorf("memgraph delete prefix count %s: %w", id, err)
+		}
+		n, ok := count.(int64)
+		if !ok {
+			return fmt.Errorf("memgraph delete: unexpected count type %T", count)
+		}
+		if n == 0 {
+			return fmt.Errorf("%w: %s", store.ErrNotFound, id)
+		}
+		if n > 1 {
+			return fmt.Errorf("ambiguous prefix: matches %d memories", n)
+		}
+	}
+
 	deleted, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		res, txErr := tx.Run(wctx, `
-			MATCH (m:Memory {uuid: $id})
-			WITH m, m.uuid AS uuid
-			DETACH DELETE m
-			RETURN uuid
-		`, map[string]any{"id": id})
+		var query string
+		if len(id) < 36 {
+			query = `
+				MATCH (m:Memory) WHERE m.uuid STARTS WITH $id
+				WITH m, m.uuid AS uuid
+				DETACH DELETE m
+				RETURN uuid
+			`
+		} else {
+			query = `
+				MATCH (m:Memory {uuid: $id})
+				WITH m, m.uuid AS uuid
+				DETACH DELETE m
+				RETURN uuid
+			`
+		}
+		res, txErr := tx.Run(wctx, query, map[string]any{"id": id})
 		if txErr != nil {
 			return false, txErr
 		}
