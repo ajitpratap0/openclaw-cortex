@@ -330,7 +330,7 @@ No Critical issues found in either site.
 | / | ⚠️ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | Hero + terminal; responsive grid present but no skip-nav; raw hex in globals.css |
 | /features | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | 6 detailed sections with diagrams; consistent token use; missing skip-nav |
 | /compare | ✅ | ⚠️ | ✅ | ✅ | ⚠️ | ✅ | ComparisonTable not audited for lazy loading; missing skip-nav |
-| /playground | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | ✅ | Interactive demo; keyword similarity disclosure needed; missing skip-nav |
+| /playground | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | Interactive demo; disclosure callout already present; missing skip-nav (inherited from root layout) |
 | /blog | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | Blog index + post template solid; prose classes correct; missing skip-nav |
 | /docs | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | DocsLayout present; MDX rendering clean; root redirect works; missing skip-nav |
 
@@ -359,6 +359,6 @@ No Critical issues found in either site.
 | /memories/[id] | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ✅ | Detail view; back button unstyled/unlabeled; native confirm() for delete |
 | /entities | ⚠️ | ⚠️ | ⚠️ | ✅ | ⚠️ | ✅ | Search + type filter; fixed widths; "show linked memories" button styling issue |
 | /conflicts | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ✅ | Card-based display; optimistic update mismatch; missing skeleton |
-| /settings | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | ✅ | API config; non-semantic form labels; hardcoded background |
+| /settings | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | API config; uses `<label htmlFor>` correctly; hardcoded background (Design) |
 
 Legend: ✅ No issues | ⚠️ Medium/Low only | ❌ Critical or High
