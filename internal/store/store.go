@@ -81,6 +81,10 @@ type Store interface {
 	// that do not yet have valid_from set. Idempotent.
 	MigrateTemporalFields(ctx context.Context) error
 
+	// DeleteAllMemories removes every Memory, Entity, Episode, and relationship
+	// from the store. Intended for eval/test isolation — destructive, use with care.
+	DeleteAllMemories(ctx context.Context) error
+
 	// Close cleans up resources.
 	Close() error
 }

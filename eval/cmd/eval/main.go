@@ -67,14 +67,16 @@ func run() error {
 		summaries = append(summaries, s)
 
 	case "all":
-		// TODO(eval): facts ingested for LoCoMo remain in the memory store when
-		// LongMemEval runs. Add a reset/flush step between benchmarks to prevent
-		// cross-contamination when running --benchmark all.
 		s1, err := runLocomo(ctx, client, *k)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)
 		}
 		summaries = append(summaries, s1)
+
+		// Reset between benchmarks so LoCoMo facts don't contaminate LongMemEval.
+		if err := client.Reset(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "[eval] warn: reset between benchmarks failed: %v\n", err)
+		}
 
 		s2, err := runLongMemEval(ctx, client, *k)
 		if err != nil {

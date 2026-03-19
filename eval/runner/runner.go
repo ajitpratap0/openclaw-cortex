@@ -89,6 +89,18 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 	return nil
 }
 
+// Reset calls `openclaw-cortex reset --yes` to wipe all memories from the store.
+// Used by benchmark harnesses to isolate QA pairs from each other.
+func (c *CortexClient) Reset(ctx context.Context) error {
+	args := append(c.baseArgs(), "reset", "--yes")
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("runner: reset binary error: %w (output: %s)", err, out)
+	}
+	return nil
+}
+
 // --- Scoring functions ---
 
 // ExactMatch returns true if retrieved contains the ground truth (case-insensitive).

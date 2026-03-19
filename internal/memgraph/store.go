@@ -989,6 +989,25 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 	return nil
 }
 
+// DeleteAllMemories removes all nodes and relationships from the graph.
+// This is intended for eval benchmark isolation only — it is destructive.
+func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
+	wctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	session := s.driver.NewSession(wctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, txErr := tx.Run(wctx, "MATCH (n) DETACH DELETE n", nil)
+		return nil, txErr
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph delete all memories: %w", err)
+	}
+	return nil
+}
+
 // Close releases the driver connection.
 func (s *MemgraphStore) Close() error {
 	closeCtx, cancel := context.WithTimeout(context.Background(), memgraphReadTimeout)

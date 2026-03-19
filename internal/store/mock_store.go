@@ -576,6 +576,15 @@ func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
 	return nil
 }
 
+// DeleteAllMemories clears all in-memory data from the mock store.
+func (m *MockStore) DeleteAllMemories(_ context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.memories = make(map[string]*storedMemory)
+	m.entities = make(map[string]*models.Entity)
+	return nil
+}
+
 // --- helpers ---
 
 func matchesFilters(mem models.Memory, f *SearchFilters) bool {
