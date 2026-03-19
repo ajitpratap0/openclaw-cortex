@@ -1,61 +1,43 @@
-package memgraph_test
+//go:build integration
+
+package tests
 
 // NOTE: These tests require a live Memgraph instance and are skipped in unit
 // CI runs that don't provide one. Run them manually or in integration CI.
 //
-// To run: MEMGRAPH_URI=bolt://localhost:7687 go test ./internal/memgraph/...
+// To run: go test -tags integration -run TestDelete ./tests/...
 
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
-	"github.com/openclaw/cortex/internal/memgraph"
-	"github.com/openclaw/cortex/internal/models"
-	"github.com/openclaw/cortex/internal/store"
+	"github.com/google/uuid"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-func boltURI(t *testing.T) string {
+// seedDeleteMemory creates a memory via Upsert and returns its UUID.
+func seedDeleteMemory(t *testing.T, s *memgraph.MemgraphStore, emb embedder.Embedder, content string) string {
 	t.Helper()
-	uri := os.Getenv("MEMGRAPH_URI")
-	if uri == "" {
-		t.Skip("MEMGRAPH_URI not set — skipping integration test")
-	}
-	return uri
-}
-
-func newTestStore(t *testing.T) *memgraph.MemgraphStore {
-	t.Helper()
-	s, err := memgraph.New(boltURI(t), "", "")
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
-	t.Cleanup(func() { _ = s.Close() })
-	return s
-}
-
-// seedMemory creates a memory and returns its UUID.
-func seedMemory(t *testing.T, s *memgraph.MemgraphStore, content string) string {
-	t.Helper()
-	mem := &models.Memory{
-		Content: content,
-		Type:    "fact",
-		Scope:   "session",
-	}
-	id, err := s.Create(context.Background(), mem)
-	if err != nil {
+	mem := newMemory(models.MemoryTypeFact, content)
+	vec := mustEmbed(t, emb, content)
+	if err := s.Upsert(context.Background(), mem, vec); err != nil {
 		t.Fatalf("seed memory: %v", err)
 	}
-	return id
+	return mem.ID
 }
 
 // TestDelete_ExactUUID verifies the baseline exact-match behaviour is unchanged.
 func TestDelete_ExactUUID(t *testing.T) {
-	s := newTestStore(t)
+	s := newIntegrationMemgraph(t)
+	emb := newTestEmbedder(t)
 	ctx := context.Background()
 
-	id := seedMemory(t, s, "exact-delete test")
+	id := seedDeleteMemory(t, s, emb, "exact-delete test")
 	if err := s.Delete(ctx, id); err != nil {
 		t.Fatalf("Delete(exact): %v", err)
 	}
@@ -69,10 +51,11 @@ func TestDelete_ExactUUID(t *testing.T) {
 
 // TestDelete_PrefixMatch verifies that a short prefix resolves to the right memory.
 func TestDelete_PrefixMatch(t *testing.T) {
-	s := newTestStore(t)
+	s := newIntegrationMemgraph(t)
+	emb := newTestEmbedder(t)
 	ctx := context.Background()
 
-	id := seedMemory(t, s, "prefix-delete test")
+	id := seedDeleteMemory(t, s, emb, "prefix-delete test")
 	// Use first 8 chars as a short prefix.
 	prefix := id[:8]
 
@@ -89,16 +72,13 @@ func TestDelete_PrefixMatch(t *testing.T) {
 
 // TestDelete_AmbiguousPrefix verifies that a prefix matching >1 memory returns an error.
 func TestDelete_AmbiguousPrefix(t *testing.T) {
-	s := newTestStore(t)
+	s := newIntegrationMemgraph(t)
+	emb := newTestEmbedder(t)
 	ctx := context.Background()
 
-	// Seed two memories — their UUIDs will share the empty prefix "".
-	// Use a very short prefix that is guaranteed to match both (empty string
-	// would match everything, but len("") == 0 < 36 triggers the prefix path).
-	// We can't force a shared prefix on real UUIDs, so instead we seed two
-	// memories and use a prefix of "" (length 0) which starts-with matches all.
-	_ = seedMemory(t, s, "ambiguous A")
-	_ = seedMemory(t, s, "ambiguous B")
+	// Seed two memories and use an empty prefix (starts-with "" matches all).
+	seedDeleteMemory(t, s, emb, "ambiguous A")
+	seedDeleteMemory(t, s, emb, "ambiguous B")
 
 	err := s.Delete(ctx, "") // prefix="" matches every memory
 	if err == nil {
@@ -113,10 +93,10 @@ func TestDelete_AmbiguousPrefix(t *testing.T) {
 
 // TestDelete_NotFound verifies ErrNotFound is returned for a non-existent full UUID.
 func TestDelete_NotFound(t *testing.T) {
-	s := newTestStore(t)
+	s := newIntegrationMemgraph(t)
 	ctx := context.Background()
 
-	err := s.Delete(ctx, "00000000-0000-0000-0000-000000000000")
+	err := s.Delete(ctx, uuid.Nil.String())
 	if !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound for missing UUID, got: %v", err)
 	}

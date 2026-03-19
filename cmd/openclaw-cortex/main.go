@@ -18,7 +18,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 )
 
-var version = "0.8.0"
+var version = "0.10.0"
 
 var cfg *config.Config
 
