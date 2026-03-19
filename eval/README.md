@@ -16,16 +16,16 @@ eval/
 ├── cmd/eval/main.go          # CLI entry point
 ├── locomo/
 │   ├── dataset.go            # 10 synthetic LoCoMo QA pairs (3 conversations)
-│   ├── harness.go            # Ingest + recall + score runner
-│   └── harness_test.go       # Unit tests (pure Go, no binary needed)
+│   └── harness.go            # Ingest + recall + score runner
 ├── longmemeval/
 │   ├── dataset.go            # 10 synthetic LongMemEval QA pairs
-│   ├── harness.go            # Ingest + recall + score runner
-│   └── harness_test.go       # Unit tests (pure Go, no binary needed)
+│   └── harness.go            # Ingest + recall + score runner
 └── runner/
-    ├── runner.go             # Shared types, CortexClient, scoring functions
-    └── runner_test.go        # Tests for ExactMatch, TokenF1, RecallAtK, Summarize
+    └── runner.go             # Shared types, CortexClient, scoring functions
 ```
+
+Tests for the eval harness live in the top-level `tests/` package:
+`tests/eval_locomo_test.go`, `tests/eval_longmemeval_test.go`, `tests/eval_runner_test.go`.
 
 ---
 
@@ -79,7 +79,7 @@ go run ./eval/cmd/eval \
 ### Run unit tests only (no binary / services needed)
 
 ```bash
-go test -short -count=1 ./eval/... -v
+go test -short -count=1 ./tests/... -v
 ```
 
 ---
@@ -172,7 +172,7 @@ go run ./eval/cmd/eval --binary ./bin/openclaw-cortex --benchmark all --k 5 --ou
 cat eval_results.json | jq '.[] | {name, exact_match_accuracy, avg_f1, recall_at_k}'
 
 # 5. Run unit tests (no services needed)
-go test -short -count=1 ./eval/... -v
+go test -short -count=1 ./tests/... -v
 ```
 
 ---
@@ -208,5 +208,5 @@ Each `knowledge-update` pair has at least one fact with a `ValidTo` field
 1. Add entries to `locomo/dataset.go` or `longmemeval/dataset.go`.
 2. Ensure each entry has a unique `ID`, non-empty `Question` and
    `GroundTruth`, and at least one `Conversation` turn / `Fact`.
-3. Run the unit tests: `go test -short ./eval/...` — the size/structure
+3. Run the unit tests: `go test -short ./tests/...` — the size/structure
    assertions will catch common mistakes.
