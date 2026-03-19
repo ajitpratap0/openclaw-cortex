@@ -57,6 +57,26 @@ func BuildEntityVectorIndexDDL(dim int) string {
 	)
 }
 
+// BuildSearchEntitiesCypher returns the Cypher query used by SearchEntities for text search.
+// Exported so that tests in the tests/ package can verify the query uses the correct
+// Memgraph procedure (text_search.search_all) and clause order (WITH before WHERE).
+//
+// Fixes:
+//   - Bug 1: Memgraph requires an explicit WITH clause to bridge YIELD and WHERE;
+//     WHERE directly after YIELD causes "mismatched input 'WHERE'" parse error.
+//   - Bug 2: text_search.search throws "Unknown exception!" on current Memgraph;
+//     text_search.search_all is the correct procedure name.
+func BuildSearchEntitiesCypher() string {
+	return `
+		CALL text_search.search_all("entity_text", $query)
+		YIELD node, score
+		WITH node, score
+		WHERE ($project = "" OR node.project = $project)
+		RETURN node.uuid AS id, node.name AS name, node.type AS type, score
+		LIMIT $limit
+	`
+}
+
 // EnsureSchema creates indexes, constraints, and vector indexes on Memgraph.
 // Memgraph does not support IF NOT EXISTS on constraints, so "already exists" errors
 // are caught and logged as warnings.
@@ -129,13 +149,7 @@ func (g *GraphAdapter) SearchEntities(ctx context.Context, query string, _ []flo
 	}
 
 	if query != "" {
-		cypher = `
-			CALL text_search.search("entity_text", $query)
-			YIELD node, score
-			WHERE ($project = "" OR node.project = $project)
-			RETURN node.uuid AS id, node.name AS name, node.type AS type, score
-			LIMIT $limit
-		`
+		cypher = BuildSearchEntitiesCypher()
 		params["query"] = query
 		params["project"] = project
 	} else {
