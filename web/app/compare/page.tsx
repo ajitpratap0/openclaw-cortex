@@ -1,3 +1,8 @@
+// Lazy-loading audit (Fix 11): ComparisonTable contains no <img> tags — only
+// inline SVG icons and text cells — so no loading="lazy" attribute is needed.
+// The component is lightweight static data (~225 lines) and renders above the
+// fold on desktop, so next/dynamic wrapping would add unnecessary overhead.
+// No changes required; audit outcome documented here.
 import type { Metadata } from "next";
 import ComparisonTable from "@/components/comparison-table";
 import Button from "@/components/ui/button";
