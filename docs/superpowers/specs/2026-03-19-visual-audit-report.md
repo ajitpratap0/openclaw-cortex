@@ -8,20 +8,20 @@
 
 | Site | Critical | High | Medium | Low |
 |------|----------|------|--------|-----|
-| web/ | 0 | 1 | 6 | 2 |
-| apps/admin/ | 0 | 1 | 13 | 6 |
-| **Total** | **0** | **2** | **19** | **8** |
+| web/ | 0 | 1 | 5 | 1 |
+| apps/admin/ | 0 | 0 | 11 | 7 |
+| **Total** | **0** | **1** | **16** | **8** |
 
 **By dimension:**
 
 | Dimension | Critical | High | Medium | Low |
 |-----------|----------|------|--------|-----|
-| Design consistency | 0 | 0 | 4 | 2 |
-| Accessibility | 0 | 2 | 6 | 2 |
+| Design consistency | 0 | 0 | 3 | 2 |
+| Accessibility | 0 | 1 | 4 | 1 |
 | Responsive layout | 0 | 0 | 3 | 0 |
 | UX flows | 0 | 0 | 5 | 1 |
 | Performance | 0 | 0 | 1 | 4 |
-| Brand/visual polish | 0 | 0 | 0 | 1 |
+| Brand/visual polish | 0 | 0 | 0 | 0 |
 
 No critical issues were found across either site. Both sites share two structural gaps: missing App Router convention files (loading.tsx, error.tsx) at every route level, and unstyled/inaccessible interactive elements. The admin dashboard carries a heavier accessibility and UX debt than the marketing site due to its interactive nature.
 
@@ -52,7 +52,6 @@ No critical issues were found across either site. Both sites share two structura
 |------|-------|----------|----------|
 | All pages | No skip-nav link present | High | `web/app/layout.tsx` — no `<a href="#main">` or skip-link component anywhere in the layout |
 | All pages | Nav links missing hover state for mobile | Low | `web/components/nav.tsx` line 117 |
-| /playground | Keyword-based similarity used instead of real cosine distance — disclosed but misleading to users | Low | `web/app/playground/page.tsx` lines 84–91 |
 
 #### Responsive Layout
 
@@ -81,7 +80,7 @@ No issues found.
 | Dimension | Critical | High | Medium | Low |
 |-----------|----------|------|--------|-----|
 | Design consistency | 0 | 0 | 2 | 0 |
-| Accessibility | 0 | 1 | 0 | 2 |
+| Accessibility | 0 | 1 | 0 | 1 |
 | Responsive layout | 0 | 0 | 1 | 0 |
 | UX flows | 0 | 0 | 1 | 0 |
 | Performance | 0 | 0 | 1 | 0 |
@@ -98,7 +97,6 @@ No issues found.
 | Page | Issue | Severity | Evidence |
 |------|-------|----------|----------|
 | /dashboard | Inline template literal for color selection instead of CSS class | Medium | `apps/admin/components/stats-cards.tsx` lines 37–39 |
-| /settings | Form uses hardcoded text labels instead of semantic `<label>` elements | Medium | `apps/admin/app/settings/page.tsx` lines 66–78 |
 | layout.tsx | Body background uses hardcoded color class (`bg-zinc-950`) instead of CSS variable | Low | `apps/admin/app/layout.tsx` line 23 |
 | /dashboard | Hardcoded `amber-400` for conflict badge instead of CSS variable | Low | `apps/admin/components/stats-cards.tsx` line 38 |
 
@@ -106,11 +104,10 @@ No issues found.
 
 | Page | Issue | Severity | Evidence |
 |------|-------|----------|----------|
-| memory-table.tsx | Delete action button lacks visual button styling, focus indicator, and aria-label | High | `apps/admin/components/memory-table.tsx` lines 78–82 |
+| memory-table.tsx | Delete `<button>` missing focus ring and `aria-label` — hover colour only, no keyboard-visible focus indicator | Medium | `apps/admin/components/memory-table.tsx` lines 78–82 |
 | /memories | Select filters missing aria-label attributes | Medium | `apps/admin/app/memories/page.tsx` lines 64–75 |
 | /memories/[id] | Back button is unstyled plain text link with no aria-label | Medium | `apps/admin/app/memories/[id]/page.tsx` lines 51–56 |
-| /entities | "Show linked memories" button is unstyled plain text link with no aria-label | Medium | `apps/admin/components/entity-table.tsx` lines 24–29 |
-| entity-table.tsx | "Show linked memories" uses button element but styled as text link — inconsistent interactive affordance | Medium | `apps/admin/components/entity-table.tsx` lines 24–29 |
+| entity-table.tsx | "Show linked memories" `<button>` styled as plain text link — no `aria-label`, no `aria-expanded`, no visible button affordance | Medium | `apps/admin/components/entity-table.tsx` lines 24–29 |
 
 #### Responsive Layout
 
@@ -140,20 +137,18 @@ No issues found.
 
 #### Brand/Visual Polish
 
-| Page | Issue | Severity | Evidence |
-|------|-------|----------|----------|
-| /dashboard | Hardcoded `amber-400` for conflict badge instead of CSS variable | Low | `apps/admin/components/stats-cards.tsx` line 38 |
+No additional issues (amber-400 token gap filed under Design Consistency above).
 
 **Dimension summary — apps/admin/:**
 
 | Dimension | Critical | High | Medium | Low |
 |-----------|----------|------|--------|-----|
-| Design consistency | 0 | 0 | 2 | 2 |
-| Accessibility | 0 | 1 | 5 | 0 |
+| Design consistency | 0 | 0 | 1 | 2 |
+| Accessibility | 0 | 0 | 4 | 0 |
 | Responsive layout | 0 | 0 | 2 | 0 |
 | UX flows | 0 | 0 | 4 | 1 |
 | Performance | 0 | 0 | 0 | 4 |
-| Brand/visual polish | 0 | 0 | 0 | 1 |
+| Brand/visual polish | 0 | 0 | 0 | 0 |
 
 ---
 
@@ -187,19 +182,12 @@ No Critical issues found in either site.
 - **Why:** Without a skip-nav link, keyboard and screen reader users must tab through the entire navigation on every page load, which violates WCAG 2.1 SC 2.4.1 (Bypass Blocks).
 - **Effort:** Quick Win
 
-#### Fix 2: Apply visible button styling and focus indicator to delete action in memory-table
-- **Severity:** High
-- **Site(s):** apps/admin/
-- **Files:** `apps/admin/components/memory-table.tsx` lines 78–82
-- **What to change:** Replace the plain text/link element with a `<button>` element styled with Tailwind utility classes (e.g., `className="text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded px-2 py-1 text-sm font-medium"`), and add `aria-label="Delete memory"`.
-- **Why:** Without visible button affordance and a focus ring, keyboard-only users have no visible indicator of where focus is and cannot distinguish the delete action from surrounding text.
-- **Effort:** Quick Win
 
 ---
 
 ### Tier 3 — Medium
 
-#### Fix 3: Replace native confirm() dialogs with accessible Dialog components
+#### Fix 2: Replace native confirm() dialogs with accessible Dialog components
 - **Severity:** Medium
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/memories/page.tsx` line 40, `apps/admin/app/memories/[id]/page.tsx` line 47
@@ -207,15 +195,15 @@ No Critical issues found in either site.
 - **Why:** `window.confirm()` is not announced by all screen readers, cannot be styled to match the design system, and blocks the entire browser UI during confirmation.
 - **Effort:** Medium
 
-#### Fix 4: Add App Router loading.tsx and error.tsx convention files to all routes (both sites)
+#### Fix 3: Add App Router loading.tsx and error.tsx convention files to all routes (both sites)
 - **Severity:** Medium
 - **Site(s):** both
-- **Files:** All directories under `web/app/` (blog/, docs/, features/, compare/, playground/) and `apps/admin/app/` (dashboard/, memories/, memories/[id]/, entities/, conflicts/, settings/)
+- **Files:** `web/app/` sub-routes missing files: blog/, features/, compare/, playground/ (note: `web/app/docs/[[...slug]]/loading.tsx` already exists — skip that route). `apps/admin/app/` sub-routes: dashboard/, memories/, memories/[id]/, entities/, conflicts/, settings/
 - **What to change:** Create a minimal `loading.tsx` exporting a skeleton/spinner component and an `error.tsx` exporting an error boundary component with a reset button in each route directory. Reuse a shared `<LoadingSkeleton />` and `<ErrorBoundary />` component to keep the additions thin.
 - **Why:** Without these files, any slow data fetch or unhandled runtime error surfaces as a blank page or a full-app crash with no user feedback.
 - **Effort:** Medium
 
-#### Fix 5: Replace raw hex values in globals.css with CSS variable references
+#### Fix 4: Replace raw hex values in globals.css with CSS variable references
 - **Severity:** Medium
 - **Site(s):** web/
 - **Files:** `web/app/globals.css` lines 41–77
@@ -223,7 +211,7 @@ No Critical issues found in either site.
 - **Why:** Hardcoded hex values in utility classes diverge from the design token system, making theme changes require grep-and-replace rather than a single variable update.
 - **Effort:** Quick Win
 
-#### Fix 6: Resolve inline template literal color selection in stats-cards and migrate to CSS class
+#### Fix 5: Resolve inline template literal color selection in stats-cards and migrate to CSS class
 - **Severity:** Medium
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/components/stats-cards.tsx` lines 37–39
@@ -231,12 +219,20 @@ No Critical issues found in either site.
 - **Why:** Dynamic class names constructed via template literals are pruned by Tailwind's JIT compiler in production builds, causing the color to disappear at runtime.
 - **Effort:** Quick Win
 
-#### Fix 7: Add aria-label attributes to Select filter elements on /memories
+#### Fix 6: Add aria-label attributes to Select filter elements on /memories
 - **Severity:** Medium
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/memories/page.tsx` lines 64–75
 - **What to change:** Add `aria-label="Filter by type"`, `aria-label="Filter by scope"`, etc. to each `<Select>` (or its trigger child) that currently has no accessible label. If shadcn/ui `Select` is used, pass `aria-label` to the `<SelectTrigger>` element.
 - **Why:** Unlabeled form controls fail WCAG 2.1 SC 1.3.1 (Info and Relationships) and SC 4.1.2 (Name, Role, Value); screen readers announce them as "combo box" with no context.
+- **Effort:** Quick Win
+
+#### Fix 7: Add focus ring and aria-label to delete button in memory-table
+- **Severity:** Medium
+- **Site(s):** apps/admin/
+- **Files:** `apps/admin/components/memory-table.tsx` lines 78–82
+- **What to change:** The element is already a `<button>`. Add `focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2` to its className, and add `aria-label="Delete memory"`. Do not change the element type.
+- **Why:** A `<button>` with only a hover colour change provides no visible focus indicator for keyboard users, and no accessible name for screen readers.
 - **Effort:** Quick Win
 
 #### Fix 8: Add aria-label to unstyled back button and apply button styling on /memories/[id]
@@ -263,15 +259,7 @@ No Critical issues found in either site.
 - **Why:** Fixed-width inputs that exceed the viewport width create horizontal scrollbars and break the filter row layout on mobile devices.
 - **Effort:** Quick Win
 
-#### Fix 11: Replace semantic form labels in /settings
-- **Severity:** Medium
-- **Site(s):** apps/admin/
-- **Files:** `apps/admin/app/settings/page.tsx` lines 66–78
-- **What to change:** Replace each hardcoded `<p>` or `<div>` label with a `<label htmlFor="field-id">` element paired with a matching `id` on the corresponding `<input>` or `<select>`. This establishes a programmatic association between label and control.
-- **Why:** Without `<label htmlFor>` associations, screen readers do not announce the field's purpose when focus moves to the control, failing WCAG SC 1.3.1 and SC 4.1.2.
-- **Effort:** Quick Win
-
-#### Fix 12: Audit and fix ComparisonTable lazy loading on /compare
+#### Fix 11: Audit and fix ComparisonTable lazy loading on /compare
 - **Severity:** Medium
 - **Site(s):** web/
 - **Files:** `web/app/compare/` (ComparisonTable component file — locate exact path)
@@ -279,15 +267,15 @@ No Critical issues found in either site.
 - **Why:** Eagerly loading off-screen comparison table content delays Time to Interactive for the page hero section.
 - **Effort:** Medium
 
-#### Fix 13: Fix optimistic update mismatch for conflict_status field on /conflicts
+#### Fix 12: Resolve conflict_status optimistic update mismatch on /conflicts
 - **Severity:** Medium
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/conflicts/page.tsx` lines 20–23
-- **What to change:** Either (a) update the server PUT endpoint to accept and persist `conflict_status`, or (b) remove the optimistic update and refresh the conflicts list from the server after the mutation resolves, so the UI state is always authoritative. Add a comment explaining which path was chosen.
-- **Why:** An optimistic update that the server silently ignores causes the UI to show a resolved state that reverts on next page load, which is misleading and erodes user trust.
+- **What to change:** The code already contains an inline comment acknowledging that the server endpoint does not accept `conflict_status`. Either (a) update the server PUT endpoint to accept and persist `conflict_status`, or (b) remove the optimistic update and revalidate from the server after the mutation resolves. Update the comment to reflect which path was chosen and mark the known limitation resolved.
+- **Why:** An optimistic update the server silently ignores causes the UI to show a resolved state that reverts on next page load — the inline comment documents the gap, but it should be resolved rather than tracked indefinitely.
 - **Effort:** Medium
 
-#### Fix 14: Investigate and address secondary text contrast (text-zinc-400 on zinc-950)
+#### Fix 13: Investigate and address secondary text contrast (text-zinc-400 on zinc-950)
 - **Severity:** Medium
 - **Site(s):** web/
 - **Files:** All pages using `text-zinc-400` on `bg-zinc-950` backgrounds
@@ -299,7 +287,7 @@ No Critical issues found in either site.
 
 ### Tier 4 — Low
 
-#### Fix 15: Add nav link hover states for mobile in web/ nav
+#### Fix 14: Add nav link hover states for mobile in web/ nav
 - **Severity:** Low
 - **Site(s):** web/
 - **Files:** `web/components/nav.tsx` line 117
@@ -307,15 +295,7 @@ No Critical issues found in either site.
 - **Why:** Without a touch/active state, mobile users see no feedback when tapping navigation items, making the interface feel unresponsive.
 - **Effort:** Quick Win
 
-#### Fix 16: Add disclosure note or replace keyword similarity on /playground
-- **Severity:** Low
-- **Site(s):** web/
-- **Files:** `web/app/playground/page.tsx` lines 84–91
-- **What to change:** Add an inline callout (e.g., a `<p className="text-xs text-zinc-500">` note) immediately below the similarity score explaining "Scores shown are keyword-based approximations for this demo; production uses 768-dim cosine similarity via Ollama." Alternatively, integrate a real cosine distance implementation using the same embeddings the backend uses.
-- **Why:** Displaying a similarity score without disclosing that it is computed differently from production misleads developers evaluating the system.
-- **Effort:** Quick Win
-
-#### Fix 17: Add metadata to admin root redirect page
+#### Fix 15: Add metadata to admin root redirect page
 - **Severity:** Low
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/page.tsx` lines 1–5
@@ -323,7 +303,7 @@ No Critical issues found in either site.
 - **Why:** A missing title on the root page results in "Untitled" in browser history and bookmark lists, degrading the developer experience.
 - **Effort:** Quick Win
 
-#### Fix 18: Add skeleton loading states to all admin pages
+#### Fix 16: Add skeleton loading states to all admin pages
 - **Severity:** Low
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/dashboard/page.tsx` lines 19–26, `apps/admin/app/memories/page.tsx` line 108, `apps/admin/app/entities/page.tsx` line 58, `apps/admin/app/conflicts/page.tsx` line 73
@@ -331,7 +311,7 @@ No Critical issues found in either site.
 - **Why:** Blank or near-blank loading states cause layout shift and make the app feel slower than it is; skeleton screens anchor the user's expectation of incoming content.
 - **Effort:** Medium
 
-#### Fix 19: Replace hardcoded bg-zinc-950 and amber-400 with CSS variables in admin layout
+#### Fix 17: Replace hardcoded bg-zinc-950 and amber-400 with CSS variables in admin layout
 - **Severity:** Low
 - **Site(s):** apps/admin/
 - **Files:** `apps/admin/app/layout.tsx` line 23, `apps/admin/components/stats-cards.tsx` line 38
