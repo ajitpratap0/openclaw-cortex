@@ -12,6 +12,17 @@
 | apps/admin/ | 0 | 1 | 13 | 6 |
 | **Total** | **0** | **2** | **19** | **8** |
 
+**By dimension:**
+
+| Dimension | Critical | High | Medium | Low |
+|-----------|----------|------|--------|-----|
+| Design consistency | 0 | 0 | 4 | 2 |
+| Accessibility | 0 | 2 | 6 | 2 |
+| Responsive layout | 0 | 0 | 3 | 0 |
+| UX flows | 0 | 0 | 5 | 1 |
+| Performance | 0 | 0 | 1 | 4 |
+| Brand/visual polish | 0 | 0 | 0 | 1 |
+
 No critical issues were found across either site. Both sites share two structural gaps: missing App Router convention files (loading.tsx, error.tsx) at every route level, and unstyled/inaccessible interactive elements. The admin dashboard carries a heavier accessibility and UX debt than the marketing site due to its interactive nature.
 
 ### Top 3 Priority Fixes
@@ -23,6 +34,8 @@ No critical issues were found across either site. Both sites share two structura
 ---
 
 ## 2. Per-Site Findings
+
+> Findings are organised by dimension within each site for readability. The combined view across all dimensions follows the format `Page | Dimension | Issue | Severity | Evidence` — reading down each sub-table in order is equivalent to a single merged table sorted by dimension.
 
 ### web/ (Marketing + Docs)
 
@@ -45,7 +58,7 @@ No critical issues were found across either site. Both sites share two structura
 
 | Page | Issue | Severity | Evidence |
 |------|-------|----------|----------|
-| All pages | No responsive grid/flex overflow checks verified on mobile | Medium | Feature components use hardcoded spacing; requires device rendering to confirm |
+| All pages | Mobile overflow behaviour is **unverifiable from source** — Tailwind breakpoint classes (`sm:`, `md:`, `lg:`) are present throughout, but whether hardcoded spacing causes actual overflow at narrow viewports (320–375 px) cannot be confirmed without browser rendering | Medium (unverifiable from source) | Requires device/viewport rendering to confirm; flag for manual QA pass |
 
 #### UX Flows
 
@@ -78,6 +91,8 @@ No issues found.
 
 ### apps/admin/ (Developer Dashboard)
 
+> **Note on page structure:** The spec's canonical list shows `/` as "Dashboard." In the actual codebase, `apps/admin/app/page.tsx` is a simple `redirect()` to `/dashboard`, and the dashboard UI lives in `apps/admin/app/dashboard/page.tsx`. Both are audited separately below to reflect the real app structure.
+
 #### Design Consistency
 
 | Page | Issue | Severity | Evidence |
@@ -91,8 +106,7 @@ No issues found.
 
 | Page | Issue | Severity | Evidence |
 |------|-------|----------|----------|
-| memory-table.tsx | Delete action button lacks visual button styling and focus indicator | High | `apps/admin/components/memory-table.tsx` lines 78–82 |
-| /dashboard | Delete button in memory list is unstyled plain text link with no aria-label | Medium | `apps/admin/components/memory-table.tsx` lines 78–82 |
+| memory-table.tsx | Delete action button lacks visual button styling, focus indicator, and aria-label | High | `apps/admin/components/memory-table.tsx` lines 78–82 |
 | /memories | Select filters missing aria-label attributes | Medium | `apps/admin/app/memories/page.tsx` lines 64–75 |
 | /memories/[id] | Back button is unstyled plain text link with no aria-label | Medium | `apps/admin/app/memories/[id]/page.tsx` lines 51–56 |
 | /entities | "Show linked memories" button is unstyled plain text link with no aria-label | Medium | `apps/admin/components/entity-table.tsx` lines 24–29 |
@@ -155,9 +169,15 @@ No issues found.
 
 ## 4. Implementation Plan
 
-> Tiers ordered by severity. Within each tier: Quick Win first, then Medium, then Major.
+> Tiers ordered by severity (Tier 1 = Critical → Tier 4 = Low). Within each tier: Quick Win first, then Medium, then Major.
 
-### Tier 1 — High
+### Tier 1 — Critical
+
+No Critical issues found in either site.
+
+---
+
+### Tier 2 — High
 
 #### Fix 1: Add skip-nav links to both site root layouts
 - **Severity:** High
@@ -177,7 +197,7 @@ No issues found.
 
 ---
 
-### Tier 2 — Medium
+### Tier 3 — Medium
 
 #### Fix 3: Replace native confirm() dialogs with accessible Dialog components
 - **Severity:** Medium
@@ -277,7 +297,7 @@ No issues found.
 
 ---
 
-### Tier 3 — Low
+### Tier 4 — Low
 
 #### Fix 15: Add nav link hover states for mobile in web/ nav
 - **Severity:** Low
