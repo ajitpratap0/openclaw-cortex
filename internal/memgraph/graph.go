@@ -731,7 +731,6 @@ func (g *GraphAdapter) recallByFactSearch(ctx context.Context, query string, emb
 	return memoryIDs, nil
 }
 
-// Healthy returns true if the Memgraph database is reachable.
 // CreateEpisode stores an Episode node in Memgraph.
 func (g *GraphAdapter) CreateEpisode(ctx context.Context, episode models.Episode) error {
 	session := g.store.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
@@ -759,7 +758,10 @@ SET e.session_id = $session_id,
 		_, err := tx.Run(ctx, cypher, params)
 		return nil, err
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("memgraph create episode %s: %w", episode.UUID, err)
+	}
+	return nil
 }
 
 // GetEpisodesForMemory returns all Episode nodes whose memory_ids contain the given memoryID.
@@ -803,7 +805,7 @@ func (g *GraphAdapter) GetEpisodesForMemory(ctx context.Context, memoryID string
 		return episodes, records.Err()
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("memgraph get episodes for memory %s: %w", memoryID, err)
 	}
 	if result == nil {
 		return nil, nil
@@ -815,6 +817,7 @@ func (g *GraphAdapter) GetEpisodesForMemory(ctx context.Context, memoryID string
 	return eps, nil
 }
 
+// Healthy returns true if the Memgraph database is reachable.
 func (g *GraphAdapter) Healthy(ctx context.Context) bool {
 	err := g.store.driver.VerifyConnectivity(ctx)
 	if err != nil {
