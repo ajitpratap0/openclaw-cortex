@@ -8,7 +8,7 @@ interface StatsCardsProps {
 }
 
 const colorClassMap: Record<string, string> = {
-  amber: 'text-amber-400',
+  amber: 'text-[--color-warning]',
   green: 'text-green-400',
   blue:  'text-blue-400',
   red:   'text-red-400',
