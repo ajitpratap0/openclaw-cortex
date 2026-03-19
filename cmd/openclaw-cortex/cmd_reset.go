@@ -17,7 +17,7 @@ This operation is irreversible. Intended for eval benchmark isolation.
 Pass --yes to skip the confirmation prompt.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
-				fmt.Fprintln(cmd.OutOrStdout(), "This will permanently delete ALL memories. Pass --yes to confirm.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "This will permanently delete ALL memories. Pass --yes to confirm.")
 				return nil
 			}
 			logger := newLogger()
@@ -31,7 +31,7 @@ Pass --yes to skip the confirmation prompt.`,
 			if err := st.DeleteAllMemories(ctx); err != nil {
 				return cmdErr("reset: deleting memories", err)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "All memories deleted.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "All memories deleted.")
 			return nil
 		},
 	}

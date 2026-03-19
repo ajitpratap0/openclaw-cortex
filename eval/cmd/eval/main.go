@@ -74,8 +74,8 @@ func run() error {
 		summaries = append(summaries, s1)
 
 		// Reset between benchmarks so LoCoMo facts don't contaminate LongMemEval.
-		if err := client.Reset(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "[eval] warn: reset between benchmarks failed: %v\n", err)
+		if resetErr := client.Reset(ctx); resetErr != nil {
+			fmt.Fprintf(os.Stderr, "[eval] warn: reset between benchmarks failed: %v\n", resetErr)
 		}
 
 		s2, err := runLongMemEval(ctx, client, *k)
