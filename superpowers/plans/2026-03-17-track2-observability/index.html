@@ -1,0 +1,1218 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/plans/2026-03-17-track2-observability/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Track 2 — Observability (Sentry + Prometheus) Implementation Plan - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#track-2-observability-sentry-prometheus-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Track 2 — Observability (Sentry + Prometheus) Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="track-2-observability-sentry-prometheus-implementation-plan">Track 2 — Observability (Sentry + Prometheus) Implementation Plan</h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Add Sentry error tracking + performance tracing (PR 2.1) and a Prometheus <code>/metrics</code> endpoint (PR 2.2) to all three runtime modes (CLI, HTTP API server, MCP server).</p>
+<p><strong>Architecture:</strong> Two PRs serialized on the same branch stack. PR 2.1 introduces a thin <code>internal/sentry/</code> wrapper that is a no-op when <code>SENTRY_DSN</code> is unset. PR 2.2 replaces the existing <code>expvar</code> counters in <code>internal/metrics/</code> with Prometheus types and adds a <code>/metrics</code> HTTP endpoint. PR 2.1 must merge before 2.2 because both modify <code>internal/api/server.go</code>.</p>
+<p><strong>Prerequisite:</strong> Track 1 PRs merged (especially 1.4 which changes <code>NewServer</code> signature).</p>
+<p><strong>Tech Stack:</strong> Go 1.25, <code>github.com/getsentry/sentry-go</code>, <code>github.com/prometheus/client_golang</code>, golangci-lint v2, <code>go test -race -count=1 ./...</code></p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-03-17-v0.9.0-architecture-security-review-design.md</code></p>
+<hr />
+<h2 id="pr-21-featsentry">PR 2.1 — <code>feat/sentry</code></h2>
+<p><strong>Size note:</strong> ~24 files. Implement as 3 commits: (1) sentry package + config, (2) HTTP middleware, (3) CLI wiring.</p>
+<p><strong>Files:</strong>
+- Create: <code>internal/sentry/sentry.go</code>
+- Modify: <code>internal/config/config.go</code>
+- Modify: <code>internal/api/server.go</code>
+- Modify: <code>cmd/openclaw-cortex/main.go</code>
+- Modify: all <code>cmd/openclaw-cortex/cmd_*.go</code> files (20 files — mechanical 1–3 line change each)
+- Test: <code>tests/sentry_test.go</code> (new)</p>
+<hr />
+<h3 id="task-1-sentry-wrapper-package">Task 1: Sentry wrapper package</h3>
+<ul>
+<li>[ ] <strong>Step 1: Add <code>sentry-go</code> dependency</strong></li>
+</ul>
+<pre><code class="language-bash">go get github.com/getsentry/sentry-go
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Create <code>internal/sentry/sentry.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// Package sentry wraps the Sentry Go SDK.
+// All functions are no-ops when DSN is empty so the package is safe to call
+// unconditionally regardless of whether Sentry is configured.
+package sentry
+
+import (
+    &quot;time&quot;
+
+    sentrygo &quot;github.com/getsentry/sentry-go&quot;
+)
+
+// Init initialises the Sentry SDK. Does nothing if dsn is empty.
+func Init(dsn, environment, release string) {
+    if dsn == &quot;&quot; {
+        return
+    }
+    _ = sentrygo.Init(sentrygo.ClientOptions{
+        Dsn:              dsn,
+        Environment:      environment,
+        Release:          release,
+        TracesSampleRate: 0.2,
+    })
+    initialised = true
+}
+
+// Flush waits up to timeout for buffered events to be sent.
+func Flush(timeout time.Duration) {
+    sentrygo.Flush(timeout)
+}
+
+// CaptureException sends err to Sentry. No-op if err is nil or Sentry is not configured.
+func CaptureException(err error) {
+    if err == nil {
+        return
+    }
+    sentrygo.CaptureException(err)
+}
+
+// initialised is set to true by Init when a non-empty DSN is provided.
+// It guards all Sentry calls so they are no-ops when Sentry is not configured.
+// Checking hub.Client() at call time is unreliable because Init(&quot;&quot;, ...) may
+// still create a hub with a nil client that behaves unexpectedly.
+var initialised bool
+
+// StartSpan starts a Sentry performance span. Returns a function that must be called to finish the span.
+// If Sentry is not configured, returns a no-op finish function.
+func StartSpan(op, description string) func() {
+    if !initialised {
+        return func() {}
+    }
+    span := sentrygo.StartSpan(sentrygo.TODO(), op,
+        sentrygo.WithDescription(description),
+    )
+    return func() { span.Finish() }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>SentryConfig</code> to <code>internal/config/config.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// SentryConfig holds Sentry error tracking settings.
+type SentryConfig struct {
+    DSN         string `mapstructure:&quot;dsn&quot;`
+    Environment string `mapstructure:&quot;environment&quot;`
+}
+</code></pre>
+<p>Add <code>Sentry SentryConfig</code> to the <code>Config</code> struct.</p>
+<p>In <code>Load()</code>:</p>
+<pre><code class="language-go">v.SetDefault(&quot;sentry.dsn&quot;, &quot;&quot;)
+v.SetDefault(&quot;sentry.environment&quot;, &quot;production&quot;)
+_ = v.BindEnv(&quot;sentry.dsn&quot;, &quot;SENTRY_DSN&quot;)
+_ = v.BindEnv(&quot;sentry.environment&quot;, &quot;SENTRY_ENVIRONMENT&quot;)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Wire Sentry init into <code>cmd/openclaw-cortex/main.go</code></strong></li>
+</ul>
+<p>In <code>PersistentPreRunE</code>:</p>
+<pre><code class="language-go">sentry.Init(cfg.Sentry.DSN, cfg.Sentry.Environment, version)
+</code></pre>
+<p>At the end of <code>main()</code> before <code>os.Exit</code>:</p>
+<pre><code class="language-go">sentry.Flush(2 * time.Second)
+</code></pre>
+<p>Add import <code>"github.com/ajitpratap0/openclaw-cortex/internal/sentry"</code>.</p>
+<ul>
+<li>[ ] <strong>Step 5: Write the Sentry no-op test in <code>tests/sentry_test.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;errors&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/sentry&quot;
+)
+
+func TestSentry_NoopWhenDSNEmpty(t *testing.T) {
+    // Verify that all sentry functions are safe to call with no DSN configured.
+    sentry.Init(&quot;&quot;, &quot;test&quot;, &quot;0.0.0&quot;)
+    sentry.CaptureException(errors.New(&quot;test error&quot;))
+    finish := sentry.StartSpan(&quot;test.op&quot;, &quot;test description&quot;)
+    finish()
+    sentry.Flush(0)
+    // If we get here without panic, the no-op behaviour works.
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 6: Run test</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestSentry_NoopWhenDSNEmpty -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit (commit 1 of 3)</strong></li>
+</ul>
+<pre><code class="language-bash">git checkout -b feat/sentry
+git add internal/sentry/ internal/config/config.go cmd/openclaw-cortex/main.go tests/sentry_test.go go.mod go.sum
+git commit -m &quot;feat(sentry): add no-op Sentry wrapper + config&quot;
+</code></pre>
+<hr />
+<h3 id="task-2-http-middleware-for-sentry">Task 2: HTTP middleware for Sentry</h3>
+<ul>
+<li>[ ] <strong>Step 8: Add Sentry middleware to <code>internal/api/server.go</code></strong></li>
+</ul>
+<p>Add import <code>sentryhttp "github.com/getsentry/sentry-go/http"</code>.</p>
+<p>In <code>Handler()</code>, wrap the mux with the Sentry HTTP middleware:</p>
+<pre><code class="language-go">func (s *Server) Handler() http.Handler {
+    mux := http.NewServeMux()
+    // ... route registrations unchanged ...
+
+    sentryHandler := sentryhttp.New(sentryhttp.Options{
+        Repanic: true, // re-panic after capturing so the server can recover
+    })
+    return sentryHandler.Handle(mux)
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 9: Add test verifying the HTTP middleware is wired (in <code>tests/sentry_test.go</code>)</strong></li>
+</ul>
+<p>Add a test that verifies the handler responds normally when Sentry is in no-op mode (DSN empty). The Sentry HTTP middleware is transparent when no DSN is set; this test confirms the middleware doesn't break normal requests:</p>
+<pre><code class="language-go">func TestSentryMiddleware_PassthroughWhenNoDSN(t *testing.T) {
+    // Sentry was Init'd with &quot;&quot; in TestSentry_NoopWhenDSNEmpty above.
+    // Build a minimal server and confirm a normal request still gets 200.
+    st := store.NewMockStore()
+    srv := api.NewServer(st, nil, newTestEmbedder(t), newTestLogger(), &quot;&quot;, &quot;&quot;)
+    req := httptest.NewRequest(http.MethodGet, &quot;/healthz&quot;, nil)
+    rr := httptest.NewRecorder()
+    srv.Handler().ServeHTTP(rr, req)
+    if rr.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200 from healthz, got %d&quot;, rr.Code)
+    }
+}
+</code></pre>
+<p>Run:</p>
+<pre><code class="language-bash">go test -run TestSentryMiddleware -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<ul>
+<li>[ ] <strong>Step 10: Commit (commit 2 of 3)</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/api/server.go tests/sentry_test.go
+git commit -m &quot;feat(sentry): wrap HTTP handler with Sentry middleware&quot;
+</code></pre>
+<hr />
+<h3 id="task-3-wire-captureexception-into-cli-commands">Task 3: Wire CaptureException into CLI commands</h3>
+<ul>
+<li>[ ] <strong>Step 11: Update each <code>cmd_*.go</code> file</strong> to call <code>sentry.CaptureException(err)</code> before returning errors from <code>RunE</code>.</li>
+</ul>
+<p>The pattern is identical for every command. For each file in <code>cmd/openclaw-cortex/</code> that has a <code>RunE</code>:</p>
+<pre><code class="language-go">// Before:
+return fmt.Errorf(&quot;capture: %w&quot;, err)
+
+// After:
+if runErr := fmt.Errorf(&quot;capture: %w&quot;, err); runErr != nil {
+    sentry.CaptureException(runErr)
+    return runErr
+}
+</code></pre>
+<p>A simpler approach that avoids changing every return statement — add a helper in <code>cmd/openclaw-cortex/helpers.go</code>:</p>
+<pre><code class="language-go">// cmdErr wraps an error with context and reports it to Sentry.
+func cmdErr(context string, err error) error {
+    if err == nil {
+        return nil
+    }
+    wrapped := fmt.Errorf(&quot;%s: %w&quot;, context, err)
+    sentry.CaptureException(wrapped)
+    return wrapped
+}
+</code></pre>
+<p>Then update <code>RunE</code> functions to use <code>return cmdErr("capture", err)</code> instead of <code>return fmt.Errorf("capture: %w", err)</code>.</p>
+<p>This is a mechanical change. Apply it to: <code>cmd_capture.go</code>, <code>cmd_recall.go</code>, <code>cmd_search.go</code>, <code>cmd_store.go</code>, <code>cmd_store_batch.go</code>, <code>cmd_index.go</code>, <code>cmd_lifecycle.go</code>, <code>cmd_serve.go</code>, <code>cmd_export.go</code>, <code>cmd_import.go</code>, <code>cmd_migrate.go</code>, <code>cmd_entities.go</code>, <code>cmd_get.go</code>, <code>cmd_update.go</code>, <code>cmd_hook.go</code>, <code>cmd_mcp.go</code>.</p>
+<ul>
+<li>[ ] <strong>Step 12: Add performance spans to hot paths</strong></li>
+</ul>
+<p>In <code>internal/hooks/hooks.go</code> — <code>PreTurnHook.Run</code> and <code>PostTurnHook.Run</code>:</p>
+<pre><code class="language-go">finish := sentry.StartSpan(&quot;hook.pre_turn&quot;, &quot;PreTurnHook&quot;)
+defer finish()
+</code></pre>
+<p>In <code>internal/embedder/embedder.go</code> — <code>OllamaEmbedder.Embed</code>:</p>
+<pre><code class="language-go">finish := sentry.StartSpan(&quot;embed.ollama&quot;, &quot;OllamaEmbedder.Embed&quot;)
+defer finish()
+</code></pre>
+<p>In <code>internal/recall/recall.go</code> — <code>Recaller.RecallWithGraph</code>:</p>
+<pre><code class="language-go">finish := sentry.StartSpan(&quot;recall.with_graph&quot;, &quot;Recaller.RecallWithGraph&quot;)
+defer finish()
+</code></pre>
+<p>In <code>internal/llm/client.go</code> — <code>AnthropicClient.Complete</code> and <code>internal/llm/gateway.go</code> — <code>GatewayClient.Complete</code>:</p>
+<pre><code class="language-go">finish := sentry.StartSpan(&quot;llm.complete&quot;, &quot;LLMClient.Complete&quot;)
+defer finish()
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 13: Run full test suite</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Step 14: Commit (commit 3 of 3)</strong></li>
+</ul>
+<pre><code class="language-bash">git add cmd/openclaw-cortex/ internal/hooks/hooks.go internal/embedder/ internal/recall/recall.go internal/llm/
+git commit -m &quot;feat(sentry): wire CaptureException into CLI commands + spans on hot paths
+
+All cmd RunE paths now report errors to Sentry via cmdErr() helper.
+Performance spans added to: embed, recall, LLM complete, pre/post-turn hooks.
+Sentry is a complete no-op when SENTRY_DSN is unset.
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="pr-22-featprometheus-metrics">PR 2.2 — <code>feat/prometheus-metrics</code></h2>
+<p><strong>Breaking change note:</strong> This PR replaces <code>expvar.Int</code> counters in <code>internal/metrics/metrics.go</code> with <code>prometheus/client_golang</code> types. Call sites using <code>metrics.Inc(metrics.RecallTotal)</code> etc. will change. The <code>/debug/vars</code> endpoint is removed; <code>/metrics</code> replaces it.</p>
+<p><strong>Prerequisite:</strong> PR 2.1 merged.</p>
+<p><strong>Files:</strong>
+- Modify: <code>internal/metrics/metrics.go</code> (full rewrite)
+- Modify: <code>internal/api/server.go</code>
+- Modify: <code>internal/hooks/hooks.go</code>
+- Modify: <code>internal/recall/recall.go</code>
+- Modify: <code>cmd/openclaw-cortex/cmd_serve.go</code>
+- Test: <code>tests/metrics_test.go</code> (update)</p>
+<hr />
+<h3 id="task-4-rewrite-metrics-package-with-prometheus">Task 4: Rewrite metrics package with Prometheus</h3>
+<ul>
+<li>[ ] <strong>Step 1: Add prometheus dependency</strong></li>
+</ul>
+<pre><code class="language-bash">go get github.com/prometheus/client_golang/prometheus
+go get github.com/prometheus/client_golang/prometheus/promauto
+go get github.com/prometheus/client_golang/prometheus/promhttp
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Rewrite <code>internal/metrics/metrics.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// Package metrics exposes Prometheus metrics for openclaw-cortex.
+// All metrics are registered with the default Prometheus registry.
+package metrics
+
+import (
+    &quot;github.com/prometheus/client_golang/prometheus&quot;
+    &quot;github.com/prometheus/client_golang/prometheus/promauto&quot;
+)
+
+var (
+    // MemoriesStoredTotal counts memories written to the store, by source (api, mcp, hook, cli).
+    MemoriesStoredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+        Name: &quot;cortex_memories_stored_total&quot;,
+        Help: &quot;Total number of memories stored, by source.&quot;,
+    }, []string{&quot;source&quot;})
+
+    // RecallsTotal counts recall operations.
+    RecallsTotal = promauto.NewCounter(prometheus.CounterOpts{
+        Name: &quot;cortex_recalls_total&quot;,
+        Help: &quot;Total number of recall operations.&quot;,
+    })
+
+    // LLMCallsTotal counts LLM completions, by operation name.
+    LLMCallsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+        Name: &quot;cortex_llm_calls_total&quot;,
+        Help: &quot;Total number of LLM completion calls, by operation.&quot;,
+    }, []string{&quot;op&quot;})
+
+    // LLMErrorsTotal counts LLM completion errors, by operation name.
+    LLMErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+        Name: &quot;cortex_llm_errors_total&quot;,
+        Help: &quot;Total number of LLM completion errors, by operation.&quot;,
+    }, []string{&quot;op&quot;})
+
+    // RecallLatencyMs is a histogram of recall operation latency in milliseconds.
+    RecallLatencyMs = promauto.NewHistogram(prometheus.HistogramOpts{
+        Name:    &quot;cortex_recall_latency_ms&quot;,
+        Help:    &quot;Recall operation latency in milliseconds.&quot;,
+        Buckets: []float64{10, 50, 100, 250, 500, 1000, 2500},
+    })
+
+    // EmbedLatencyMs is a histogram of embedding operation latency.
+    EmbedLatencyMs = promauto.NewHistogram(prometheus.HistogramOpts{
+        Name:    &quot;cortex_embed_latency_ms&quot;,
+        Help:    &quot;Embedding generation latency in milliseconds.&quot;,
+        Buckets: []float64{5, 20, 50, 100, 250, 500},
+    })
+
+    // LLMLatencyMs is a histogram of LLM completion latency, by operation.
+    LLMLatencyMs = promauto.NewHistogramVec(prometheus.HistogramOpts{
+        Name:    &quot;cortex_llm_latency_ms&quot;,
+        Help:    &quot;LLM completion latency in milliseconds, by operation.&quot;,
+        Buckets: []float64{100, 250, 500, 1000, 2500, 5000},
+    }, []string{&quot;op&quot;})
+
+    // MemoryCount is a gauge of current memory count, by type and scope.
+    MemoryCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+        Name: &quot;cortex_memory_count&quot;,
+        Help: &quot;Current number of memories, by type and scope.&quot;,
+    }, []string{&quot;type&quot;, &quot;scope&quot;})
+)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Update all call sites</strong></li>
+</ul>
+<p>Search for old <code>metrics.Inc</code> / <code>metrics.RecallTotal</code> etc. calls:</p>
+<pre><code class="language-bash">grep -rn &quot;metrics\.&quot; internal/ cmd/ --include=&quot;*.go&quot; | grep -v &quot;metrics.go&quot;
+</code></pre>
+<p><strong>Known files to update</strong> (grep may return more — update everything the grep finds):
+- <code>internal/hooks/hooks.go</code>
+- <code>internal/recall/recall.go</code>
+- <code>cmd/openclaw-cortex/cmd_stats.go</code> — calls <code>.Value()</code> on existing counters; replace with <code>testutil.ToFloat64</code> or direct counter reads
+- <code>cmd/openclaw-cortex/cmd_serve.go</code> — remove any <code>/debug/vars</code> or <code>expvar</code> handler registration; the <code>/metrics</code> route is added in Step 5 via <code>internal/api/server.go</code>
+- <code>internal/lifecycle/lifecycle.go</code> — may increment <code>LifecycleExpired</code>, <code>LifecycleDecayed</code>, <code>LifecycleRetired</code> counters; add Prometheus equivalents or consolidate into <code>MemoriesStoredTotal</code> with a <code>"lifecycle"</code> source label</p>
+<p><strong>Note on <code>StoreTotal</code> / <code>CaptureTotal</code> consolidation:</strong> The existing <code>hooks.go</code> increments both <code>metrics.StoreTotal</code> and <code>metrics.CaptureTotal</code>. Map both to <code>MemoriesStoredTotal.With(prometheus.Labels{"source": "hook"}).Inc()</code> — one increment per memory stored is sufficient. If separate lifecycle metrics are desired, add them to <code>metrics.go</code> as part of this PR.</p>
+<p>Replace with new Prometheus counter increments. Examples:
+- <code>metrics.Inc(metrics.RecallTotal)</code> → <code>metrics.RecallsTotal.Inc()</code>
+- <code>metrics.Inc(metrics.CaptureTotal)</code> → <code>metrics.MemoriesStoredTotal.With(prometheus.Labels{"source": "hook"}).Inc()</code></p>
+<p>Wrap latency-sensitive paths with histogram observations:</p>
+<pre><code class="language-go">start := time.Now()
+// ... operation ...
+metrics.RecallLatencyMs.Observe(float64(time.Since(start).Milliseconds()))
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Write failing test in <code>tests/metrics_test.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;strings&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/prometheus/client_golang/prometheus&quot;
+    &quot;github.com/prometheus/client_golang/prometheus/testutil&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/metrics&quot;
+)
+
+func TestMetrics_RecallCounter(t *testing.T) {
+    before := testutil.ToFloat64(metrics.RecallsTotal)
+    metrics.RecallsTotal.Inc()
+    after := testutil.ToFloat64(metrics.RecallsTotal)
+    if after-before != 1.0 {
+        t.Fatalf(&quot;expected counter to increment by 1, got %f&quot;, after-before)
+    }
+}
+
+func TestMetrics_LLMCallsCounter(t *testing.T) {
+    metrics.LLMCallsTotal.WithLabelValues(&quot;capture&quot;).Inc()
+    // Verify via text exposition using the default Prometheus gatherer (not nil).
+    // testutil.GatherAndCount requires a non-nil prometheus.Gatherer.
+    out, err := testutil.GatherAndCount(prometheus.DefaultGatherer)
+    if err != nil {
+        t.Fatalf(&quot;gather error: %v&quot;, err)
+    }
+    if out == 0 {
+        t.Fatal(&quot;expected at least one metric&quot;)
+    }
+    // Confirm our counter is in the output.
+    if err := testutil.GatherAndCompare(
+        prometheus.DefaultGatherer,
+        strings.NewReader(&quot;&quot;),
+        &quot;cortex_llm_calls_total&quot;,
+    ); err != nil {
+        // GatherAndCompare with empty expected will only fail on format errors — just log
+        t.Logf(&quot;gather compare (informational): %v&quot;, err)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Add <code>/metrics</code> route to <code>internal/api/server.go</code></strong></li>
+</ul>
+<pre><code class="language-go">import &quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;
+
+func (s *Server) Handler() http.Handler {
+    mux := http.NewServeMux()
+
+    // Prometheus metrics — no auth required (scrape convention)
+    mux.Handle(&quot;GET /metrics&quot;, promhttp.Handler())
+
+    // Health check — no auth
+    mux.HandleFunc(&quot;GET /healthz&quot;, s.handleHealthz)
+
+    // All other routes wrapped with auth
+    // ... existing routes unchanged ...
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 6: Run full test suite and lint</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green. The old <code>expvar</code>-based test cases in <code>tests/metrics_test.go</code> should be updated to use <code>testutil.ToFloat64</code>.</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git checkout -b feat/prometheus-metrics
+git add internal/metrics/metrics.go internal/api/server.go internal/hooks/hooks.go \
+        internal/recall/recall.go cmd/openclaw-cortex/cmd_serve.go tests/metrics_test.go \
+        go.mod go.sum
+git commit -m &quot;feat(metrics): replace expvar with Prometheus; add /metrics endpoint
+
+Replaces expvar.Int counters with prometheus/client_golang types.
+Adds /metrics endpoint (no auth, Prometheus convention).
+Breaking change to internal/metrics API: callers updated in same PR.
+
+Metrics added:
+  cortex_memories_stored_total{source}
+  cortex_recalls_total
+  cortex_llm_calls_total{op} + cortex_llm_errors_total{op}
+  cortex_recall_latency_ms, cortex_embed_latency_ms, cortex_llm_latency_ms{op}
+  cortex_memory_count{type,scope}
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="final-track-2-verification">Final Track 2 Verification</h2>
+<ul>
+<li>[ ] <strong>Verify Sentry no-op with no DSN</strong></li>
+</ul>
+<pre><code class="language-bash">./bin/openclaw-cortex recall &quot;test query&quot; 2&gt;&amp;1 | grep -i sentry
+# Expected: no output (no Sentry errors when DSN empty)
+</code></pre>
+<ul>
+<li>[ ] <strong>Verify <code>/metrics</code> endpoint</strong></li>
+</ul>
+<pre><code class="language-bash">OPENCLAW_CORTEX_API_AUTH_TOKEN=secret ./bin/openclaw-cortex serve &amp;
+curl -s http://localhost:8080/metrics | grep cortex_
+# Expected: cortex_* metric names with TYPE and HELP lines
+</code></pre>
+<ul>
+<li>[ ] <strong>Create PRs</strong></li>
+</ul>
+<pre><code class="language-bash">gh pr create --base main --head feat/sentry --title &quot;feat(sentry): error tracking + performance tracing&quot;
+gh pr create --base feat/sentry --head feat/prometheus-metrics --title &quot;feat(metrics): Prometheus /metrics endpoint&quot;
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

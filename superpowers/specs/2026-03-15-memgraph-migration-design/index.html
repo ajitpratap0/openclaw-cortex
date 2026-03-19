@@ -1,0 +1,1244 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/specs/2026-03-15-memgraph-migration-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Memgraph Migration Design Spec - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#memgraph-migration-design-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Memgraph Migration Design Spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="memgraph-migration-design-spec">Memgraph Migration Design Spec</h1>
+<p><strong>Date:</strong> 2026-03-15
+<strong>Status:</strong> Approved
+<strong>Version:</strong> v0.7.0</p>
+<h2 id="goal">Goal</h2>
+<p>Replace Qdrant (vector DB) and Neo4j (graph DB) with a single Memgraph instance that handles both vector search and graph traversal. Clean replacement — no dead code, no fallback to old backends.</p>
+<h2 id="architecture">Architecture</h2>
+<h3 id="current-v060">Current (v0.6.0)</h3>
+<pre><code>Qdrant (gRPC:6334)          Neo4j (Bolt:7687)
+  ├─ memories (vectors)       ├─ Entity nodes
+  ├─ entities (dual-write)    ├─ RELATES_TO edges (facts)
+  └─ keyword filters          └─ fulltext + graph traversal
+</code></pre>
+<p>Two containers, two drivers, two config sections, entities duplicated across both.</p>
+<h3 id="target-v070">Target (v0.7.0)</h3>
+<pre><code>Memgraph (Bolt:7687)
+  ├─ :Memory nodes (vectors + properties)
+  ├─ :Entity nodes (graph + vector)
+  ├─ :RELATES_TO edges (facts)
+  ├─ vector indexes (cosine, 768-dim)
+  ├─ property indexes (type, scope, project)
+  └─ text search indexes (entity name, fact text)
+</code></pre>
+<p>One container, one driver (<code>neo4j-go-driver/v5</code> — Bolt compatible), one config section.</p>
+<h3 id="implementation-pattern">Implementation Pattern</h3>
+<p>Single <code>MemgraphStore</code> struct implements both <code>store.Store</code> (17 methods) and <code>graph.Client</code> (15 methods). Shared Bolt driver and session pool.</p>
+<pre><code>cmd/main.go
+  │
+  newStore()       → *memgraph.MemgraphStore (implements store.Store)
+  newGraphClient() → same instance           (implements graph.Client)
+  │
+  All existing callers work unchanged — they accept interfaces
+</code></pre>
+<h2 id="data-model">Data Model</h2>
+<h3 id="memory-nodes-replaces-qdrant-points">Memory Nodes (replaces Qdrant points)</h3>
+<pre><code class="language-cypher">(:Memory {
+  uuid:               STRING,       -- primary key
+  type:               STRING,       -- rule|fact|episode|procedure|preference
+  scope:              STRING,       -- permanent|project|session|ttl
+  visibility:         STRING,
+  content:            STRING,
+  confidence:         FLOAT,
+  source:             STRING,
+  project:            STRING,
+  ttl_seconds:        INTEGER,
+  created_at:         STRING,       -- RFC3339Nano (passed as param, not datetime())
+  updated_at:         STRING,
+  last_accessed:      STRING,
+  access_count:       INTEGER,
+  supersedes_id:      STRING,
+  conflict_group_id:  STRING,
+  conflict_status:    STRING,
+  valid_until:        STRING,
+  reinforced_at:      STRING,
+  reinforced_count:   INTEGER,
+  tags:               LIST OF STRING,
+  metadata:           STRING,       -- JSON-marshaled
+  embedding:          LIST OF FLOAT -- 768-dim vector
+})
+</code></pre>
+<p>All timestamps are STRING (RFC3339Nano) passed as Go parameters via <code>time.Now().UTC().Format(time.RFC3339Nano)</code>. Do NOT use Memgraph's <code>datetime()</code> function — keep timestamps as strings for consistency with the existing data model.</p>
+<h3 id="entity-nodes-unified-no-more-dual-write">Entity Nodes (unified — no more dual-write)</h3>
+<pre><code class="language-cypher">(:Entity:Person|:Entity:System|:Entity:Concept|... {
+  uuid:            STRING,
+  name:            STRING,       -- unique constraint
+  type:            STRING,
+  project:         STRING,
+  summary:         STRING,
+  aliases:         LIST OF STRING,
+  memory_ids:      LIST OF STRING,
+  name_embedding:  LIST OF FLOAT,
+  community_id:    STRING,
+  created_at:      STRING,
+  updated_at:      STRING
+})
+</code></pre>
+<h3 id="fact-relationships-unchanged-from-neo4j">Fact Relationships (unchanged from Neo4j)</h3>
+<pre><code class="language-cypher">(s:Entity)-[:RELATES_TO {
+  uuid:              STRING,
+  relation_type:     STRING,
+  fact:              STRING,
+  fact_embedding:    LIST OF FLOAT,
+  created_at:        STRING,
+  expired_at:        STRING,       -- NULL if active
+  valid_at:          STRING,
+  invalid_at:        STRING,
+  source_memory_ids: LIST OF STRING,
+  episodes:          LIST OF STRING,
+  confidence:        FLOAT
+}]-&gt;(t:Entity)
+</code></pre>
+<h2 id="schema-indexes-constraints">Schema (Indexes &amp; Constraints)</h2>
+<p>Created by <code>EnsureSchema()</code> on startup. Memgraph does NOT support <code>IF NOT EXISTS</code> on constraints — handle "already exists" errors gracefully (log and continue).</p>
+<pre><code class="language-cypher">-- Uniqueness constraints (handle AlreadyExists errors)
+CREATE CONSTRAINT ON (m:Memory) ASSERT m.uuid IS UNIQUE;
+CREATE CONSTRAINT ON (e:Entity) ASSERT e.name IS UNIQUE;
+
+-- Vector indexes (Memgraph native DDL syntax)
+CREATE VECTOR INDEX memory_embedding ON :Memory(embedding)
+  WITH CONFIG {&quot;dimension&quot;: 768, &quot;metric&quot;: &quot;cosine&quot;, &quot;capacity&quot;: 10000};
+CREATE VECTOR INDEX entity_name_embedding ON :Entity(name_embedding)
+  WITH CONFIG {&quot;dimension&quot;: 768, &quot;metric&quot;: &quot;cosine&quot;, &quot;capacity&quot;: 10000};
+
+-- Property indexes for filtering
+CREATE INDEX ON :Memory(type);
+CREATE INDEX ON :Memory(scope);
+CREATE INDEX ON :Memory(project);
+CREATE INDEX ON :Memory(source);
+CREATE INDEX ON :Memory(uuid);
+CREATE INDEX ON :Entity(uuid);
+CREATE INDEX ON :Entity(project);
+
+-- Text search indexes (Memgraph DDL syntax)
+CREATE TEXT INDEX entity_text ON :Entity;
+CREATE TEXT INDEX fact_text ON :RELATES_TO;
+</code></pre>
+<p>Note: Memgraph text indexes apply to all string properties on the label/edge type. Field-level specification is not supported — filtering by specific fields is done in the <code>WHERE</code> clause after the text search call.</p>
+<h2 id="search-strategy">Search Strategy</h2>
+<h3 id="vector-search-replaces-qdrant-search">Vector Search (replaces Qdrant Search)</h3>
+<pre><code class="language-cypher">CALL vector_search.search(&quot;memory_embedding&quot;, $limit, $query_vector)
+YIELD node, similarity
+WITH node, similarity
+WHERE node.type = $type_filter AND node.scope = $scope_filter  -- optional filters
+RETURN node, similarity AS score
+ORDER BY score DESC
+</code></pre>
+<p>Parameter order: <code>(index_name, limit, query_vector)</code>. Yields <code>node</code> and <code>similarity</code> (0-1 range, higher = more similar). No need to compute <code>1 - distance</code>.</p>
+<h3 id="keyword-filtering-replaces-qdrant-payload-filters">Keyword Filtering (replaces Qdrant payload filters)</h3>
+<p>Cypher <code>WHERE</code> clauses on indexed properties:
+- <code>WHERE m.type = $type</code> (exact match)
+- <code>WHERE m.scope = $scope</code> (exact match)
+- <code>WHERE m.project = $project</code> (exact match)
+- <code>WHERE ANY(t IN m.tags WHERE t = $tag)</code> (tag containment)
+- <code>WHERE m.conflict_status = $status</code> (exact match)</p>
+<h3 id="fulltext-search-replaces-neo4j-dbindexfulltext">Fulltext Search (replaces Neo4j db.index.fulltext)</h3>
+<p>Entity text search:</p>
+<pre><code class="language-cypher">CALL text_search.search(&quot;entity_text&quot;, $query)
+YIELD node, score
+RETURN node, score
+LIMIT $limit
+</code></pre>
+<p>Fact/relationship text search (uses <code>search_edges</code> for edge indexes):</p>
+<pre><code class="language-cypher">CALL text_search.search_edges(&quot;fact_text&quot;, $query)
+YIELD edge, score
+WITH edge, score, startNode(edge) AS s, endNode(edge) AS t
+RETURN edge, s, t, score
+LIMIT $limit
+</code></pre>
+<h3 id="graph-traversal-same-cypher-as-neo4j">Graph Traversal (same Cypher as Neo4j)</h3>
+<pre><code class="language-cypher">-- Facts between entities (bidirectional)
+MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
+WHERE n.uuid = $source_id AND m.uuid = $target_id AND r.expired_at IS NULL
+RETURN r, startNode(r) AS s, endNode(r) AS t
+
+-- Recall by graph
+MATCH (s:Entity)-[r:RELATES_TO]-&gt;(t:Entity)
+WHERE r.expired_at IS NULL
+RETURN DISTINCT r.source_memory_ids AS mids
+</code></pre>
+<h2 id="file-changes">File Changes</h2>
+<h3 id="new-files">New Files</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/memgraph/store.go</code></td>
+<td><code>MemgraphStore</code> struct, constructor, <code>store.Store</code> methods</td>
+</tr>
+<tr>
+<td><code>internal/memgraph/graph.go</code></td>
+<td><code>graph.Client</code> methods on <code>MemgraphStore</code></td>
+</tr>
+<tr>
+<td><code>internal/memgraph/schema.go</code></td>
+<td><code>EnsureSchema()</code> — indexes, constraints, vector indexes</td>
+</tr>
+<tr>
+<td><code>internal/memgraph/serialize.go</code></td>
+<td>Cypher record ↔ <code>models.Memory</code> / <code>models.Entity</code> / <code>models.Fact</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="files-to-delete">Files to Delete</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/store/qdrant.go</code></td>
+<td>Replaced by <code>memgraph/store.go</code></td>
+</tr>
+<tr>
+<td><code>internal/graph/neo4j.go</code></td>
+<td>Replaced by <code>memgraph/graph.go</code></td>
+</tr>
+<tr>
+<td><code>tests/qdrant_store_test.go</code></td>
+<td>No more Qdrant</td>
+</tr>
+</tbody>
+</table>
+<h3 id="files-to-modify">Files to Modify</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Remove <code>QdrantConfig</code>, <code>Neo4jConfig</code>. Replace <code>GraphConfig</code> with <code>MemgraphConfig</code> + keep <code>EntityResolutionConfig</code> and <code>FactExtractionConfig</code> as top-level or under new <code>extraction:</code> section. Move <code>recall_budget_ms</code> under <code>RecallConfig</code>. Bump version to v0.7.0 in main.go.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/main.go</code></td>
+<td><code>newStore()</code> returns <code>MemgraphStore</code>. <code>newGraphClient()</code> returns same instance. Remove Qdrant/Neo4j imports. Remove conditional graph client init. Bump version.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_health.go</code></td>
+<td>Single Memgraph health check. Remove separate Qdrant/Neo4j checks.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_capture.go</code></td>
+<td>Remove <code>cfg.Graph.Enabled</code> guards. Graph always available. Simplify entity/fact extraction flow.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_recall.go</code></td>
+<td>Remove conditional graph wiring. Graph always available via store.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_serve.go</code></td>
+<td>Remove conditional graph init.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_hook.go</code></td>
+<td>Remove conditional graph init.</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_mcp.go</code></td>
+<td>Remove conditional graph init.</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>Replace qdrant+neo4j with single memgraph service.</td>
+</tr>
+<tr>
+<td><code>go.mod</code> / <code>go.sum</code></td>
+<td>Remove <code>qdrant/go-client</code>. Keep <code>neo4j-go-driver/v5</code>. Run <code>go mod tidy</code>.</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code></td>
+<td>Rewrite architecture section for Memgraph.</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Update service dependencies and install instructions.</td>
+</tr>
+<tr>
+<td><code>extensions/openclaw-plugin/index.ts</code></td>
+<td>Bump to v0.7.0, update service message (Memgraph not Qdrant).</td>
+</tr>
+<tr>
+<td><code>extensions/openclaw-plugin/package.json</code></td>
+<td>Bump to v0.7.0.</td>
+</tr>
+<tr>
+<td><code>extensions/openclaw-plugin/openclaw.plugin.json</code></td>
+<td>Bump to v0.7.0.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="files-unchanged">Files Unchanged</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/store/store.go</code></td>
+<td>Interface unchanged</td>
+</tr>
+<tr>
+<td><code>internal/graph/client.go</code></td>
+<td>Interface unchanged</td>
+</tr>
+<tr>
+<td><code>internal/store/mock_store.go</code></td>
+<td>Tests use mocks</td>
+</tr>
+<tr>
+<td><code>internal/graph/mock_client.go</code></td>
+<td>Tests use mocks</td>
+</tr>
+<tr>
+<td><code>internal/graph/entity_resolver.go</code></td>
+<td>Consumes <code>graph.Client</code> interface</td>
+</tr>
+<tr>
+<td><code>internal/graph/fact_resolver.go</code></td>
+<td>Consumes <code>graph.Client</code> interface</td>
+</tr>
+<tr>
+<td><code>internal/graph/fact_extractor.go</code></td>
+<td>Consumes <code>llm.LLMClient</code> interface</td>
+</tr>
+<tr>
+<td><code>internal/graph/search.go</code></td>
+<td>RRF merge logic, no DB dependency</td>
+</tr>
+<tr>
+<td><code>internal/graph/types.go</code></td>
+<td>Data types only</td>
+</tr>
+<tr>
+<td><code>internal/capture/*.go</code></td>
+<td>Consumes interfaces</td>
+</tr>
+<tr>
+<td><code>internal/recall/*.go</code></td>
+<td>Consumes interfaces</td>
+</tr>
+<tr>
+<td><code>internal/llm/*.go</code></td>
+<td>No DB dependency</td>
+</tr>
+<tr>
+<td><code>internal/classifier/*.go</code></td>
+<td>No DB dependency</td>
+</tr>
+<tr>
+<td><code>internal/embedder/*.go</code></td>
+<td>No DB dependency</td>
+</tr>
+<tr>
+<td><code>internal/models/*.go</code></td>
+<td>Data structs unchanged</td>
+</tr>
+<tr>
+<td><code>tests/*.go</code> (except qdrant_store_test.go)</td>
+<td>Use mocks</td>
+</tr>
+</tbody>
+</table>
+<h2 id="config-changes">Config Changes</h2>
+<h3 id="remove">Remove</h3>
+<pre><code class="language-yaml">qdrant:
+  host: localhost
+  grpc_port: 6334
+  http_port: 6333
+  collection: cortex_memories
+  use_tls: false
+
+graph:
+  enabled: true          # removed — graph is always on
+  neo4j:                 # removed — replaced by memgraph
+    uri: bolt://localhost:7687
+    username: neo4j
+    password: &quot;&quot;
+    database: neo4j
+</code></pre>
+<h3 id="add">Add</h3>
+<pre><code class="language-yaml">memgraph:
+  uri: bolt://localhost:7687
+  username: &quot;&quot;
+  password: &quot;&quot;
+  database: &quot;&quot;           # empty string — Memgraph does not support multi-database
+
+entity_resolution:       # moved from graph.entity_resolution
+  similarity_threshold: 0.95
+  max_candidates: 10
+
+fact_extraction:         # moved from graph.fact_extraction
+  enabled: true
+</code></pre>
+<h3 id="move">Move</h3>
+<pre><code class="language-yaml">recall:
+  graph_budget_ms: 50        # was graph.recall_budget_ms
+  graph_budget_cli_ms: 500   # was graph.recall_budget_cli_ms
+  # existing weights, rerank settings unchanged
+</code></pre>
+<h3 id="environment-variables">Environment Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Old</th>
+<th>New</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPENCLAW_CORTEX_QDRANT_HOST</code></td>
+<td>(removed)</td>
+</tr>
+<tr>
+<td><code>OPENCLAW_CORTEX_QDRANT_GRPC_PORT</code></td>
+<td>(removed)</td>
+</tr>
+<tr>
+<td>(new)</td>
+<td><code>OPENCLAW_CORTEX_MEMGRAPH_URI</code></td>
+</tr>
+<tr>
+<td>(new)</td>
+<td><code>OPENCLAW_CORTEX_MEMGRAPH_USERNAME</code></td>
+</tr>
+<tr>
+<td>(new)</td>
+<td><code>OPENCLAW_CORTEX_MEMGRAPH_PASSWORD</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="docker-compose">Docker Compose</h2>
+<pre><code class="language-yaml">services:
+  memgraph:
+    image: memgraph/memgraph:2.21
+    ports:
+      - &quot;7687:7687&quot;   # Bolt protocol
+      - &quot;7444:7444&quot;   # Monitoring
+    command: [&quot;--storage-properties-on-edges=true&quot;]
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    restart: unless-stopped
+
+volumes:
+  memgraph_data:
+</code></pre>
+<p>Key flags:
+- <code>--storage-properties-on-edges=true</code> — required for RELATES_TO edge properties (uuid, fact, confidence, etc.) and edge property indexes
+- Image pinned to <code>2.21</code> (minimum version supporting vector search + text search)
+- ~200MB RAM, sub-second startup, no JVM</p>
+<h2 id="gomod-changes">go.mod Changes</h2>
+<p><strong>Remove:</strong>
+- <code>github.com/qdrant/go-client</code>
+- All transitive gRPC/protobuf deps only needed by Qdrant</p>
+<p><strong>Keep:</strong>
+- <code>github.com/neo4j/neo4j-go-driver/v5</code> (Memgraph speaks Bolt)</p>
+<h2 id="migration">Migration</h2>
+<p>No migration script. Fresh start — existing Qdrant data stays on disk but is not imported. Users re-capture to rebuild memory. Acceptable because:
+- System has ~15 memories accumulated over 2 days
+- Qdrant Docker volume can be preserved as backup
+- Facts will be re-extracted on next capture</p>
+<h2 id="testing">Testing</h2>
+<ul>
+<li>All existing tests use <code>MockStore</code> / <code>MockGraphClient</code> — no changes needed</li>
+<li>Delete <code>tests/qdrant_store_test.go</code></li>
+<li>Add <code>tests/memgraph_store_test.go</code> (integration, build-tagged) for basic CRUD against real Memgraph</li>
+<li><code>go test -short -count=1 ./...</code> must pass with zero Qdrant/Neo4j references</li>
+<li><code>go build ./...</code> must produce zero compilation errors</li>
+</ul>
+<h2 id="version">Version</h2>
+<ul>
+<li>Binary: <code>0.7.0</code></li>
+<li>Plugin: <code>0.7.0</code></li>
+<li>CHANGELOG: add <code>[0.7.0]</code> section</li>
+</ul>
+<h2 id="memgraph-specific-considerations">Memgraph-Specific Considerations</h2>
+<ol>
+<li>
+<p><strong>No <code>IF NOT EXISTS</code> on constraints</strong> — <code>EnsureSchema()</code> must catch "already exists" errors and continue. Use a helper that runs each DDL statement individually and ignores constraint-already-exists errors.</p>
+</li>
+<li>
+<p><strong>Timestamps as strings, not datetime()</strong> — All timestamps stored as RFC3339Nano strings, passed as Go parameters. Do not use Memgraph's <code>datetime()</code> function. This matches the existing data model and avoids Cypher dialect issues.</p>
+</li>
+<li>
+<p><strong><code>MERGE ... ON CREATE SET ... ON MATCH SET</code></strong> — Supported by Memgraph. Used for entity and fact upserts.</p>
+</li>
+<li>
+<p><strong><code>--storage-properties-on-edges=true</code></strong> — Must be set in docker-compose <code>command</code>. Without this, RELATES_TO edge properties are not persisted or indexable.</p>
+</li>
+<li>
+<p><strong>Vector search parameter order</strong> — <code>vector_search.search(index_name, limit, query_vector)</code> — limit comes before the vector, unlike some other APIs.</p>
+</li>
+<li>
+<p><strong>Text search is label-wide</strong> — <code>CREATE TEXT INDEX</code> applies to all string properties on the label. Field filtering is done in <code>WHERE</code> clauses after the search call returns results.</p>
+</li>
+<li>
+<p><strong><code>neo4j-go-driver/v5</code> compatibility</strong> — Works with Memgraph out of the box. Set <code>database</code> to <code>""</code> (empty string) in <code>SessionConfig</code> since Memgraph does not support multi-database.</p>
+</li>
+<li>
+<p><strong>In-memory with WAL</strong> — Data survives restarts via write-ahead log. RAM must hold entire dataset. For ~10K memories + entities, this is ~50-100MB — well within limits.</p>
+</li>
+</ol>
+<h2 id="risks">Risks</h2>
+<ol>
+<li><strong>Memgraph Cypher dialect differences</strong> — Some Neo4j-specific functions may not exist. Mitigated by using only standard Cypher features and Memgraph-documented procedures.</li>
+<li><strong>In-memory storage</strong> — Memgraph is in-memory with WAL persistence. Data survives restarts but RAM must hold entire dataset.</li>
+<li><strong>Edge property indexes</strong> — Require <code>--storage-properties-on-edges=true</code> flag. Without it, edge properties are ephemeral.</li>
+<li><strong>Vector search capacity</strong> — Initial capacity set to 10000. Must be increased if dataset grows beyond this. Memgraph may auto-resize but this needs verification.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

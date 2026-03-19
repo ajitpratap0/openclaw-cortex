@@ -1,0 +1,1733 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/specs/2026-03-19-visual-audit-report/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Visual Audit Report - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#visual-audit-report" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Visual Audit Report
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="visual-audit-report">Visual Audit Report</h1>
+<p><strong>Date:</strong> 2026-03-19
+<strong>Sites audited:</strong> web/ (marketing + docs), apps/admin/ (developer dashboard)</p>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>Critical</th>
+<th>High</th>
+<th>Medium</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>web/</td>
+<td>0</td>
+<td>1</td>
+<td>5</td>
+<td>1</td>
+</tr>
+<tr>
+<td>apps/admin/</td>
+<td>0</td>
+<td>0</td>
+<td>11</td>
+<td>7</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>0</strong></td>
+<td><strong>1</strong></td>
+<td><strong>16</strong></td>
+<td><strong>8</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>By dimension:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Critical</th>
+<th>High</th>
+<th>Medium</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Design consistency</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>0</td>
+<td>1</td>
+<td>4</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Responsive layout</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+</tr>
+<tr>
+<td>UX flows</td>
+<td>0</td>
+<td>0</td>
+<td>5</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Brand/visual polish</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>No critical issues were found across either site. Both sites share two structural gaps: missing App Router convention files (loading.tsx, error.tsx) at every route level, and unstyled/inaccessible interactive elements. The admin dashboard carries a heavier accessibility and UX debt than the marketing site due to its interactive nature.</p>
+<h3 id="top-3-priority-fixes">Top 3 Priority Fixes</h3>
+<ol>
+<li><strong>Add skip-nav links (both sites)</strong> — Screen reader and keyboard users cannot bypass repeated navigation on any page in either site. This is the highest-severity accessibility gap.</li>
+<li><strong>Fix unstyled/inaccessible action buttons in apps/admin/</strong> — The delete button in <code>memory-table.tsx</code> lacks visual button styling and a focus indicator, making it unusable for keyboard-only users. This is a High-severity blocker for the primary destructive action in the admin UI.</li>
+<li><strong>Replace native <code>confirm()</code> dialogs with accessible Dialog components (apps/admin/)</strong> — Two pages use <code>window.confirm()</code> for delete confirmation, which is inaccessible to screen readers and inconsistent with the design system.</li>
+</ol>
+<hr />
+<h2 id="2-per-site-findings">2. Per-Site Findings</h2>
+<blockquote>
+<p>Findings are organised by dimension within each site for readability. The combined view across all dimensions follows the format <code>Page | Dimension | Issue | Severity | Evidence</code> — reading down each sub-table in order is equivalent to a single merged table sorted by dimension.</p>
+</blockquote>
+<h3 id="web-marketing-docs">web/ (Marketing + Docs)</h3>
+<h4 id="design-consistency">Design Consistency</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/ (Home)</td>
+<td>Raw hex values in globals.css custom utilities instead of token references</td>
+<td>Medium</td>
+<td><code>web/app/globals.css</code> lines 41–77: <code>.glow-indigo</code>, <code>.glow-emerald</code>, <code>.text-gradient</code> use <code>rgba(99,102,241)</code> directly</td>
+</tr>
+<tr>
+<td>All pages</td>
+<td><code>text-zinc-400</code> used for secondary text on <code>zinc-950</code> background — borderline WCAG AA contrast (4.5:1 ratio)</td>
+<td>Medium</td>
+<td>Applies globally wherever secondary body text appears</td>
+</tr>
+</tbody>
+</table>
+<h4 id="accessibility">Accessibility</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All pages</td>
+<td>No skip-nav link present</td>
+<td>High</td>
+<td><code>web/app/layout.tsx</code> — no <code>&lt;a href="#main"&gt;</code> or skip-link component anywhere in the layout</td>
+</tr>
+<tr>
+<td>All pages</td>
+<td>Nav links missing hover state for mobile</td>
+<td>Low</td>
+<td><code>web/components/nav.tsx</code> line 117</td>
+</tr>
+</tbody>
+</table>
+<h4 id="responsive-layout">Responsive Layout</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All pages</td>
+<td>Mobile overflow behaviour is <strong>unverifiable from source</strong> — Tailwind breakpoint classes (<code>sm:</code>, <code>md:</code>, <code>lg:</code>) are present throughout, but whether hardcoded spacing causes actual overflow at narrow viewports (320–375 px) cannot be confirmed without browser rendering</td>
+<td>Medium (unverifiable from source)</td>
+<td>Requires device/viewport rendering to confirm; flag for manual QA pass</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ux-flows">UX Flows</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All routes</td>
+<td>No loading.tsx or error.tsx at any route level</td>
+<td>Medium</td>
+<td><code>web/app/</code>: loading.tsx ❌, error.tsx ❌; all sub-routes also missing</td>
+</tr>
+</tbody>
+</table>
+<h4 id="performance">Performance</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/compare</td>
+<td>No lazy loading verified for comparison table</td>
+<td>Medium</td>
+<td><code>ComparisonTable</code> component not audited for image lazy-loading</td>
+</tr>
+</tbody>
+</table>
+<h4 id="brandvisual-polish">Brand/Visual Polish</h4>
+<p>No issues found.</p>
+<p><strong>Dimension summary — web/:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Critical</th>
+<th>High</th>
+<th>Medium</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Design consistency</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Responsive layout</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>UX flows</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Brand/visual polish</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="appsadmin-developer-dashboard">apps/admin/ (Developer Dashboard)</h3>
+<blockquote>
+<p><strong>Note on page structure:</strong> The spec's canonical list shows <code>/</code> as "Dashboard." In the actual codebase, <code>apps/admin/app/page.tsx</code> is a simple <code>redirect()</code> to <code>/dashboard</code>, and the dashboard UI lives in <code>apps/admin/app/dashboard/page.tsx</code>. Both are audited separately below to reflect the real app structure.</p>
+</blockquote>
+<h4 id="design-consistency_1">Design Consistency</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/dashboard</td>
+<td>Inline template literal for color selection instead of CSS class</td>
+<td>Medium</td>
+<td><code>apps/admin/components/stats-cards.tsx</code> lines 37–39</td>
+</tr>
+<tr>
+<td>layout.tsx</td>
+<td>Body background uses hardcoded color class (<code>bg-zinc-950</code>) instead of CSS variable</td>
+<td>Low</td>
+<td><code>apps/admin/app/layout.tsx</code> line 23</td>
+</tr>
+<tr>
+<td>/dashboard</td>
+<td>Hardcoded <code>amber-400</code> for conflict badge instead of CSS variable</td>
+<td>Low</td>
+<td><code>apps/admin/components/stats-cards.tsx</code> line 38</td>
+</tr>
+</tbody>
+</table>
+<h4 id="accessibility_1">Accessibility</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>memory-table.tsx</td>
+<td>Delete <code>&lt;button&gt;</code> missing focus ring and <code>aria-label</code> — hover colour only, no keyboard-visible focus indicator</td>
+<td>Medium</td>
+<td><code>apps/admin/components/memory-table.tsx</code> lines 78–82</td>
+</tr>
+<tr>
+<td>/memories</td>
+<td>Select filters missing aria-label attributes</td>
+<td>Medium</td>
+<td><code>apps/admin/app/memories/page.tsx</code> lines 64–75</td>
+</tr>
+<tr>
+<td>/memories/[id]</td>
+<td>Back button is unstyled plain text link with no aria-label</td>
+<td>Medium</td>
+<td><code>apps/admin/app/memories/[id]/page.tsx</code> lines 51–56</td>
+</tr>
+<tr>
+<td>entity-table.tsx</td>
+<td>"Show linked memories" <code>&lt;button&gt;</code> styled as plain text link — no <code>aria-label</code>, no <code>aria-expanded</code>, no visible button affordance</td>
+<td>Medium</td>
+<td><code>apps/admin/components/entity-table.tsx</code> lines 24–29</td>
+</tr>
+</tbody>
+</table>
+<h4 id="responsive-layout_1">Responsive Layout</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/memories</td>
+<td>Select and Input filters use fixed widths (<code>w-36</code>, <code>w-44</code>) that may overflow on very small screens</td>
+<td>Medium</td>
+<td><code>apps/admin/app/memories/page.tsx</code> lines 65, 94</td>
+</tr>
+<tr>
+<td>/entities</td>
+<td>Input and Select filters use fixed widths (<code>w-56</code>, <code>w-36</code>) that may overflow on small screens</td>
+<td>Medium</td>
+<td><code>apps/admin/app/entities/page.tsx</code> lines 39, 42</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ux-flows_1">UX Flows</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/memories</td>
+<td>Delete confirmation uses native <code>confirm()</code> dialog instead of accessible Dialog component</td>
+<td>Medium</td>
+<td><code>apps/admin/app/memories/page.tsx</code> line 40</td>
+</tr>
+<tr>
+<td>/memories/[id]</td>
+<td>Delete confirmation uses native <code>confirm()</code> dialog instead of accessible Dialog component</td>
+<td>Medium</td>
+<td><code>apps/admin/app/memories/[id]/page.tsx</code> line 47</td>
+</tr>
+<tr>
+<td>/conflicts</td>
+<td>Optimistic update — server PUT endpoint does not accept <code>conflict_status</code> field</td>
+<td>Medium</td>
+<td><code>apps/admin/app/conflicts/page.tsx</code> lines 20–23</td>
+</tr>
+<tr>
+<td>All routes</td>
+<td>No loading.tsx or error.tsx at any route level</td>
+<td>Medium</td>
+<td>All <code>apps/admin/app/</code> route directories missing convention files</td>
+</tr>
+<tr>
+<td>/ (root)</td>
+<td>Root page uses <code>redirect()</code> without metadata or description</td>
+<td>Low</td>
+<td><code>apps/admin/app/page.tsx</code> lines 1–5</td>
+</tr>
+</tbody>
+</table>
+<h4 id="performance_1">Performance</h4>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Issue</th>
+<th>Severity</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/dashboard</td>
+<td>Loading state shows minimal content — no skeleton/fallback visual</td>
+<td>Low</td>
+<td><code>apps/admin/app/dashboard/page.tsx</code> lines 19–26</td>
+</tr>
+<tr>
+<td>/memories</td>
+<td>Loading state shows minimal content — no skeleton/fallback visual</td>
+<td>Low</td>
+<td><code>apps/admin/app/memories/page.tsx</code> line 108</td>
+</tr>
+<tr>
+<td>/entities</td>
+<td>Loading state shows minimal content — no skeleton/fallback visual</td>
+<td>Low</td>
+<td><code>apps/admin/app/entities/page.tsx</code> line 58</td>
+</tr>
+<tr>
+<td>/conflicts</td>
+<td>Loading state shows minimal content — no skeleton/fallback visual</td>
+<td>Low</td>
+<td><code>apps/admin/app/conflicts/page.tsx</code> line 73</td>
+</tr>
+</tbody>
+</table>
+<h4 id="brandvisual-polish_1">Brand/Visual Polish</h4>
+<p>No additional issues (amber-400 token gap filed under Design Consistency above).</p>
+<p><strong>Dimension summary — apps/admin/:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Critical</th>
+<th>High</th>
+<th>Medium</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Design consistency</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Responsive layout</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>UX flows</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Brand/visual polish</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-cross-site-issues">3. Cross-Site Issues</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Severity</th>
+<th>Sites Affected</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No skip-nav link in root layout</td>
+<td>High</td>
+<td>Both</td>
+<td><code>web/app/layout.tsx</code> (no skip-link); <code>apps/admin/app/layout.tsx</code> (no skip-link)</td>
+</tr>
+<tr>
+<td>No loading.tsx or error.tsx at any route level</td>
+<td>Medium</td>
+<td>Both</td>
+<td>All route directories in <code>web/app/</code> and <code>apps/admin/app/</code> missing convention files</td>
+</tr>
+<tr>
+<td>Hardcoded color values instead of CSS/design tokens</td>
+<td>Medium/Low</td>
+<td>Both</td>
+<td><code>web/app/globals.css</code> lines 41–77 (hex literals); <code>apps/admin/app/layout.tsx</code> line 23 and <code>apps/admin/components/stats-cards.tsx</code> lines 37–39 (hardcoded Tailwind classes)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-implementation-plan">4. Implementation Plan</h2>
+<blockquote>
+<p>Tiers ordered by severity (Tier 1 = Critical → Tier 4 = Low). Within each tier: Quick Win first, then Medium, then Major.</p>
+</blockquote>
+<h3 id="tier-1-critical">Tier 1 — Critical</h3>
+<p>No Critical issues found in either site.</p>
+<hr />
+<h3 id="tier-2-high">Tier 2 — High</h3>
+<h4 id="fix-1-add-skip-nav-links-to-both-site-root-layouts">Fix 1: Add skip-nav links to both site root layouts</h4>
+<ul>
+<li><strong>Severity:</strong> High</li>
+<li><strong>Site(s):</strong> both</li>
+<li><strong>Files:</strong> <code>web/app/layout.tsx</code>, <code>apps/admin/app/layout.tsx</code></li>
+<li><strong>What to change:</strong> Insert <code>&lt;a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:rounded"&gt;Skip to content&lt;/a&gt;</code> as the first child of <code>&lt;body&gt;</code>, and add <code>id="main-content"</code> to the main content wrapper in each layout.</li>
+<li><strong>Why:</strong> Without a skip-nav link, keyboard and screen reader users must tab through the entire navigation on every page load, which violates WCAG 2.1 SC 2.4.1 (Bypass Blocks).</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<hr />
+<h3 id="tier-3-medium">Tier 3 — Medium</h3>
+<h4 id="fix-2-replace-native-confirm-dialogs-with-accessible-dialog-components">Fix 2: Replace native confirm() dialogs with accessible Dialog components</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/memories/page.tsx</code> line 40, <code>apps/admin/app/memories/[id]/page.tsx</code> line 47</li>
+<li><strong>What to change:</strong> Replace each <code>window.confirm("Are you sure?")</code> call with a controlled state boolean (<code>const [showDeleteDialog, setShowDeleteDialog] = useState(false)</code>) and render a shadcn/ui <code>&lt;Dialog&gt;</code> or <code>&lt;AlertDialog&gt;</code> with confirm/cancel buttons. The dialog must trap focus, be announced by screen readers, and close on Escape.</li>
+<li><strong>Why:</strong> <code>window.confirm()</code> is not announced by all screen readers, cannot be styled to match the design system, and blocks the entire browser UI during confirmation.</li>
+<li><strong>Effort:</strong> Medium</li>
+</ul>
+<h4 id="fix-3-add-app-router-loadingtsx-and-errortsx-convention-files-to-all-routes-both-sites">Fix 3: Add App Router loading.tsx and error.tsx convention files to all routes (both sites)</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> both</li>
+<li><strong>Files:</strong> <code>web/app/</code> sub-routes missing files: blog/, features/, compare/, playground/ (note: <code>web/app/docs/[[...slug]]/loading.tsx</code> already exists — skip that route). <code>apps/admin/app/</code> sub-routes: dashboard/, memories/, memories/[id]/, entities/, conflicts/, settings/</li>
+<li><strong>What to change:</strong> Create a minimal <code>loading.tsx</code> exporting a skeleton/spinner component and an <code>error.tsx</code> exporting an error boundary component with a reset button in each route directory. Reuse a shared <code>&lt;LoadingSkeleton /&gt;</code> and <code>&lt;ErrorBoundary /&gt;</code> component to keep the additions thin.</li>
+<li><strong>Why:</strong> Without these files, any slow data fetch or unhandled runtime error surfaces as a blank page or a full-app crash with no user feedback.</li>
+<li><strong>Effort:</strong> Medium</li>
+</ul>
+<h4 id="fix-4-replace-raw-hex-values-in-globalscss-with-css-variable-references">Fix 4: Replace raw hex values in globals.css with CSS variable references</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> web/</li>
+<li><strong>Files:</strong> <code>web/app/globals.css</code> lines 41–77</li>
+<li><strong>What to change:</strong> Define CSS custom properties for each color used (e.g., <code>--color-indigo: 99 102 241;</code>) in the <code>:root</code> block, then update <code>.glow-indigo</code>, <code>.glow-emerald</code>, and <code>.text-gradient</code> to reference these variables (<code>rgba(var(--color-indigo) / 0.3)</code> etc.) instead of hardcoded <code>rgba(99,102,241,…)</code> literals.</li>
+<li><strong>Why:</strong> Hardcoded hex values in utility classes diverge from the design token system, making theme changes require grep-and-replace rather than a single variable update.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-5-resolve-inline-template-literal-color-selection-in-stats-cards-and-migrate-to-css-class">Fix 5: Resolve inline template literal color selection in stats-cards and migrate to CSS class</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/components/stats-cards.tsx</code> lines 37–39</li>
+<li><strong>What to change:</strong> Replace the inline template-literal color expression (e.g., <code>`text-${color}-400`</code>) with a lookup map of pre-defined Tailwind classes (e.g., <code>const colorMap = { amber: "text-amber-400", ... }</code>) so Tailwind's JIT scanner can detect all classes statically. Replace <code>stats-cards.tsx</code> line 38 hardcoded <code>amber-400</code> conflict badge class with the mapped value.</li>
+<li><strong>Why:</strong> Dynamic class names constructed via template literals are pruned by Tailwind's JIT compiler in production builds, causing the color to disappear at runtime.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-6-add-aria-label-attributes-to-select-filter-elements-on-memories">Fix 6: Add aria-label attributes to Select filter elements on /memories</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/memories/page.tsx</code> lines 64–75</li>
+<li><strong>What to change:</strong> Add <code>aria-label="Filter by type"</code>, <code>aria-label="Filter by scope"</code>, etc. to each <code>&lt;Select&gt;</code> (or its trigger child) that currently has no accessible label. If shadcn/ui <code>Select</code> is used, pass <code>aria-label</code> to the <code>&lt;SelectTrigger&gt;</code> element.</li>
+<li><strong>Why:</strong> Unlabeled form controls fail WCAG 2.1 SC 1.3.1 (Info and Relationships) and SC 4.1.2 (Name, Role, Value); screen readers announce them as "combo box" with no context.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-7-add-focus-ring-and-aria-label-to-delete-button-in-memory-table">Fix 7: Add focus ring and aria-label to delete button in memory-table</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/components/memory-table.tsx</code> lines 78–82</li>
+<li><strong>What to change:</strong> The element is already a <code>&lt;button&gt;</code>. Add <code>focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2</code> to its className, and add <code>aria-label="Delete memory"</code>. Do not change the element type.</li>
+<li><strong>Why:</strong> A <code>&lt;button&gt;</code> with only a hover colour change provides no visible focus indicator for keyboard users, and no accessible name for screen readers.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-8-add-aria-label-to-unstyled-back-button-and-apply-button-styling-on-memoriesid">Fix 8: Add aria-label to unstyled back button and apply button styling on /memories/[id]</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/memories/[id]/page.tsx</code> lines 51–56</li>
+<li><strong>What to change:</strong> Ensure the back navigation element is a <code>&lt;button&gt;</code> or <code>&lt;a&gt;</code> with an explicit <code>aria-label="Back to memories list"</code>, and apply consistent interactive styling (e.g., <code>className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 rounded"</code>).</li>
+<li><strong>Why:</strong> An unstyled, unlabeled back control is invisible to keyboard users and announced with no context by screen readers.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-9-add-aria-label-and-consistent-button-styling-to-show-linked-memories-in-entity-table">Fix 9: Add aria-label and consistent button styling to "show linked memories" in entity-table</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/components/entity-table.tsx</code> lines 24–29</li>
+<li><strong>What to change:</strong> Apply explicit button styling to the toggle element (visible border or underline to signal interactivity) and add <code>aria-label="Show linked memories for {entity.name}"</code> (dynamic per row) and <code>aria-expanded={isOpen}</code> so screen readers announce the expanded state.</li>
+<li><strong>Why:</strong> A <code>&lt;button&gt;</code> that looks like a text link and has no accessible name violates WCAG SC 4.1.2 and makes row-level actions indistinguishable to assistive technologies.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-10-replace-fixed-filter-widths-with-responsive-classes-on-memories-and-entities">Fix 10: Replace fixed filter widths with responsive classes on /memories and /entities</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/memories/page.tsx</code> lines 65, 94; <code>apps/admin/app/entities/page.tsx</code> lines 39, 42</li>
+<li><strong>What to change:</strong> Replace fixed-width classes (<code>w-36</code>, <code>w-44</code>, <code>w-56</code>) with responsive equivalents (e.g., <code>w-full sm:w-36</code>) so the filter row wraps gracefully rather than overflowing on viewports narrower than 375 px.</li>
+<li><strong>Why:</strong> Fixed-width inputs that exceed the viewport width create horizontal scrollbars and break the filter row layout on mobile devices.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-11-audit-and-fix-comparisontable-lazy-loading-on-compare">Fix 11: Audit and fix ComparisonTable lazy loading on /compare</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> web/</li>
+<li><strong>Files:</strong> <code>web/app/compare/</code> (ComparisonTable component file — locate exact path)</li>
+<li><strong>What to change:</strong> If the table renders images, add <code>loading="lazy"</code> to all <code>&lt;img&gt;</code> elements that are below the fold. If the table itself is large and below the fold, wrap it in a <code>next/dynamic</code> import with <code>{ ssr: false, loading: () =&gt; &lt;Skeleton /&gt; }</code>.</li>
+<li><strong>Why:</strong> Eagerly loading off-screen comparison table content delays Time to Interactive for the page hero section.</li>
+<li><strong>Effort:</strong> Medium</li>
+</ul>
+<h4 id="fix-12-resolve-conflict_status-optimistic-update-mismatch-on-conflicts">Fix 12: Resolve conflict_status optimistic update mismatch on /conflicts</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/conflicts/page.tsx</code> lines 20–23</li>
+<li><strong>What to change:</strong> The code already contains an inline comment acknowledging that the server endpoint does not accept <code>conflict_status</code>. Either (a) update the server PUT endpoint to accept and persist <code>conflict_status</code>, or (b) remove the optimistic update and revalidate from the server after the mutation resolves. Update the comment to reflect which path was chosen and mark the known limitation resolved.</li>
+<li><strong>Why:</strong> An optimistic update the server silently ignores causes the UI to show a resolved state that reverts on next page load — the inline comment documents the gap, but it should be resolved rather than tracked indefinitely.</li>
+<li><strong>Effort:</strong> Medium</li>
+</ul>
+<h4 id="fix-13-investigate-and-address-secondary-text-contrast-text-zinc-400-on-zinc-950">Fix 13: Investigate and address secondary text contrast (text-zinc-400 on zinc-950)</h4>
+<ul>
+<li><strong>Severity:</strong> Medium</li>
+<li><strong>Site(s):</strong> web/</li>
+<li><strong>Files:</strong> All pages using <code>text-zinc-400</code> on <code>bg-zinc-950</code> backgrounds</li>
+<li><strong>What to change:</strong> Run contrast verification (e.g., using a contrast checker with <code>#a1a1aa</code> on <code>#09090b</code>). If the measured ratio falls below 4.5:1 for normal text or 3:1 for large text, upgrade to <code>text-zinc-300</code> globally for secondary body text.</li>
+<li><strong>Why:</strong> Text that fails WCAG AA contrast requirements is difficult to read for users with low vision or in bright environments.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<hr />
+<h3 id="tier-4-low">Tier 4 — Low</h3>
+<h4 id="fix-14-add-nav-link-hover-states-for-mobile-in-web-nav">Fix 14: Add nav link hover states for mobile in web/ nav</h4>
+<ul>
+<li><strong>Severity:</strong> Low</li>
+<li><strong>Site(s):</strong> web/</li>
+<li><strong>Files:</strong> <code>web/components/nav.tsx</code> line 117</li>
+<li><strong>What to change:</strong> Add <code>active:bg-zinc-800</code> or equivalent touch-feedback class to the mobile nav link element so users on touch devices receive visual confirmation that a tap was registered.</li>
+<li><strong>Why:</strong> Without a touch/active state, mobile users see no feedback when tapping navigation items, making the interface feel unresponsive.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-15-add-metadata-to-admin-root-redirect-page">Fix 15: Add metadata to admin root redirect page</h4>
+<ul>
+<li><strong>Severity:</strong> Low</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/page.tsx</code> lines 1–5</li>
+<li><strong>What to change:</strong> Add a Next.js <code>metadata</code> export (<code>export const metadata: Metadata = { title: "OpenClaw Admin", description: "..." }</code>) before the <code>redirect()</code> call so that crawlers and browser tabs display a meaningful title rather than a blank string.</li>
+<li><strong>Why:</strong> A missing title on the root page results in "Untitled" in browser history and bookmark lists, degrading the developer experience.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<h4 id="fix-16-add-skeleton-loading-states-to-all-admin-pages">Fix 16: Add skeleton loading states to all admin pages</h4>
+<ul>
+<li><strong>Severity:</strong> Low</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/dashboard/page.tsx</code> lines 19–26, <code>apps/admin/app/memories/page.tsx</code> line 108, <code>apps/admin/app/entities/page.tsx</code> line 58, <code>apps/admin/app/conflicts/page.tsx</code> line 73</li>
+<li><strong>What to change:</strong> Create a shared <code>&lt;TableSkeleton rows={5} /&gt;</code> component that renders animated <code>bg-zinc-800 animate-pulse</code> rows. Replace the current minimal loading states in each Suspense fallback or loading guard with this component.</li>
+<li><strong>Why:</strong> Blank or near-blank loading states cause layout shift and make the app feel slower than it is; skeleton screens anchor the user's expectation of incoming content.</li>
+<li><strong>Effort:</strong> Medium</li>
+</ul>
+<h4 id="fix-17-replace-hardcoded-bg-zinc-950-and-amber-400-with-css-variables-in-admin-layout">Fix 17: Replace hardcoded bg-zinc-950 and amber-400 with CSS variables in admin layout</h4>
+<ul>
+<li><strong>Severity:</strong> Low</li>
+<li><strong>Site(s):</strong> apps/admin/</li>
+<li><strong>Files:</strong> <code>apps/admin/app/layout.tsx</code> line 23, <code>apps/admin/components/stats-cards.tsx</code> line 38</li>
+<li><strong>What to change:</strong> Define <code>--color-surface: theme('colors.zinc.950')</code> and <code>--color-warning: theme('colors.amber.400')</code> in <code>globals.css</code>, then replace <code>bg-zinc-950</code> in layout.tsx with <code>bg-[--color-surface]</code> (or a CSS variable-backed class) and replace the hardcoded <code>amber-400</code> badge class in stats-cards with the variable reference.</li>
+<li><strong>Why:</strong> Hardcoded Tailwind color classes scattered across layout and component files make future theme changes require find-and-replace rather than a single token update.</li>
+<li><strong>Effort:</strong> Quick Win</li>
+</ul>
+<hr />
+<h2 id="5-appendix-page-inventory">5. Appendix: Page Inventory</h2>
+<h3 id="web">web/</h3>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Design</th>
+<th>A11y</th>
+<th>Responsive</th>
+<th>UX</th>
+<th>Perf</th>
+<th>Brand</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Hero + terminal; responsive grid present but no skip-nav; raw hex in globals.css</td>
+</tr>
+<tr>
+<td>/features</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>6 detailed sections with diagrams; consistent token use; missing skip-nav</td>
+</tr>
+<tr>
+<td>/compare</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>ComparisonTable not audited for lazy loading; missing skip-nav</td>
+</tr>
+<tr>
+<td>/playground</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Interactive demo; disclosure callout already present; missing skip-nav (inherited from root layout)</td>
+</tr>
+<tr>
+<td>/blog</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Blog index + post template solid; prose classes correct; missing skip-nav</td>
+</tr>
+<tr>
+<td>/docs</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>DocsLayout present; MDX rendering clean; root redirect works; missing skip-nav</td>
+</tr>
+</tbody>
+</table>
+<h3 id="web-docs-pages">web/ — Docs Pages</h3>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Design</th>
+<th>A11y</th>
+<th>Responsive</th>
+<th>UX</th>
+<th>Perf</th>
+<th>Brand</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/docs/getting-started</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/configuration</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/cli-reference</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/architecture</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/api</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/hooks</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/mcp</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/deployment</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/benchmarks</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+<tr>
+<td>/docs/faq</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>Inherits skip-nav gap from root layout</td>
+</tr>
+</tbody>
+</table>
+<h3 id="appsadmin">apps/admin/</h3>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Design</th>
+<th>A11y</th>
+<th>Responsive</th>
+<th>UX</th>
+<th>Perf</th>
+<th>Brand</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/ (root)</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>Simple redirect; missing metadata</td>
+</tr>
+<tr>
+<td>/dashboard</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>Stats display, memory list, conflict badge; inline color logic; missing skeleton</td>
+</tr>
+<tr>
+<td>/memories</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>List with filters, pagination, delete actions; fixed widths; native confirm(); unlabeled selects</td>
+</tr>
+<tr>
+<td>/memories/[id]</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>Detail view; back button unstyled/unlabeled; native confirm() for delete</td>
+</tr>
+<tr>
+<td>/entities</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>Search + type filter; fixed widths; "show linked memories" button styling issue</td>
+</tr>
+<tr>
+<td>/conflicts</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠️</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>Card-based display; optimistic update mismatch; missing skeleton</td>
+</tr>
+<tr>
+<td>/settings</td>
+<td>⚠️</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>API config; uses <code>&lt;label htmlFor&gt;</code> correctly; hardcoded background (Design)</td>
+</tr>
+</tbody>
+</table>
+<p>Legend: ✅ No issues | ⚠️ Medium/Low only | ❌ Critical or High</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

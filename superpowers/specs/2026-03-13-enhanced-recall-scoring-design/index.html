@@ -1,0 +1,1042 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/specs/2026-03-13-enhanced-recall-scoring-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Enhanced Recall Scoring Design - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#enhanced-recall-scoring-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Enhanced Recall Scoring Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="enhanced-recall-scoring-design">Enhanced Recall Scoring Design</h1>
+<h2 id="goal">Goal</h2>
+<p>Expand the recall ranking formula from 5 factors to 8 weighted components plus 2 multiplicative penalties, incorporating confidence, reinforcement, and tag affinity signals that already exist on memories but are currently ignored by the scorer.</p>
+<h2 id="background">Background</h2>
+<p>The current scoring formula is:</p>
+<pre><code>0.5*similarity + 0.2*recency + 0.1*frequency + 0.1*typeBoost + 0.1*scopeBoost
+</code></pre>
+<p>Several fields tracked on every memory never enter ranking:</p>
+<ul>
+<li><strong>Confidence</strong> (0.0-1.0): set on capture, bumped +0.05 on reinforcement. A 0.95 rule and a 0.5 auto-captured episode score identically if other factors match.</li>
+<li><strong>ReinforcedCount / ReinforcedAt</strong>: incremented when a near-duplicate is captured (0.80 cosine threshold). A memory reinforced 10 times scores the same as one stored once.</li>
+<li><strong>Tags</strong>: stored but never compared against the query.</li>
+<li><strong>SupersedesID</strong>: chains memory history but superseded memories compete equally with their replacements.</li>
+<li><strong>ConflictStatus</strong>: used only in <code>FormatWithConflictAnnotations</code> formatting, not in ranking.</li>
+</ul>
+<h2 id="new-formula">New Formula</h2>
+<h3 id="weighted-components-sum-10">Weighted Components (sum = 1.0)</h3>
+<pre><code>0.35*similarity + 0.15*recency + 0.10*frequency +
+0.10*typeBoost  + 0.08*scopeBoost + 0.10*confidence +
+0.07*reinforcement + 0.05*tagAffinity
+</code></pre>
+<h3 id="multiplicative-penalties-applied-after-weighted-sum">Multiplicative Penalties (applied after weighted sum)</h3>
+<pre><code>finalScore = weightedSum * supersessionPenalty * conflictPenalty
+</code></pre>
+<ul>
+<li><code>supersessionPenalty</code>: 0.3 if this memory was superseded by another result, 1.0 otherwise</li>
+<li><code>conflictPenalty</code>: 0.8 if <code>ConflictStatus == "active"</code>, 1.0 otherwise</li>
+</ul>
+<p>Penalties stack: a superseded memory in active conflict scores <code>weightedSum * 0.24</code>.</p>
+<h2 id="component-specifications">Component Specifications</h2>
+<h3 id="1-confidence-score-weight-010">1. Confidence Score (weight: 0.10)</h3>
+<pre><code>confidenceScore = mem.Confidence  // already [0,1]
+</code></pre>
+<p>No transformation needed. The field is set by Claude Haiku during capture (range 0.0-1.0), and <code>UpdateReinforcement</code> bumps it by 0.05 (capped at 1.0).</p>
+<p><strong>Legacy memories (Confidence == 0):</strong> Memories captured before confidence tracking may have a zero-value <code>Confidence</code>. To avoid silently penalizing them, treat <code>Confidence == 0</code> as "unknown" and substitute a neutral value of 0.7 (the median of observed capture confidences). This applies only in the scoring function — the stored value is not mutated.</p>
+<h3 id="2-reinforcement-score-weight-007">2. Reinforcement Score (weight: 0.07)</h3>
+<pre><code>reinforcementScore = min(1.0, log2(reinforcedCount + 1) / 5.0)
+</code></pre>
+<p>Note: <code>ReinforcedCount</code> is <code>int</code> (not <code>int64</code> like <code>AccessCount</code>). Convert to <code>float64</code> before the log computation.</p>
+<p>Saturates at ~32 reinforcements. The <code>/5.0</code> divisor is chosen because reinforcement is rarer than access (requires 0.80 cosine match on re-encounter). Compare to frequency which uses <code>/10.0</code> and needs ~1024 accesses to saturate.</p>
+<table>
+<thead>
+<tr>
+<th>ReinforcedCount</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0.00</td>
+</tr>
+<tr>
+<td>1</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>3</td>
+<td>0.40</td>
+</tr>
+<tr>
+<td>7</td>
+<td>0.60</td>
+</tr>
+<tr>
+<td>15</td>
+<td>0.80</td>
+</tr>
+<tr>
+<td>31</td>
+<td>1.00</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-tag-affinity-score-weight-005">3. Tag Affinity Score (weight: 0.05)</h3>
+<pre><code>tagAffinityScore = matchingTags / len(mem.Tags)  // 0 if mem has no tags
+</code></pre>
+<p>Where <code>matchingTags</code> is the count of the memory's tags that match at least one query word. The denominator is <code>len(mem.Tags)</code> (total tags on the memory), not the number of query words.</p>
+<p><strong>Matching rules:</strong>
+- The query is split into words (lowercased, whitespace-delimited).
+- Each tag is lowercased.
+- A <strong>single-word tag</strong> matches if any query word equals it exactly. No substring matching (e.g., query word "go" does not match tag "golang").
+- A <strong>multi-word tag</strong> (e.g., <code>"ci pipeline"</code>) matches if <em>all</em> words in the tag appear in the query words. Tags are assumed to be short (1-3 words); existing capture code produces single-word tags in practice, but this handles edge cases safely.</p>
+<p><strong>Examples</strong> (query words after lowercasing shown in brackets):</p>
+<ul>
+<li>Query "GoSQLX CI pipeline" <code>[gosqlx, ci, pipeline]</code>, tags <code>["gosqlx", "ci"]</code> -&gt; 2/2 = 1.0</li>
+<li>Query "GoSQLX CI pipeline" <code>[gosqlx, ci, pipeline]</code>, tags <code>["gosqlx", "ci", "docker"]</code> -&gt; 2/3 = 0.67</li>
+<li>Query "GoSQLX CI pipeline" <code>[gosqlx, ci, pipeline]</code>, tags <code>["python", "ml"]</code> -&gt; 0/2 = 0.0</li>
+<li>Query "GoSQLX CI pipeline" <code>[gosqlx, ci, pipeline]</code>, tags <code>[]</code> -&gt; 0.0 (no tags = no boost)</li>
+<li>Query "GoSQLX CI pipeline" <code>[gosqlx, ci, pipeline]</code>, tags <code>["ci pipeline"]</code> -&gt; 1/1 = 1.0 (multi-word tag, all words found in query)</li>
+</ul>
+<h3 id="4-supersession-penalty-multiplicative-03">4. Supersession Penalty (multiplicative: 0.3)</h3>
+<p><code>SupersedesID</code> means "this memory supersedes X" — it is set on the <em>newer</em> memory pointing to the older one it replaced. The <em>older</em> memory itself has no field marking it as superseded.</p>
+<p>During <code>Rank()</code>, build a set of superseded IDs by scanning all results:</p>
+<pre><code>supersededIDs = set()
+for each result:
+    if result.Memory.SupersedesID != &quot;&quot;:
+        supersededIDs.add(result.Memory.SupersedesID)
+
+for each result:
+    if result.Memory.ID in supersededIDs:
+        result.SupersessionPenalty = 0.3
+    else:
+        result.SupersessionPenalty = 1.0
+</code></pre>
+<p>This is O(n) with a map — trivial for typical result sets of 10-50 items. The penalty only applies when both the superseding and superseded memory appear in the same result set. If only the old memory appears (the new one wasn't relevant to the query), no penalty is applied — the old memory is the best available.</p>
+<p><strong>Chains:</strong> For A supersedes B supersedes C, the set-based approach handles chains correctly. A adds B to the set, B adds C to the set. In the second pass, B and C are both found in the set and penalized. A (the newest) is not penalized. Each memory is penalized at most once (×0.3) regardless of chain depth.</p>
+<h3 id="5-conflict-penalty-multiplicative-08">5. Conflict Penalty (multiplicative: 0.8)</h3>
+<pre><code>if mem.ConflictStatus == &quot;active&quot;:
+    conflictPenalty = 0.8
+else:
+    conflictPenalty = 1.0
+</code></pre>
+<p>Mild demotion for unresolved conflicts. Resolved conflicts (<code>ConflictStatus == "resolved"</code> or <code>""</code>) are not penalized. The formatting layer (<code>FormatWithConflictAnnotations</code>) already annotates active conflicts for the user — this ensures they also rank slightly lower.</p>
+<h2 id="deferred-temporal-relevance">Deferred: Temporal Relevance</h2>
+<p>Time-of-day/day-of-week awareness is deferred because:</p>
+<ol>
+<li>It requires external configuration (timezone, work hours schedule, type-to-timeperiod mappings) that no other boost needs.</li>
+<li>The type-to-timeperiod mapping is subjective and varies per user.</li>
+<li>It can be layered on later as an optional post-scoring multiplier without changing the weighted sum formula.</li>
+</ol>
+<p>The infrastructure built here (configurable weights, expanded RecallResult) makes temporal a clean follow-up.</p>
+<h2 id="api-changes">API Changes</h2>
+<h3 id="rank-signature">Rank() Signature</h3>
+<pre><code class="language-go">// Before
+func (r *Recaller) Rank(results []models.SearchResult, project string) []models.RecallResult
+
+// After
+func (r *Recaller) Rank(results []models.SearchResult, project string, query string) []models.RecallResult
+</code></pre>
+<p>One new parameter. All three call sites have the raw query string available:
+- <code>cmd/openclaw-cortex/cmd_recall.go</code>: <code>query := args[0]</code>
+- <code>internal/api/server.go</code>: <code>req.Message</code>
+- <code>internal/hooks/hooks.go</code>: <code>input.Message</code></p>
+<h3 id="recallresult-struct">RecallResult Struct</h3>
+<pre><code class="language-go">type RecallResult struct {
+    Memory              Memory  `json:&quot;memory&quot;`
+    SimilarityScore     float64 `json:&quot;similarity_score&quot;`
+    RecencyScore        float64 `json:&quot;recency_score&quot;`
+    FrequencyScore      float64 `json:&quot;frequency_score&quot;`
+    TypeBoost           float64 `json:&quot;type_boost&quot;`
+    ScopeBoost          float64 `json:&quot;scope_boost&quot;`
+    ConfidenceScore     float64 `json:&quot;confidence_score&quot;`
+    ReinforcementScore  float64 `json:&quot;reinforcement_score&quot;`
+    TagAffinityScore    float64 `json:&quot;tag_affinity_score&quot;`
+    SupersessionPenalty float64 `json:&quot;supersession_penalty&quot;`
+    ConflictPenalty     float64 `json:&quot;conflict_penalty&quot;`
+    FinalScore          float64 `json:&quot;final_score&quot;`
+}
+</code></pre>
+<p>New fields are additive to the JSON contract. The TypeScript plugin won't break on extra fields — we update the <code>RecallResult</code> interface for completeness.</p>
+<h3 id="weights-struct">Weights Struct</h3>
+<pre><code class="language-go">type Weights struct {
+    Similarity    float64 `json:&quot;similarity&quot; mapstructure:&quot;similarity&quot;`
+    Recency       float64 `json:&quot;recency&quot; mapstructure:&quot;recency&quot;`
+    Frequency     float64 `json:&quot;frequency&quot; mapstructure:&quot;frequency&quot;`
+    TypeBoost     float64 `json:&quot;type_boost&quot; mapstructure:&quot;type_boost&quot;`
+    ScopeBoost    float64 `json:&quot;scope_boost&quot; mapstructure:&quot;scope_boost&quot;`
+    Confidence    float64 `json:&quot;confidence&quot; mapstructure:&quot;confidence&quot;`
+    Reinforcement float64 `json:&quot;reinforcement&quot; mapstructure:&quot;reinforcement&quot;`
+    TagAffinity   float64 `json:&quot;tag_affinity&quot; mapstructure:&quot;tag_affinity&quot;`
+}
+
+// Penalty constants (not configurable via weights — these are categorical)
+const (
+    SupersessionPenaltyFactor = 0.3
+    ConflictPenaltyFactor     = 0.8
+)
+</code></pre>
+<p>Validation: all weights &gt;= 0, sum within [0.99, 1.01].</p>
+<h3 id="config-integration">Config Integration</h3>
+<p>Add weight fields inline to <code>RecallConfig</code> in <code>internal/config/config.go</code>. We do <strong>not</strong> import <code>internal/recall</code> — <code>config</code> is a leaf package with zero internal imports and we keep it that way. Instead, define the weight fields directly and convert to <code>recall.Weights</code> at the call site:</p>
+<pre><code class="language-go">type RecallConfig struct {
+    RerankScoreSpreadThreshold float64 `mapstructure:&quot;rerank_score_spread_threshold&quot;`
+    RerankLatencyBudgetHooksMs int     `mapstructure:&quot;rerank_latency_budget_hooks_ms&quot;`
+    RerankLatencyBudgetCLIMs   int     `mapstructure:&quot;rerank_latency_budget_cli_ms&quot;`
+    Weights                    RecallWeightsConfig `mapstructure:&quot;weights&quot;`
+}
+
+type RecallWeightsConfig struct {
+    Similarity    float64 `mapstructure:&quot;similarity&quot;`
+    Recency       float64 `mapstructure:&quot;recency&quot;`
+    Frequency     float64 `mapstructure:&quot;frequency&quot;`
+    TypeBoost     float64 `mapstructure:&quot;type_boost&quot;`
+    ScopeBoost    float64 `mapstructure:&quot;scope_boost&quot;`
+    Confidence    float64 `mapstructure:&quot;confidence&quot;`
+    Reinforcement float64 `mapstructure:&quot;reinforcement&quot;`
+    TagAffinity   float64 `mapstructure:&quot;tag_affinity&quot;`
+}
+</code></pre>
+<p>At each call site (cmd_recall.go, cmd_serve.go, hooks.go), convert <code>cfg.Recall.Weights</code> to <code>recall.Weights</code>:</p>
+<pre><code class="language-go">w := recall.Weights{
+    Similarity:    cfg.Recall.Weights.Similarity,
+    Recency:       cfg.Recall.Weights.Recency,
+    // ... etc
+}
+if !w.IsValid() {
+    w = recall.DefaultWeights()
+}
+recaller := recall.NewRecaller(w, logger)
+</code></pre>
+<p>With env var overrides: <code>OPENCLAW_CORTEX_RECALL_WEIGHTS_SIMILARITY</code>, etc. If no weights are configured (all zero), the call site falls back to <code>DefaultWeights()</code>. Invalid weights (don't sum to 1.0, negative values) log a warning and fall back to defaults — same behavior as today.</p>
+<p>Example <code>~/.cortex/config.yaml</code>:</p>
+<pre><code class="language-yaml">recall:
+  weights:
+    similarity: 0.35
+    recency: 0.15
+    frequency: 0.10
+    type_boost: 0.10
+    scope_boost: 0.08
+    confidence: 0.10
+    reinforcement: 0.07
+    tag_affinity: 0.05
+</code></pre>
+<h2 id="plugin-changes">Plugin Changes</h2>
+<p>Update <code>RecallResult</code> interface in <code>extensions/openclaw-plugin/index.ts</code>:</p>
+<pre><code class="language-typescript">interface RecallResult {
+  memory: CortexMemory;
+  similarity_score: number;
+  recency_score: number;
+  frequency_score: number;
+  type_boost: number;
+  scope_boost: number;
+  confidence_score: number;
+  reinforcement_score: number;
+  tag_affinity_score: number;
+  supersession_penalty: number;
+  conflict_penalty: number;
+  final_score: number;
+}
+</code></pre>
+<p>No behavioral changes needed in the plugin — it already uses <code>r.final_score</code> for display. The new fields are informational.</p>
+<h2 id="files-changed">Files Changed</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/recall/recall.go</code></td>
+<td>Expand <code>Weights</code> to 8 fields, add <code>DefaultWeights()</code> with new defaults, add <code>confidenceScore()</code>, <code>reinforcementScore()</code>, <code>tagAffinityScore()</code> functions, update <code>Rank()</code> to accept query string, add supersession scan + conflict check, update final score computation</td>
+</tr>
+<tr>
+<td><code>internal/models/memory.go</code></td>
+<td>Add <code>ConfidenceScore</code>, <code>ReinforcementScore</code>, <code>TagAffinityScore</code>, <code>SupersessionPenalty</code>, <code>ConflictPenalty</code> fields to <code>RecallResult</code></td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Add <code>RecallWeightsConfig</code> struct and <code>Weights</code> field to <code>RecallConfig</code>, wire viper defaults and env var overrides</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_recall.go</code></td>
+<td>Convert <code>cfg.Recall.Weights</code> to <code>recall.Weights</code>, pass query string to <code>Rank()</code></td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_serve.go</code></td>
+<td>Convert <code>cfg.Recall.Weights</code> to <code>recall.Weights</code></td>
+</tr>
+<tr>
+<td><code>internal/api/server.go</code></td>
+<td>Pass <code>req.Message</code> to <code>Rank()</code></td>
+</tr>
+<tr>
+<td><code>internal/hooks/hooks.go</code></td>
+<td>Pass <code>input.Message</code> to <code>Rank()</code></td>
+</tr>
+<tr>
+<td><code>extensions/openclaw-plugin/index.ts</code></td>
+<td>Add new fields to <code>RecallResult</code> interface</td>
+</tr>
+<tr>
+<td><code>tests/recall_scoring_test.go</code></td>
+<td>Tests for confidence, reinforcement, tag affinity scoring functions; tests for supersession and conflict penalties; tests for new default weights validation</td>
+</tr>
+<tr>
+<td><code>tests/plugin_contract_test.go</code></td>
+<td>Contract tests for new RecallResult JSON fields</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<ul>
+<li><strong>Unit tests</strong> for each new scoring function (confidence, reinforcement, tag affinity) with boundary values (0, 1, saturation points)</li>
+<li><strong>Unit tests</strong> for supersession scan logic (both memories in results, only old memory, only new memory, chains)</li>
+<li><strong>Unit tests</strong> for conflict penalty (active, resolved, empty status)</li>
+<li><strong>Integration test</strong> for full <code>Rank()</code> with all 8 components + penalties, verifying final score computation</li>
+<li><strong>Contract tests</strong> for new RecallResult JSON fields (backwards compatibility — old fields still present, new fields added)</li>
+<li><strong>Config tests</strong> for weight loading, validation, and fallback to defaults</li>
+</ul>
+<p>All tests use <code>MockStore</code> and run in <code>-short</code> mode (no external services).</p>
+<h2 id="backwards-compatibility">Backwards Compatibility</h2>
+<ul>
+<li>JSON output gains new fields but no existing fields are removed or renamed</li>
+<li>Default weights produce different rankings than before (similarity drops from 0.50 to 0.35) — this is intentional and the core purpose of the change</li>
+<li>Config-less installations use <code>DefaultWeights()</code> automatically</li>
+<li>The <code>Rank()</code> signature change requires updating all 3 call sites (CLI, API, hooks) — all in this repo</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
