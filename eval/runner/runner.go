@@ -63,9 +63,9 @@ func (c *CortexClient) baseArgs() []string {
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*200), "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
-	out, err := exec.CommandContext(ctx, c.BinaryPath, args...).Output()
+	out, err := exec.CommandContext(ctx, c.BinaryPath, args...).CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("runner: recall binary error: %w", err)
+		return nil, fmt.Errorf("runner: recall binary error: %w (output: %s)", err, out)
 	}
 	lines := splitNonEmpty(string(out))
 	if len(lines) > limit {
