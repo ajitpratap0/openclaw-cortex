@@ -3,9 +3,21 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,32 +36,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Direct prompt — no plugin system.
-          #
-          # Root cause of previous silent no-op: the Superpowers code-review plugin
-          # tried to post review comments via GitHub MCP tools directly. Those tool
-          # calls are not in the action's default allowlist → 2 permission denials per
-          # run. The action's native buffer (post-buffered-inline-comments.ts) was
-          # never written to, so every run silently spent ~$1.78 and posted nothing.
-          #
-          # Fix: use the action's native mode. Claude writes inline comments to the
-          # buffer using its built-in Write tool (always allowed); the action's
-          # post-processing step posts them to GitHub. No plugin needed.
-          prompt: |
-            You are reviewing a pull request on the openclaw-cortex repository.
-
-            Start by reading CLAUDE.md to understand project conventions, then inspect
-            the diff with: git diff origin/main...HEAD
-
-            Review the changed code for:
-            - Correctness: logic errors, race conditions, nil/panic risks
-            - Security: prompt-injection prevention in LLM calls, safe error handling
-            - Go conventions: fmt.Errorf("context: %w", err) wrapping, context propagation
-            - Test placement: per CLAUDE.md all tests must live in the top-level tests/
-              package — flag any test files added inside internal/ or pkg/
-            - Missing tests for new exported behaviour
-            - Module paths: imports must use github.com/ajitpratap0/openclaw-cortex/...
-
-            Post inline review comments on the specific changed lines where you find
-            issues. If the PR looks good overall, say so in a brief summary.
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
 
