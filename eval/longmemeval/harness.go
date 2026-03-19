@@ -22,6 +22,11 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	pairs := Dataset()
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 
+	// NOTE: facts ingested for one QA pair remain in the memory store when
+	// subsequent pairs are evaluated. This is a known limitation of the eval
+	// design — proper per-pair isolation requires flushing the DB between pairs,
+	// which is not feasible without adding a truncate/reset command to the binary.
+	// TODO(eval): add a --reset flag to openclaw-cortex to flush memories between pairs.
 	for i := range pairs {
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("longmemeval: context canceled before completing all pairs: %w", err)
@@ -29,12 +34,16 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		qp := &pairs[i]
 
 		// Ingest the facts for this QA pair.
+		storeFailures := 0
 		for j := range qp.Facts {
 			fact := &qp.Facts[j]
 			if err := client.Store(ctx, fact.Content); err != nil {
-				// Non-fatal: log and continue.
+				storeFailures++
 				fmt.Fprintf(os.Stderr, "[longmemeval] warn: ingest fact failed for %s: %v\n", qp.ID, err)
 			}
+		}
+		if storeFailures == len(qp.Facts) && len(qp.Facts) > 0 {
+			fmt.Fprintf(os.Stderr, "[longmemeval] error: all %d store calls failed for %s — recall will return nothing\n", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories.

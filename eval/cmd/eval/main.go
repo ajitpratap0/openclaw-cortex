@@ -67,6 +67,9 @@ func run() error {
 		summaries = append(summaries, s)
 
 	case "all":
+		// TODO(eval): facts ingested for LoCoMo remain in the memory store when
+		// LongMemEval runs. Add a reset/flush step between benchmarks to prevent
+		// cross-contamination when running --benchmark all.
 		s1, err := runLocomo(ctx, client, *k)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)

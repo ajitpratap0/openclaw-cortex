@@ -23,6 +23,11 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	pairs := Dataset()
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 
+	// NOTE: facts ingested for one QA pair remain in the memory store when
+	// subsequent pairs are evaluated. This is a known limitation of the eval
+	// design — proper per-pair isolation requires flushing the DB between pairs,
+	// which is not feasible without adding a truncate/reset command to the binary.
+	// TODO(eval): add a --reset flag to openclaw-cortex to flush memories between pairs.
 	for i := range pairs {
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("locomo: context canceled before completing all pairs: %w", err)
@@ -32,13 +37,17 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		// Ingest conversation turns as stored facts so the recall engine can
 		// find them.  We combine user + assistant into a single string that
 		// represents the semantic content of the turn.
+		storeFailures := 0
 		for j := range qp.Conversation {
 			turn := &qp.Conversation[j]
 			content := fmt.Sprintf("User: %s Assistant: %s", turn.User, turn.Assistant)
 			if err := client.Store(ctx, content); err != nil {
-				// Non-fatal: log and continue so we can still evaluate remaining pairs.
+				storeFailures++
 				fmt.Fprintf(os.Stderr, "[locomo] warn: ingest turn failed for %s: %v\n", qp.ID, err)
 			}
+		}
+		if storeFailures == len(qp.Conversation) && len(qp.Conversation) > 0 {
+			fmt.Fprintf(os.Stderr, "[locomo] error: all %d store calls failed for %s — recall will return nothing\n", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories for the question.
