@@ -114,7 +114,7 @@ export default function Nav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-3 py-2.5 text-sm text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 rounded-md transition-colors"
+                  className="px-3 py-2.5 text-sm text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 active:bg-zinc-800 rounded-md transition-colors"
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
