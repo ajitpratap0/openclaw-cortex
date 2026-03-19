@@ -154,7 +154,9 @@ func isAlphaNum(r rune) bool {
 }
 
 // TokenF1 computes token-level F1 between retrieved and ground truth.
-// Returns 0 if groundTruth is empty (consistent with ExactMatch).
+// Returns 0 in all degenerate cases (empty groundTruth, all-punctuation inputs,
+// or no token overlap) so it stays consistent with ExactMatch's false return for
+// empty groundTruth.
 func TokenF1(retrieved, groundTruth string) float64 {
 	if groundTruth == "" {
 		return 0.0
