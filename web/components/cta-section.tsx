@@ -10,7 +10,7 @@ export default function CTASection() {
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-50 mb-6">
           Ready to give your agent memory?
         </h2>
-        <p className="text-zinc-400 text-lg max-w-xl mx-auto mb-10">
+        <p className="text-zinc-300 text-lg max-w-xl mx-auto mb-10">
           Deploy in minutes with Docker. Works with any LLM via MCP or the CLI.
           Open source under MIT.
         </p>

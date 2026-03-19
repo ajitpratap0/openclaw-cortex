@@ -51,7 +51,7 @@ export default function FeatureGrid() {
           <h2 className="text-3xl sm:text-4xl font-bold text-zinc-50">
             Features
           </h2>
-          <p className="text-zinc-400 mt-4 max-w-xl mx-auto">
+          <p className="text-zinc-300 mt-4 max-w-xl mx-auto">
             Everything you need to give your AI agent persistent, intelligent
             memory.
           </p>
@@ -65,7 +65,7 @@ export default function FeatureGrid() {
               <h3 className="text-base font-semibold text-zinc-50 mb-2">
                 {feature.title}
               </h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
+              <p className="text-sm text-zinc-300 leading-relaxed">
                 {feature.description}
               </p>
             </Card>

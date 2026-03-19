@@ -36,31 +36,36 @@
   }
 }
 
+:root {
+  --color-indigo-rgb: 99 102 241;
+  --color-emerald-rgb: 16 185 129;
+}
+
 @layer utilities {
   .glow-indigo {
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3),
-      0 0 60px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 20px rgb(var(--color-indigo-rgb) / 0.3),
+      0 0 60px rgb(var(--color-indigo-rgb) / 0.1);
   }
 
   .glow-emerald {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3),
-      0 0 60px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 20px rgb(var(--color-emerald-rgb) / 0.3),
+      0 0 60px rgb(var(--color-emerald-rgb) / 0.1);
   }
 
   .glow-indigo-sm {
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.25),
-      0 0 30px rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 10px rgb(var(--color-indigo-rgb) / 0.25),
+      0 0 30px rgb(var(--color-indigo-rgb) / 0.08);
   }
 
   .glow-emerald-sm {
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.25),
-      0 0 30px rgba(16, 185, 129, 0.08);
+    box-shadow: 0 0 10px rgb(var(--color-emerald-rgb) / 0.25),
+      0 0 30px rgb(var(--color-emerald-rgb) / 0.08);
   }
 
   .gradient-radial-indigo {
     background: radial-gradient(
       circle at center,
-      rgba(99, 102, 241, 0.15) 0%,
+      rgb(var(--color-indigo-rgb) / 0.15) 0%,
       transparent 70%
     );
   }
@@ -68,13 +73,13 @@
   .gradient-radial-emerald {
     background: radial-gradient(
       circle at center,
-      rgba(16, 185, 129, 0.15) 0%,
+      rgb(var(--color-emerald-rgb) / 0.15) 0%,
       transparent 70%
     );
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #6366f1 0%, #10b981 100%);
+    background: linear-gradient(135deg, rgb(var(--color-indigo-rgb)) 0%, rgb(var(--color-emerald-rgb)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

@@ -41,7 +41,7 @@ export default function PlaygroundPage() {
               <h1 className="text-3xl sm:text-4xl font-bold text-zinc-50 mb-3">
                 Try the Recall Engine
               </h1>
-              <p className="text-zinc-400 max-w-2xl leading-relaxed">
+              <p className="text-zinc-300 max-w-2xl leading-relaxed">
                 See how 8-factor ranking works on sample memories. This is a
                 simulated demo using the same scoring algorithm as the real
                 engine — running entirely in your browser, no server required.
