@@ -4,6 +4,7 @@ package locomo
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -23,6 +24,9 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 
 	for i := range pairs {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("locomo: context canceled before completing all pairs: %w", err)
+		}
 		qp := &pairs[i]
 
 		// Ingest conversation turns as stored facts so the recall engine can
@@ -33,14 +37,14 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			content := fmt.Sprintf("User: %s Assistant: %s", turn.User, turn.Assistant)
 			if err := client.Store(ctx, content); err != nil {
 				// Non-fatal: log and continue so we can still evaluate remaining pairs.
-				fmt.Printf("[locomo] warn: ingest turn failed for %s: %v\n", qp.ID, err)
+				fmt.Fprintf(os.Stderr, "[locomo] warn: ingest turn failed for %s: %v\n", qp.ID, err)
 			}
 		}
 
 		// Retrieve relevant memories for the question.
 		memories, err := client.Recall(ctx, qp.Question, k)
 		if err != nil {
-			fmt.Printf("[locomo] warn: recall failed for %s: %v\n", qp.ID, err)
+			fmt.Fprintf(os.Stderr, "[locomo] warn: recall failed for %s: %v\n", qp.ID, err)
 			memories = nil
 		}
 

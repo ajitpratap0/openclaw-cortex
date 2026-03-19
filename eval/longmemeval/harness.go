@@ -4,6 +4,7 @@ package longmemeval
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
 )
@@ -22,6 +23,9 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 
 	for i := range pairs {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("longmemeval: context canceled before completing all pairs: %w", err)
+		}
 		qp := &pairs[i]
 
 		// Ingest the facts for this QA pair.
@@ -29,14 +33,14 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			fact := &qp.Facts[j]
 			if err := client.Store(ctx, fact.Content); err != nil {
 				// Non-fatal: log and continue.
-				fmt.Printf("[longmemeval] warn: ingest fact failed for %s: %v\n", qp.ID, err)
+				fmt.Fprintf(os.Stderr, "[longmemeval] warn: ingest fact failed for %s: %v\n", qp.ID, err)
 			}
 		}
 
 		// Retrieve relevant memories.
 		memories, err := client.Recall(ctx, qp.Question, k)
 		if err != nil {
-			fmt.Printf("[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
+			fmt.Fprintf(os.Stderr, "[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
 			memories = nil
 		}
 
