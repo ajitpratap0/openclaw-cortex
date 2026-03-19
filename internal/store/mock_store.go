@@ -576,7 +576,9 @@ func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
 	return nil
 }
 
-// DeleteAllMemories clears all in-memory data from the mock store.
+// DeleteAllMemories clears all in-memory data from the mock store (memories
+// and entities). Episodes are not tracked separately by MockStore; the
+// MemgraphStore implementation removes them via MATCH (n) DETACH DELETE n.
 func (m *MockStore) DeleteAllMemories(_ context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

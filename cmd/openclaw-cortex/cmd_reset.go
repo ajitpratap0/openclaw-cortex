@@ -17,8 +17,7 @@ This operation is irreversible. Intended for eval benchmark isolation.
 Pass --yes to skip the confirmation prompt.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "This will permanently delete ALL memories. Pass --yes to confirm.")
-				return nil
+				return fmt.Errorf("this will permanently delete ALL memories — pass --yes to confirm")
 			}
 			logger := newLogger()
 			ctx := cmd.Context()

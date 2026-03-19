@@ -61,6 +61,10 @@ func (c *CortexClient) baseArgs() []string {
 
 // Recall runs `openclaw-cortex recall <query>` and returns up to limit lines of
 // output, each representing one recalled memory's content.
+//
+// Output format contract: `openclaw-cortex recall` prints one memory content
+// string per line to stdout (plain text, no JSON or headers). If the binary's
+// output format changes, splitNonEmpty and the scoring pipeline must be updated.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
