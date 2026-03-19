@@ -61,7 +61,7 @@ func (c *CortexClient) baseArgs() []string {
 // Recall runs `openclaw-cortex recall <query>` and returns up to limit lines of
 // output, each representing one recalled memory's content.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
-	args := append(c.baseArgs(), "recall", query, "--budget", fmt.Sprintf("%d", limit*200))
+	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*200), "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	out, err := exec.CommandContext(ctx, c.BinaryPath, args...).Output()
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *CortexClient) Capture(ctx context.Context, userMsg, assistantMsg string
 
 // Store runs `openclaw-cortex store <content>` to persist a fact memory.
 func (c *CortexClient) Store(ctx context.Context, content string) error {
-	args := append(c.baseArgs(), "store", content, "--scope", "permanent", "--type", "fact")
+	args := append(c.baseArgs(), "store", "--scope", "permanent", "--type", "fact", "--", content)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -225,6 +225,9 @@ func Summarize(name string, results []BenchmarkResult, k int) *BenchmarkSummary 
 // token-F1 against the ground truth. Falls back to the first result if no
 // candidate scores above zero.
 func BestCandidate(memories []string, groundTruth string) string {
+	if len(memories) == 0 {
+		return ""
+	}
 	best := memories[0]
 	bestF1 := TokenF1(memories[0], groundTruth)
 
