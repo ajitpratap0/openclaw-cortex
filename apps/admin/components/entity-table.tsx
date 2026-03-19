@@ -24,7 +24,6 @@ function LinkedMemories({ entityId, entityName }: { entityId: string; entityName
       <button
         onClick={() => setOpen(true)}
         aria-label={`Show linked memories for ${entityName}`}
-        aria-expanded={false}
         className="text-xs text-zinc-600 hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-500 rounded underline underline-offset-2"
       >
         show linked memories

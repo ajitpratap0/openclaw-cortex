@@ -16,13 +16,11 @@ export default function ConflictsPage() {
     (m) => m.conflict_status === "active"
   );
 
-  // "Mark Resolved" calls the server mutation, then revalidates from the server
-  // so the UI always reflects actual server state. No optimistic update is used
-  // because PUT /v1/memories/{id} does not accept conflict_status in its request
-  // body, making any optimistic patch misleading.
+  // "Mark Resolved" re-fetches from the server so the UI always reflects actual
+  // server state. The server API does not yet expose a conflict_status endpoint.
+  // TODO: wire up PATCH /memories/:id { conflict_status: "resolved" } when available.
   const handleResolve = useCallback(
     async (id: string) => {
-      await cortex.updateMemory(id, {});
       await mutate();
     },
     [mutate]
