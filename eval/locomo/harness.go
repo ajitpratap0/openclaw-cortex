@@ -67,7 +67,7 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 			// and this check, the cancellation is counted as a recallFailure instead of
 			// aborting. Acceptable for benchmark purposes — scores show one extra failure.
 			if ctx.Err() != nil {
-				return nil, fmt.Errorf("locomo: context canceled during recall for %s: %w", qp.ID, ctx.Err())
+				return nil, fmt.Errorf("locomo: context canceled during recall for %s (recall error: %v): %w", qp.ID, err, ctx.Err())
 			}
 			recallFailures++
 			fmt.Fprintf(os.Stderr, "[locomo] warn: recall failed for %s: %v\n", qp.ID, err)
