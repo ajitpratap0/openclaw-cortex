@@ -9,15 +9,15 @@ authors:
 repository-code: "https://github.com/ajitpratap0/openclaw-cortex"
 url: "https://github.com/ajitpratap0/openclaw-cortex"
 license: MIT
-version: 0.8.0
-date-released: "2026-03-15"
+version: 0.10.0
+date-released: "2026-03-23"
 keywords:
   - ai-memory
   - semantic-search
   - vector-database
   - ai-agents
   - golang
-  - qdrant
+  - memgraph
   - ollama
   - embeddings
   - retrieval-augmented-generation
@@ -25,6 +25,8 @@ keywords:
   - llm-reranking
   - context-window
   - confidence-reinforcement
+  - benchmark
+  - evaluation
 abstract: >-
   Hybrid semantic memory system for AI agents combining
   file-based structured memory with vector-based semantic
