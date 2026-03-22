@@ -29,6 +29,9 @@ gofmt -w . && goimports -w .
 docker compose up -d
 # Health check (verifies Memgraph, Ollama, Claude LLM)
 openclaw-cortex health
+
+# Wipe all memories (eval/benchmark isolation only — irreversible)
+openclaw-cortex reset --yes
 ```
 
 ## Architecture

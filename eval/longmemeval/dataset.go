@@ -11,11 +11,14 @@ package longmemeval
 // (rather than a full conversation turn) to simulate a long conversation history.
 type MemoryFact struct {
 	Content string
-	// ValidFrom and ValidTo simulate temporal metadata in the prompt given to
-	// the harness.  The harness stores them as plain text facts; the retrieval
-	// system must find the right version via semantic similarity.
-	ValidFrom string // e.g. "2024-01" — included in Content for retrieval
-	ValidTo   string // non-empty means this fact was later superseded
+	// ValidFrom and ValidTo are dataset metadata for human readability only.
+	// They are NOT forwarded to the openclaw-cortex binary — the harness calls
+	// client.Store(ctx, fact.Content) and ignores these fields entirely.
+	// Temporal-versioning paths (valid_from/valid_to in the store, --supersedes,
+	// SearchFilters.AsOf) are therefore out of scope for this harness; it measures
+	// semantic retrieval only. See longmemeval/harness.go for the full rationale.
+	ValidFrom string // e.g. "2024-01" — dataset documentation only
+	ValidTo   string // non-empty = superseded fact; NOT passed as --supersedes
 }
 
 // QAPair is a LongMemEval-style evaluation unit.

@@ -309,7 +309,10 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 
 	// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
 	// Use runCLIStdout to avoid mixing progress/log lines from stderr into the JSON.
-	stdout, _ := runCLIStdout("recall", "--context", "_", "--budget", "500", "--", "test-query")
+	stdout, stdoutErr := runCLIStdout("recall", "--context", "_", "--budget", "500", "--", "test-query")
+	if stdoutErr != nil {
+		t.Fatalf("runCLIStdout failed on second invocation: %v", stdoutErr)
+	}
 	var results []any
 	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &results); jsonErr != nil {
 		t.Errorf("recall --context _ stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdout)
