@@ -10,10 +10,10 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-// TestResetRequiresYesFlag verifies that `reset` without --yes exits non-zero
+// TestResetBinaryRequiresYesFlag verifies that `reset` without --yes exits non-zero
 // and prints a message that explains how to confirm. This is the safety-critical
 // guard that prevents accidental data loss.
-func TestResetRequiresYesFlag(t *testing.T) {
+func TestResetBinaryRequiresYesFlag(t *testing.T) {
 	if !binExists() {
 		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
 	}

@@ -142,8 +142,15 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	// First-byte sanity check: JSON arrays start with '['. Any other first byte
 	// means JSON mode did not activate — the sentinel coupling (issue #91) may be
 	// broken. Surface an actionable error rather than a confusing JSON parse error.
-	if b := bytes.TrimSpace(stdout.Bytes()); len(b) > 0 && b[0] != '[' && b[0] != '{' {
-		return nil, fmt.Errorf("runner: recall output is not JSON (first byte %q) — JSON mode may not have activated; check --context sentinel coupling (issue #91)\noutput: %s", b[0], stdout.String())
+	if b := bytes.TrimSpace(stdout.Bytes()); len(b) > 0 && b[0] != '[' {
+		firstByte := b[0]
+		hint := ""
+		if firstByte == '{' {
+			hint = " (got JSON object — binary may be returning a single result instead of an array; check recall output schema)"
+		} else {
+			hint = " — JSON mode may not have activated; check --context sentinel coupling (issue #91)"
+		}
+		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", firstByte, hint, stdout.String())
 	}
 	var results []recallJSONResult
 	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
