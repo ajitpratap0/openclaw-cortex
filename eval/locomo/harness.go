@@ -44,7 +44,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		// results are based on incomplete data, producing silently deflated scores.
 		for j := range qp.Conversation {
 			turn := &qp.Conversation[j]
-			content := fmt.Sprintf("User: %s Assistant: %s", turn.User, turn.Assistant)
+			content := fmt.Sprintf("User: %s\nAssistant: %s", turn.User, turn.Assistant)
 			if err := client.Store(ctx, content); err != nil {
 				return nil, fmt.Errorf("locomo: ingest turn failed for %s (turn %d): %w", qp.ID, j, err)
 			}
