@@ -108,6 +108,9 @@ func recallCmd() *cobra.Command {
 
 			output, count := tokenizer.FormatMemoriesWithBudget(contents, budget)
 
+			// NOTE: ctxJSON != "" is the JSON-mode sentinel check. eval/runner/runner.go
+			// passes --context "_" (recallJSONModeSentinel) to activate this branch.
+			// If this condition changes, update recallJSONModeSentinel in runner.go. TODO(#91).
 			if ctxJSON != "" {
 				// Output as JSON
 				jsonResults := ranked

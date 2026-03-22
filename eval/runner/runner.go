@@ -153,7 +153,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", firstByte, hint, stdout.String())
 	}
 	var results []recallJSONResult
-	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
+	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &results); err != nil {
 		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
 	}
 	contents := make([]string, 0, len(results))
