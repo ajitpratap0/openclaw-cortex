@@ -45,9 +45,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
-- **Explicit auth opt-out** — HTTP API no longer starts in an unauthenticated state by default; `--unsafe-no-auth` must be passed explicitly, preventing accidental public exposure
-- **Per-IP rate limiting** — configurable rate limiter applied to all API endpoints to mitigate abuse
-- **TLS support** — `--tls-cert` and `--tls-key` flags added to `serve` command for HTTPS termination at the binary level
+- **Explicit auth opt-out** — HTTP API no longer starts in an unauthenticated state by default; `--unsafe-no-auth` must be passed explicitly, preventing accidental public exposure ([#77])
+- **Per-IP rate limiting** — configurable rate limiter applied to all API endpoints to mitigate abuse ([#77])
+- **TLS support** — `--tls-cert` and `--tls-key` flags added to `serve` command for HTTPS termination at the binary level ([#77])
 
 ### Tests
 
