@@ -20,8 +20,9 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-// Compile-time assertion that MemgraphStore fully implements store.Store.
+// Compile-time assertions that MemgraphStore fully implements store.Store and store.ResettableStore.
 var _ store.Store = (*MemgraphStore)(nil)
+var _ store.ResettableStore = (*MemgraphStore)(nil)
 
 const (
 	memgraphReadTimeout  = 10 * time.Second

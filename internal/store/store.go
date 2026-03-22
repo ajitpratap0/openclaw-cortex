@@ -81,13 +81,20 @@ type Store interface {
 	// that do not yet have valid_from set. Idempotent.
 	MigrateTemporalFields(ctx context.Context) error
 
+	// Close cleans up resources.
+	Close() error
+}
+
+// ResettableStore extends Store with a full-wipe operation. Keeping
+// DeleteAllMemories out of the main Store interface prevents production code
+// paths (capture, recall, lifecycle) from accidentally calling it. Only
+// cmd_reset.go and eval/benchmark harnesses interact with this interface.
+type ResettableStore interface {
+	Store
 	// DeleteAllMemories removes all data from the store (memories, entities,
 	// episodes, and any relationships between them). Intended for eval/test
 	// isolation — destructive, use with care.
 	DeleteAllMemories(ctx context.Context) error
-
-	// Close cleans up resources.
-	Close() error
 }
 
 // ContradictionHit describes a memory that contradicts a new one being stored.

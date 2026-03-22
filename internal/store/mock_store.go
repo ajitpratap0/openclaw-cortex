@@ -11,6 +11,10 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
+// Compile-time assertions that MockStore implements both Store and ResettableStore.
+var _ Store = (*MockStore)(nil)
+var _ ResettableStore = (*MockStore)(nil)
+
 // MockStore is an in-memory implementation of Store for testing.
 type MockStore struct {
 	mu       sync.RWMutex
