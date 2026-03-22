@@ -149,6 +149,11 @@ func tokenize(text string) []string {
 	return tokens
 }
 
+// isAlphaNum returns true for lowercase letters, digits, and apostrophes.
+// Apostrophes are kept so contractions like "don't" remain one token.
+// Note: the standard SQuAD evaluation script strips all punctuation including
+// apostrophes — our tokenizer is more lenient, but this is harmless for the
+// synthetic datasets used here.
 func isAlphaNum(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '\''
 }
