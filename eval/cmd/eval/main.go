@@ -45,6 +45,10 @@ func run() error {
 	timeout := flag.Int("timeout", 300, "Total timeout in seconds (default: 300)")
 	flag.Parse()
 
+	if flag.NArg() > 0 {
+		return fmt.Errorf("unexpected positional arguments: %v (use --benchmark to select a benchmark)", flag.Args())
+	}
+
 	if *timeout <= 0 {
 		return fmt.Errorf("--timeout must be > 0, got %d", *timeout)
 	}

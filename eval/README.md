@@ -239,3 +239,32 @@ Each `knowledge-update` pair has at least one fact with a `ValidTo` field
    `GroundTruth`, and at least one `Conversation` turn / `Fact`.
 3. Run the unit tests: `go test -short ./tests/...` — the size/structure
    assertions will catch common mistakes.
+
+---
+
+## Troubleshooting
+
+**Binary hangs / per-call timeout fires**
+
+Each `Reset`, `Store`, and `Recall` subprocess has a 30 s deadline
+(`runner.defaultCallTimeout`). When the deadline fires, `cmd.Run()` returns an
+error wrapping the killed-process signal; the harness counts it as a
+`recallFailure` (or aborts, for `Reset`/`Store`). The failure log will include
+`"context deadline exceeded"` to make the cause diagnosable.
+
+If the binary consistently hangs in CI (e.g. Memgraph is slow to respond),
+tune the per-call deadline via `CortexClient.CallTimeout`:
+
+```go
+client := runner.NewCortexClient(binaryPath, configPath)
+client.CallTimeout = 2 * time.Minute // override 30 s default
+```
+
+The global `--timeout` flag bounds the entire benchmark run; `CallTimeout`
+bounds each individual subprocess call.
+
+**Scores lower than expected / `recall_failures > 0`**
+
+Check that Memgraph and Ollama are running (`openclaw-cortex health`). A
+non-zero `recall_failures` in the JSON output means some QA pairs scored zero
+due to binary/connectivity errors and the aggregate metrics are deflated.
