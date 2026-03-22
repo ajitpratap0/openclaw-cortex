@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -123,7 +124,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
 	}
-	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", recallJSONModeSentinel, "--", query)
+	args := append(c.baseArgs(), "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -157,23 +158,20 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if err := json.Unmarshal(trimmed, &results); err != nil {
 		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
 	}
-	contents := make([]string, 0, len(results))
-	for i := range results {
-		contents = append(contents, results[i].Memory.Content)
-	}
 	// Guard against silent JSON shape mismatch: if the binary returned items
 	// but every content field is empty, the schema likely doesn't match.
-	if len(results) > 0 {
-		allEmpty := true
-		for _, s := range contents {
-			if s != "" {
-				allEmpty = false
-				break
-			}
+	// allEmpty is checked inline while building contents to avoid a second pass.
+	allEmpty := len(results) > 0
+	contents := make([]string, 0, len(results))
+	for i := range results {
+		s := results[i].Memory.Content
+		contents = append(contents, s)
+		if s != "" {
+			allEmpty = false
 		}
-		if allEmpty {
-			return nil, fmt.Errorf("runner: recall returned %d results but all content fields are empty — possible JSON schema mismatch (output: %s)", len(results), stdout.String())
-		}
+	}
+	if allEmpty {
+		return nil, fmt.Errorf("runner: recall returned %d results but all content fields are empty — possible JSON schema mismatch (output: %s)", len(results), stdout.String())
 	}
 	if len(contents) > limit {
 		contents = contents[:limit]
