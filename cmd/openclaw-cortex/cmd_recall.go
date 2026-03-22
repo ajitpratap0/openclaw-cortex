@@ -39,6 +39,9 @@ func recallCmd() *cobra.Command {
 			if format != "text" && format != "json" {
 				return fmt.Errorf("recall: unknown --format %q; expected \"text\" or \"json\"", format)
 			}
+			if limit < 0 {
+				return fmt.Errorf("recall: --limit must be non-negative, got %d", limit)
+			}
 
 			logger := newLogger()
 			ctx := cmd.Context()
@@ -112,8 +115,9 @@ func recallCmd() *cobra.Command {
 			}
 
 			// Apply --limit cap before token-budget trimming so the result
-			// count is deterministic when --limit is set. This is the hard
-			// result count cap; --budget still applies for text mode.
+			// count is deterministic when --limit is set. Note: --budget
+			// applies after this cap for both modes — it formats text output
+			// and also trims JSON results when count < len(ranked).
 			if limit > 0 && len(ranked) > limit {
 				ranked = ranked[:limit]
 			}
