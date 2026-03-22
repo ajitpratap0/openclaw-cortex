@@ -284,6 +284,22 @@ func TestCortexClientRecallContextFlagPresent(t *testing.T) {
 	}
 }
 
+// TestCortexClientStoreFlagsPresent verifies that the store command still
+// exposes --type and --scope, which Store() hardcodes. A flag rename in
+// cmd_store.go would otherwise cause Store() to silently store facts under
+// the wrong type/scope or exit non-zero with no compile-time signal.
+func TestCortexClientStoreFlagsPresent(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	out, _ := runCLI("store", "--help")
+	for _, flag := range []string{"--type", "--scope"} {
+		if !strings.Contains(out, flag) {
+			t.Errorf("store --help does not mention %s flag; Store() hardcoded flag coupling may be broken:\n%s", flag, out)
+		}
+	}
+}
+
 // TestCortexClientRecallJSONOutputFormat verifies that `recall --context _`
 // triggers JSON output mode and that the output is parseable JSON.
 //

@@ -141,6 +141,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		return nil, fmt.Errorf("runner: recall binary produced no output (exit 0 but empty stdout)")
 	}
 	trimmed := bytes.TrimSpace(stdout.Bytes())
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("runner: recall binary produced only whitespace (stdout: %q)", stdout.String())
+	}
 	// First-byte sanity check: JSON arrays start with '['. Any other first byte
 	// means JSON mode did not activate — the sentinel coupling (issue #91) may be
 	// broken. Surface an actionable error rather than a confusing JSON parse error.
