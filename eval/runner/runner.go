@@ -75,7 +75,9 @@ const recallJSONModeSentinel = "_"
 //
 //	invalid string index 0 (out of bounds for 0-character string)
 //
-// TODO(#91): remove once --format json flag replaces the sentinel.
+// Note: this only guards against the sentinel becoming the empty string
+// specifically. A change to a different non-empty value would still
+// compile — the TODO(#91) --format json flag is the proper fix.
 var _ = recallJSONModeSentinel[0]
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
@@ -142,6 +144,11 @@ type RecallJSONResult struct {
 // slice becomes a no-op. For the synthetic benchmark datasets (each fact/turn
 // ≤ 30 tokens) 500 tokens per expected result is intentionally generous, making
 // under-counting in practice very unlikely.
+//
+// Note: Memgraph itself may also return fewer than limit items if fewer
+// memories match the query. In that case len(contents) < limit with no error
+// — RecallAtK is evaluated against the actual candidates returned, not a
+// padded set. For the synthetic datasets this is expected and correct.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	if limit <= 0 {
 		return nil, fmt.Errorf("runner: limit must be > 0, got %d", limit)
@@ -435,6 +442,9 @@ func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
 	sb.WriteString(sep)
 
 	for _, s := range summaries {
+		// recallColW-3: -2 for the surrounding spaces in "| %s |", -1 for the
+		// literal "%" appended by "%%". This gives the numeric width of the
+		// float part; "%%" then appends the "%" sign.
 		recallCell := fmt.Sprintf("%*.1f%%", recallColW-3, s.RecallAtK*100)
 		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
 			s.Name,
