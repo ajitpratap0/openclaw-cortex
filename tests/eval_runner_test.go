@@ -335,7 +335,6 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Single invocation: capture stdout and stderr separately so we can both
 			// detect "unknown flag" errors (stderr) and parse JSON output (stdout).

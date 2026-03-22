@@ -60,24 +60,6 @@ type Client interface {
 // consume the entire benchmark budget. Override via CortexClient.CallTimeout.
 const defaultCallTimeout = 30 * time.Second
 
-// recallJSONModeSentinel is kept for backward compatibility only. It was
-// previously passed as --context "_" to trigger JSON output mode in
-// cmd_recall.go. The runner now uses --format json instead (issue #91).
-//
-// The sentinel is still accepted by cmd_recall.go (any non-empty --context
-// value activates JSON mode) so older runner binaries built against this
-// constant continue to work. New code should use --format json.
-const recallJSONModeSentinel = "_"
-
-// Compile-time assertion: recallJSONModeSentinel must be non-empty.
-// If it is ever changed to "", this line produces a compile error:
-//
-//	invalid string index 0 (out of bounds for 0-character string)
-//
-// The sentinel is preserved for backward compatibility; --format json is the
-// canonical way to request JSON output from cmd_recall.go (issue #91 resolved).
-var _ = recallJSONModeSentinel[0]
-
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 // It implements Client.
 type CortexClient struct {

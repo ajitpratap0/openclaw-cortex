@@ -36,6 +36,10 @@ func recallCmd() *cobra.Command {
 		Short: "Recall relevant memories with multi-factor ranking",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "text" && format != "json" {
+				return fmt.Errorf("recall: unknown --format %q; expected \"text\" or \"json\"", format)
+			}
+
 			logger := newLogger()
 			ctx := cmd.Context()
 			query := args[0]
