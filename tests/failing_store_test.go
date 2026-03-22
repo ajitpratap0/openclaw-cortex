@@ -20,6 +20,9 @@ type failingUpsertStore struct {
 	err   error
 }
 
+// Compile-time assertion: failingUpsertStore must satisfy store.ResettableStore.
+var _ store.ResettableStore = (*failingUpsertStore)(nil)
+
 func (f *failingUpsertStore) EnsureCollection(ctx context.Context) error {
 	return f.inner.EnsureCollection(ctx)
 }
