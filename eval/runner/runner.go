@@ -112,7 +112,7 @@ func (c *CortexClient) callTimeout() time.Duration {
 	return defaultCallTimeout
 }
 
-// recallJSONResult is a minimal struct for parsing JSON output from
+// RecallJSONResult is a minimal struct for parsing JSON output from
 // `openclaw-cortex recall --context _`.
 //
 // Schema: matches cmd_recall.go output as of commit e38b3d5f.
@@ -123,8 +123,11 @@ func (c *CortexClient) callTimeout() time.Duration {
 // The outer key is "memory" (json:"memory") and the content key is "content"
 // (json:"content"). If the recall command's output schema changes — e.g. the
 // outer wrapper is flattened or the field is renamed — update this struct and
-// TestRecallJSONResultSchema in runner_test.go.
-type recallJSONResult struct {
+// TestRecallJSONResultSchema in tests/eval_runner_test.go.
+//
+// Exported so that tests/eval_runner_test.go can test JSON schema parsing
+// without requiring a live binary (CLAUDE.md: tests live in tests/).
+type RecallJSONResult struct {
 	Memory struct {
 		Content string `json:"content"`
 	} `json:"memory"`
@@ -194,7 +197,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		}
 		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", trimmed[0], hint, stdout.String())
 	}
-	var results []recallJSONResult
+	var results []RecallJSONResult
 	if err := json.Unmarshal(trimmed, &results); err != nil {
 		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
 	}
