@@ -1,8 +1,12 @@
 package tests
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/longmemeval"
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -97,7 +101,7 @@ func TestLongMemEvalKnowledgeUpdateFactsHaveValidTo(t *testing.T) {
 		}
 		hasSuperseded := false
 		for j := range qp.Facts {
-			if qp.Facts[j].ValidTo != "" {
+			if qp.Facts[j].DatasetValidTo != "" {
 				hasSuperseded = true
 				break
 			}
@@ -156,4 +160,77 @@ func TestLongMemEvalScoringOnSyntheticData(t *testing.T) {
 			t.Errorf("pair %s: RecallAtK=1 failed with perfect retrieval", qp.ID)
 		}
 	}
+}
+
+// --- Run() control-flow tests (stub client, no binary required) ---
+
+// TestLongMemEvalRunHappyPath verifies that Run() returns a non-error summary with
+// TotalQuestions matching the dataset size when Reset, Store, and Recall all succeed.
+func TestLongMemEvalRunHappyPath(t *testing.T) {
+	pairs := longmemeval.Dataset()
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.Equal(t, len(pairs), summary.TotalQuestions)
+	require.Equal(t, 0, summary.RecallFailures)
+}
+
+// TestLongMemEvalRunResetFailure verifies that Run() propagates a Reset error
+// and aborts immediately rather than producing a partial summary.
+func TestLongMemEvalRunResetFailure(t *testing.T) {
+	stub := &stubHarnessClient{
+		resetErr: errors.New("stub: reset failed"),
+	}
+	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "reset failed")
+}
+
+// TestLongMemEvalRunAllRecallFail verifies that Run() returns an error (not a
+// partial summary) when every Recall call fails — the all-fail guard.
+func TestLongMemEvalRunAllRecallFail(t *testing.T) {
+	pairs := longmemeval.Dataset()
+	stub := &stubHarnessClient{
+		recallErrs: recallErrors(len(pairs)),
+	}
+	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "recall calls failed")
+}
+
+// TestLongMemEvalRunPartialRecallFail verifies that Run() returns a summary
+// (not an error) when only some Recall calls fail, and RecallFailures
+// reflects the number of failed calls.
+func TestLongMemEvalRunPartialRecallFail(t *testing.T) {
+	pairs := longmemeval.Dataset()
+	// First pair succeeds; the rest fail.
+	errs := recallErrors(len(pairs))
+	errs[0] = nil
+	stub := &stubHarnessClient{
+		recallErrs: errs,
+		recallResp: []string{"answer content"},
+	}
+	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.Equal(t, len(pairs)-1, summary.RecallFailures)
+}
+
+// TestLongMemEvalRunContextCancel verifies that Run() returns a context error
+// when the context is already canceled on entry.
+func TestLongMemEvalRunContextCancel(t *testing.T) {
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling Run
+	summary, err := longmemeval.Run(ctx, stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "context canceled")
 }

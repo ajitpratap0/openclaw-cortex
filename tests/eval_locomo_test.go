@@ -1,8 +1,12 @@
 package tests
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/locomo"
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -154,3 +158,77 @@ func TestLoCoMoGroundTruthInConversations(t *testing.T) {
 		}
 	}
 }
+
+// --- Run() control-flow tests (stub client, no binary required) ---
+
+// TestLoCoMoRunHappyPath verifies that Run() returns a non-error summary with
+// TotalQuestions matching the dataset size when Reset, Store, and Recall all succeed.
+func TestLoCoMoRunHappyPath(t *testing.T) {
+	pairs := locomo.Dataset()
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+	summary, err := locomo.Run(context.Background(), stub, 5)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.Equal(t, len(pairs), summary.TotalQuestions)
+	require.Equal(t, 0, summary.RecallFailures)
+}
+
+// TestLoCoMoRunResetFailure verifies that Run() propagates a Reset error
+// and aborts immediately rather than producing a partial summary.
+func TestLoCoMoRunResetFailure(t *testing.T) {
+	stub := &stubHarnessClient{
+		resetErr: errors.New("stub: reset failed"),
+	}
+	summary, err := locomo.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "reset failed")
+}
+
+// TestLoCoMoRunAllRecallFail verifies that Run() returns an error (not a
+// partial summary) when every Recall call fails — the all-fail guard.
+func TestLoCoMoRunAllRecallFail(t *testing.T) {
+	pairs := locomo.Dataset()
+	stub := &stubHarnessClient{
+		recallErrs: recallErrors(len(pairs)),
+	}
+	summary, err := locomo.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "recall calls failed")
+}
+
+// TestLoCoMoRunPartialRecallFail verifies that Run() returns a summary
+// (not an error) when only some Recall calls fail, and RecallFailures
+// reflects the number of failed calls.
+func TestLoCoMoRunPartialRecallFail(t *testing.T) {
+	pairs := locomo.Dataset()
+	// First pair succeeds; the rest fail.
+	errs := recallErrors(len(pairs))
+	errs[0] = nil
+	stub := &stubHarnessClient{
+		recallErrs: errs,
+		recallResp: []string{"answer content"},
+	}
+	summary, err := locomo.Run(context.Background(), stub, 5)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.Equal(t, len(pairs)-1, summary.RecallFailures)
+}
+
+// TestLoCoMoRunContextCancel verifies that Run() returns a context error
+// when the context is already canceled on entry.
+func TestLoCoMoRunContextCancel(t *testing.T) {
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling Run
+	summary, err := locomo.Run(ctx, stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "context canceled")
+}
+

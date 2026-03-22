@@ -104,18 +104,6 @@ func (c *CortexClient) callTimeout() time.Duration {
 	return defaultCallTimeout
 }
 
-// baseArgs returns the base CLI arguments for all subcommands.
-// It returns nil or a freshly-allocated slice (never a slice with spare
-// capacity), so callers can safely append to the result without aliasing
-// across concurrent or sequential calls. nil is handled identically to
-// []string{} by append, so callers need not treat the two cases differently.
-func (c *CortexClient) baseArgs() []string {
-	if c.ConfigPath != "" {
-		return []string{"--config", c.ConfigPath}
-	}
-	return nil
-}
-
 // recallJSONResult is a minimal struct for parsing JSON output from
 // `openclaw-cortex recall --context _`.
 // It mirrors the relevant fields of models.RecallResult
@@ -155,7 +143,15 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	}
 	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
 	defer callCancel()
-	args := append(c.baseArgs(), "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
+	// Build args inline rather than via baseArgs() to guarantee no shared
+	// backing array across concurrent or sequential calls. baseArgs() is
+	// freshly-allocated today, but inlining makes the non-aliasing property
+	// local to this call site instead of a cross-function invariant.
+	var args []string
+	if c.ConfigPath != "" {
+		args = append(args, "--config", c.ConfigPath)
+	}
+	args = append(args, "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -223,7 +219,11 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 	}
 	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
 	defer callCancel()
-	args := append(c.baseArgs(), "store", "--scope", "permanent", "--type", "fact", "--", content)
+	var args []string
+	if c.ConfigPath != "" {
+		args = append(args, "--config", c.ConfigPath)
+	}
+	args = append(args, "store", "--scope", "permanent", "--type", "fact", "--", content)
 	//nolint:gosec
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -240,7 +240,11 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 func (c *CortexClient) Reset(ctx context.Context) error {
 	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
 	defer callCancel()
-	args := append(c.baseArgs(), "reset", "--yes")
+	var args []string
+	if c.ConfigPath != "" {
+		args = append(args, "--config", c.ConfigPath)
+	}
+	args = append(args, "reset", "--yes")
 	//nolint:gosec
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
