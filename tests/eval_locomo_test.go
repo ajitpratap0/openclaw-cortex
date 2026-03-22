@@ -131,3 +131,26 @@ func TestLoCoMoFormatCategoryTable(t *testing.T) {
 		}
 	}
 }
+
+// TestLoCoMoGroundTruthInConversations checks that each pair's GroundTruth
+// appears (as a case-insensitive substring) in at least one of the pair's
+// conversation turns. Without this, a dataset bug would silently produce
+// deflated scores with no failing test.
+func TestLoCoMoGroundTruthInConversations(t *testing.T) {
+	pairs := locomo.Dataset()
+	for i := range pairs {
+		qp := &pairs[i]
+		gt := strings.ToLower(qp.GroundTruth)
+		found := false
+		for _, turn := range qp.Conversation {
+			if strings.Contains(strings.ToLower(turn.User), gt) ||
+				strings.Contains(strings.ToLower(turn.Assistant), gt) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("pair %s: ground truth %q not found in any conversation turn", qp.ID, qp.GroundTruth)
+		}
+	}
+}

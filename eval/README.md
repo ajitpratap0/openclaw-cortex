@@ -111,9 +111,9 @@ Each `results` entry is a `BenchmarkResult`:
 | `question_id`  | Synthetic dataset identifier (e.g. `locomo-A1`) |
 | `question`     | The evaluation question |
 | `ground_truth` | Expected answer substring |
-| `retrieved`    | Best recalled memory content |
-| `exact_match`  | Whether `retrieved` contains `ground_truth` (case-insensitive) |
-| `f1_score`     | Token-level F1 between `retrieved` and `ground_truth` |
+| `retrieved`    | Oracle-selected best candidate — the top-k result with the highest token-F1 vs. `ground_truth` |
+| `exact_match`  | Whether `retrieved` contains `ground_truth` (case-insensitive); oracle-selected, not top-ranked |
+| `f1_score`     | Token-level F1 between `retrieved` and `ground_truth`; oracle-selected, not top-ranked |
 | `recalled_at_k`| Whether any of the top-k memories contained `ground_truth` |
 
 ### Markdown Table
@@ -135,9 +135,9 @@ After the JSON block the tool prints a summary table:
 
 | Metric | Definition |
 |--------|-----------|
-| **Exact Match** | Fraction of questions where the best retrieved memory *contains* the ground-truth answer string (case-insensitive). |
-| **Avg F1** | Mean token-level F1 across all questions. Rewards partial overlap, not just exact matches. |
-| **Recall\@K** | Fraction of questions where *any* of the top-K retrieved memories contains the ground truth. |
+| **Exact Match** | Fraction of questions where the oracle-selected best candidate (highest token-F1 among top-K) *contains* the ground-truth string (case-insensitive). This is an upper-bound metric — it answers "could the answer be found anywhere in top-K?", not "did the system rank the answer first?". |
+| **Avg F1** | Mean token-level F1 between the oracle-selected best candidate and ground truth. Upper-bound metric; same oracle selection as Exact Match. |
+| **Recall\@K** | Fraction of questions where *any* of the top-K retrieved memories contains the ground truth. The canonical recall metric. |
 
 ### Competitor Context (from issue #88)
 

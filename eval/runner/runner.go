@@ -12,14 +12,21 @@ import (
 )
 
 // BenchmarkResult holds the outcome of one QA pair evaluation.
+//
+// ExactMatch and F1Score are both computed against the oracle-selected
+// best candidate (the top-k result with the highest token-F1 vs. ground
+// truth, chosen by BestCandidate). They measure "could the answer be found
+// anywhere in the top-k?" — an upper-bound / recall-style metric, NOT
+// Precision@1. RecalledAtK is the canonical recall metric; ExactMatch is
+// a stricter variant of the same signal. See eval/README.md § Metrics.
 type BenchmarkResult struct {
 	QuestionID  string  `json:"question_id"`
 	Question    string  `json:"question"`
 	GroundTruth string  `json:"ground_truth"`
-	Retrieved   string  `json:"retrieved"` // best recalled memory content
-	ExactMatch  bool    `json:"exact_match"`
-	F1Score     float64 `json:"f1_score"`
-	RecalledAtK bool    `json:"recalled_at_k"` // was ground truth in top-k results?
+	Retrieved   string  `json:"retrieved"`   // oracle-selected best candidate (highest token-F1 vs. ground truth)
+	ExactMatch  bool    `json:"exact_match"` // Retrieved contains GroundTruth (case-insensitive); oracle-selected, not top-ranked
+	F1Score     float64 `json:"f1_score"`    // token-F1 of Retrieved vs. GroundTruth; oracle-selected, not top-ranked
+	RecalledAtK bool    `json:"recalled_at_k"` // was ground truth in any of the top-k results?
 }
 
 // BenchmarkSummary aggregates results from a single benchmark run.
