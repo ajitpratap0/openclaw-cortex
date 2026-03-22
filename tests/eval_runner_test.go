@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -256,5 +257,26 @@ func TestCortexClientRecallZeroLimit(t *testing.T) {
 	_, err := c.Recall(context.Background(), "query", 0)
 	if err == nil {
 		t.Fatal("Recall with limit=0 should return an error, got nil")
+	}
+}
+
+func TestCortexClientRecallEmptyQuery(t *testing.T) {
+	c := runner.NewCortexClient("", "")
+	_, err := c.Recall(context.Background(), "", 5)
+	if err == nil {
+		t.Fatal("Recall with empty query should return an error, got nil")
+	}
+}
+
+// TestCortexClientRecallContextFlagPresent verifies that the recall command
+// still exposes --context, which recallContextSentinel depends on. A flag
+// rename in cmd_recall.go would otherwise break the harness silently.
+func TestCortexClientRecallContextFlagPresent(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	out, _ := runCLI("recall", "--help")
+	if !strings.Contains(out, "--context") {
+		t.Errorf("recall --help does not mention --context flag; recallContextSentinel coupling may be broken:\n%s", out)
 	}
 }

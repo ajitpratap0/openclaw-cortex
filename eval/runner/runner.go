@@ -111,8 +111,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		return nil, fmt.Errorf("runner: query must not be empty")
 	}
 	// maxLimit guards against int overflow on 32-bit targets: limit*500 uses
-	// int arithmetic, which is 32-bit on GOARCH=386/arm. A limit of 4295 would
-	// overflow to a negative --budget value and cause the binary to error out.
+	// int arithmetic, which is 32-bit on GOARCH=386/arm. On a 32-bit target
+	// the overflow threshold is 2^31/500 ≈ 4,294,967; maxLimit (1<<20 = 1,048,576)
+	// keeps limit*500 well below that ceiling.
 	const maxLimit = 1 << 20 // 1 048 576 — far beyond any reasonable k
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
