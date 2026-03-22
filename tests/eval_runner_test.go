@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -348,7 +349,7 @@ func TestFormatMarkdownTable(t *testing.T) {
 	}
 
 	for _, k := range []int{5, 10, 100} {
-		t.Run(strings.Repeat("k=", 1)+strings.TrimPrefix(strings.Repeat("k=", 1), ""), func(t *testing.T) {
+		t.Run(fmt.Sprintf("k=%d", k), func(t *testing.T) {
 			table := runner.FormatMarkdownTable(summaries, k)
 			if table == "" {
 				t.Fatal("FormatMarkdownTable returned empty string")
@@ -358,11 +359,9 @@ func TestFormatMarkdownTable(t *testing.T) {
 			if len(lines) < 2+len(summaries) {
 				t.Fatalf("expected >= %d lines, got %d:\n%s", 2+len(summaries), len(lines), table)
 			}
-			// Header must contain the Recall@k label.
-			recallHeader := strings.Contains(lines[0], strings.Repeat("Recall@", 1)+strings.TrimPrefix(strings.Repeat("k=", 1), "k="))
-			_ = recallHeader // presence checked below
-			if !strings.Contains(lines[0], "Recall@") {
-				t.Errorf("header missing Recall@k: %q", lines[0])
+			// Header must contain the exact Recall@k label (e.g. "Recall@5").
+			if !strings.Contains(lines[0], fmt.Sprintf("Recall@%d", k)) {
+				t.Errorf("header missing Recall@%d: %q", k, lines[0])
 			}
 			// Separator line must start with '|' and contain only '-', '|', spaces.
 			sep := lines[1]
