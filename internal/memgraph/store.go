@@ -20,12 +20,17 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
-// Compile-time assertion that MemgraphStore fully implements store.Store.
+// Compile-time assertions that MemgraphStore fully implements store.Store and store.ResettableStore.
 var _ store.Store = (*MemgraphStore)(nil)
+var _ store.ResettableStore = (*MemgraphStore)(nil)
 
 const (
 	memgraphReadTimeout  = 10 * time.Second
 	memgraphWriteTimeout = 30 * time.Second
+	// memgraphDeleteAllTimeout is intentionally generous: MATCH (n) DETACH DELETE n
+	// scans the entire graph and can be slow on large stores. memgraphWriteTimeout
+	// (30 s) is sized for single-node upserts and is too short for a full-graph wipe.
+	memgraphDeleteAllTimeout = 5 * time.Minute
 )
 
 // MemgraphStore implements store.Store using Memgraph (Bolt-compatible).
@@ -986,6 +991,37 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 		return fmt.Errorf("memgraph update reinforcement set %s: %w", id, writeErr)
 	}
 
+	return nil
+}
+
+// DeleteAllMemories removes all nodes and relationships from the graph.
+// This is intended for eval benchmark isolation only — it is destructive.
+//
+// Known limitation: `MATCH (n) DETACH DELETE n` runs as a single Bolt
+// transaction. On a large or heavily-indexed graph this can exhaust the
+// Memgraph transaction memory budget and fail even within
+// memgraphDeleteAllTimeout. The eval harness synthetic datasets are small
+// (O(100) nodes per QA pair), so this is safe in practice. For production
+// stores with millions of nodes, batched deletion (WITH n LIMIT N) would be
+// required; tracked in issue #91 alongside the --format json follow-up.
+func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
+	wctx, cancel := context.WithTimeout(ctx, memgraphDeleteAllTimeout)
+	defer cancel()
+
+	session := s.driver.NewSession(wctx, s.sessionConfig())
+	defer s.closeSession(context.Background(), session) // fresh ctx — both wctx and caller's ctx may be expired by close time
+
+	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, txErr := tx.Run(wctx, "MATCH (n) DETACH DELETE n", nil)
+		if txErr != nil {
+			return nil, txErr
+		}
+		_, txErr = result.Consume(wctx)
+		return nil, txErr
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph delete all memories: %w", err)
+	}
 	return nil
 }
 

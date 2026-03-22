@@ -11,6 +11,10 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
+// Compile-time assertions that MockStore implements both Store and ResettableStore.
+var _ Store = (*MockStore)(nil)
+var _ ResettableStore = (*MockStore)(nil)
+
 // MockStore is an in-memory implementation of Store for testing.
 type MockStore struct {
 	mu       sync.RWMutex
@@ -573,6 +577,20 @@ func (m *MockStore) GetHistory(ctx context.Context, id string) ([]models.Memory,
 
 // MigrateTemporalFields is a no-op in the mock store.
 func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
+	return nil
+}
+
+// DeleteAllMemories clears all in-memory data from the mock store.
+// MockStore's complete mutable state is exactly two maps — memories and
+// entities — both reset here. There are no relationship or episode maps:
+// MemgraphStore stores episodes and relationships as graph nodes/edges removed
+// by MATCH (n) DETACH DELETE n; MockStore has no equivalent structures, so
+// resetting memories + entities is a full wipe and matches the contract.
+func (m *MockStore) DeleteAllMemories(_ context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.memories = make(map[string]*storedMemory)
+	m.entities = make(map[string]*models.Entity)
 	return nil
 }
 

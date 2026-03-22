@@ -29,6 +29,9 @@ gofmt -w . && goimports -w .
 docker compose up -d
 # Health check (verifies Memgraph, Ollama, Claude LLM)
 openclaw-cortex health
+
+# Wipe all memories (eval/benchmark isolation only — irreversible)
+openclaw-cortex reset --yes
 ```
 
 ## Architecture
@@ -45,6 +48,14 @@ cmd/cmd_recall.go
   → recall.RRFMerge          (internal/recall/)      — Reciprocal Rank Fusion of vector + graph results
   → tokenizer.FormatMemoriesWithBudget (pkg/tokenizer/) — trim to token budget
 ```
+
+**Store flow** (`cmd store [memory text]`) — direct memory write, bypassing Claude extraction:
+```
+cmd/cmd_store.go
+  → embedder.Embedder        (internal/embedder/)    — embed content
+  → memgraph.Client          (internal/memgraph/)    — dedup + upsert memory
+```
+Flags: `--type fact|rule|episode|procedure|preference`, `--scope permanent|project|session|ttl`, `--tags`, `--confidence`, `--ttl-hours`, `--supersedes`.
 
 **Capture flow** (`cmd capture`) with contradiction detection and temporal versioning:
 ```

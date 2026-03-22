@@ -1,0 +1,97 @@
+// Package longmemeval implements the LongMemEval benchmark harness.
+package longmemeval
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
+)
+
+const benchmarkName = "LongMemEval"
+
+// Run ingests all synthetic LongMemEval facts and evaluates all QA pairs.
+// It returns a BenchmarkSummary with individual and aggregate results.
+//
+// For each QA pair:
+//  1. Ingest all facts via client.Store.
+//  2. Run Recall(question, k) to retrieve relevant memories.
+//  3. Score: ExactMatch + TokenF1 + RecallAtK.
+func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
+	pairs := Dataset()
+	results := make([]runner.BenchmarkResult, 0, len(pairs))
+	recallFailures := 0
+
+	for i := range pairs {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("longmemeval: context canceled before completing all pairs: %w", err)
+		}
+		qp := &pairs[i]
+
+		// Reset the memory store before ingesting this pair's facts to prevent
+		// contamination from prior pairs. If reset fails, abort rather than
+		// produce scores against stale data.
+		if err := client.Reset(ctx); err != nil {
+			return nil, fmt.Errorf("longmemeval: reset failed before %s (aborting to prevent contamination): %w", qp.ID, err)
+		}
+
+		// Ingest the facts for this QA pair.
+		// Any store failure aborts the entire benchmark run: partial ingestion means
+		// the recall results are based on incomplete data, producing silently deflated scores.
+		//
+		// Note: knowledge-update pairs (lme-K*) have facts with a ValidTo field
+		// marking the superseded fact, but this harness only stores fact.Content and
+		// does not pass --supersedes to the binary. Both the old and new fact land in
+		// the store with no valid_to set on the old one. The retrieval system's
+		// temporal-versioning path (valid_from/valid_to, SearchFilters.AsOf) is
+		// therefore not exercised here. BestCandidate selects the correct (newer) fact
+		// by token-F1, not by graph-level invalidation. This harness measures semantic
+		// retrieval only — temporal versioning is out of scope.
+		for j := range qp.Facts {
+			fact := &qp.Facts[j]
+			if err := client.Store(ctx, fact.Content); err != nil {
+				return nil, fmt.Errorf("longmemeval: ingest fact failed for %s (fact %d): %w", qp.ID, j, err)
+			}
+		}
+
+		// Retrieve relevant memories.
+		memories, err := client.Recall(ctx, qp.Question, k)
+		if err != nil {
+			// ctx.Err() distinguishes two cases:
+			//   - parent context canceled: abort (global benchmark timeout fired)
+			//   - per-call timeout inside CortexClient.Recall: count as recallFailure and continue
+			// Narrow race: if the parent context is canceled between Recall returning
+			// and this check, the cancellation is counted as a recallFailure instead of
+			// aborting. Acceptable for benchmark purposes — scores show one extra failure.
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("longmemeval: context canceled during recall for %s (recall error: %v): %w", qp.ID, err, ctx.Err())
+			}
+			recallFailures++
+			fmt.Fprintf(os.Stderr, "[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
+			memories = nil
+		}
+
+		// Select the best candidate.
+		best := ""
+		if len(memories) > 0 {
+			best = runner.BestCandidate(memories, qp.GroundTruth)
+		}
+
+		result := runner.BenchmarkResult{
+			QuestionID:  qp.ID,
+			Question:    qp.Question,
+			GroundTruth: qp.GroundTruth,
+			Retrieved:   best,
+			ExactMatch:  runner.ExactMatch(best, qp.GroundTruth), // oracle substring containment, not strict equality — see BenchmarkResult doc
+			F1Score:     runner.TokenF1(best, qp.GroundTruth),
+			RecalledAtK: runner.RecallAtK(memories, qp.GroundTruth, k),
+		}
+		results = append(results, result)
+	}
+
+	if recallFailures == len(pairs) && len(pairs) > 0 {
+		return nil, fmt.Errorf("longmemeval: all %d recall calls failed — check binary path and Memgraph/Ollama connectivity", len(pairs))
+	}
+	return runner.Summarize(benchmarkName, results, k, recallFailures), nil
+}
