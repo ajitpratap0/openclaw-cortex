@@ -71,6 +71,9 @@ type recallJSONResult struct {
 // Recall runs `openclaw-cortex recall --context _ <query>` and returns up to
 // limit memory content strings parsed from the JSON output.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("runner: limit must be > 0, got %d", limit)
+	}
 	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", "_", "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
@@ -87,6 +90,20 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	contents := make([]string, 0, len(results))
 	for i := range results {
 		contents = append(contents, results[i].Memory.Content)
+	}
+	// Guard against silent JSON shape mismatch: if the binary returned items
+	// but every content field is empty, the schema likely doesn't match.
+	if len(results) > 0 {
+		allEmpty := true
+		for _, s := range contents {
+			if s != "" {
+				allEmpty = false
+				break
+			}
+		}
+		if allEmpty {
+			return nil, fmt.Errorf("runner: recall returned %d results but all content fields are empty — possible JSON schema mismatch (output: %s)", len(results), stdout.String())
+		}
 	}
 	if len(contents) > limit {
 		contents = contents[:limit]

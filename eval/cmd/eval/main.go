@@ -100,14 +100,15 @@ func run() error {
 		if writeErr := os.WriteFile(*output, enc, 0o600); writeErr != nil {
 			return fmt.Errorf("writing output file: %w", writeErr)
 		}
-		fmt.Printf("Results written to %s\n\n", *output)
+		fmt.Fprintf(os.Stderr, "Results written to %s\n\n", *output)
 	} else {
 		fmt.Println(string(enc))
 		fmt.Println()
 	}
 
-	// Print markdown summary table.
-	fmt.Println(markdownTable(summaries, *k))
+	// Print markdown summary table to stderr so stdout stays clean JSON
+	// (allows: go run ./eval/cmd/eval | jq '.').
+	fmt.Fprintln(os.Stderr, markdownTable(summaries, *k))
 	return nil
 }
 

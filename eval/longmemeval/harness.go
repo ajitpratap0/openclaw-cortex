@@ -29,9 +29,10 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		qp := &pairs[i]
 
 		// Reset the memory store before ingesting this pair's facts to prevent
-		// contamination from prior pairs.
+		// contamination from prior pairs. If reset fails, abort rather than
+		// produce scores against stale data.
 		if err := client.Reset(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "[longmemeval] warn: reset failed for %s: %v\n", qp.ID, err)
+			return nil, fmt.Errorf("longmemeval: reset failed before %s (aborting to prevent contamination): %w", qp.ID, err)
 		}
 
 		// Ingest the facts for this QA pair.
