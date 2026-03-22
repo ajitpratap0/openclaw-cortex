@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 )
 
 type healthResult struct {
@@ -59,12 +63,28 @@ func healthCmd() *cobra.Command {
 				result.Errors["ollama"] = err.Error()
 			}
 
-			// Check Claude LLM access (API key or gateway)
+			// Check Claude LLM access: actually test the credentials with a cheap ping.
+			llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
+			defer llmCancel()
 			switch {
 			case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-				// OK via gateway
+				client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 5)
+				if _, err := client.Complete(llmCtx, cfg.Claude.Model, "ping", "respond with ok", 5); err != nil {
+					result.LLM = false
+					if result.Errors == nil {
+						result.Errors = make(map[string]string)
+					}
+					result.Errors["llm"] = fmt.Sprintf("gateway auth failed: %v", err)
+				}
 			case cfg.Claude.APIKey != "":
-				// OK via API key
+				client := llm.NewAnthropicClient(cfg.Claude.APIKey)
+				if _, err := client.Complete(llmCtx, cfg.Claude.Model, "ping", "respond with ok", 5); err != nil {
+					result.LLM = false
+					if result.Errors == nil {
+						result.Errors = make(map[string]string)
+					}
+					result.Errors["llm"] = fmt.Sprintf("api key auth failed: %v", err)
+				}
 			default:
 				result.LLM = false
 				if result.Errors == nil {
@@ -100,13 +120,15 @@ func healthCmd() *cobra.Command {
 				fmt.Printf("Ollama: FAIL (%s)\n", result.Errors["ollama"])
 			}
 
-			switch {
-			case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-				fmt.Printf("Claude LLM: OK (via gateway %s)\n", cfg.Claude.GatewayURL)
-			case cfg.Claude.APIKey != "":
-				fmt.Println("Claude LLM: OK (API key)")
-			default:
-				fmt.Println("Claude LLM: FAIL (no API key or gateway configured)")
+			if result.LLM {
+				switch {
+				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
+					fmt.Printf("Claude LLM: OK (via gateway %s)\n", cfg.Claude.GatewayURL)
+				default:
+					fmt.Println("Claude LLM: OK (API key)")
+				}
+			} else {
+				fmt.Printf("Claude LLM: FAIL (%s)\n", result.Errors["llm"])
 			}
 
 			if !result.OK {
