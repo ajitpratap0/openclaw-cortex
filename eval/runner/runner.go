@@ -60,14 +60,13 @@ type Client interface {
 // consume the entire benchmark budget. Override via CortexClient.CallTimeout.
 const defaultCallTimeout = 30 * time.Second
 
-// recallJSONModeSentinel is a non-empty value passed to --context to trigger
-// JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
-// itself is unused by the binary; "_" is a readable no-op.
+// recallJSONModeSentinel is kept for backward compatibility only. It was
+// previously passed as --context "_" to trigger JSON output mode in
+// cmd_recall.go. The runner now uses --format json instead (issue #91).
 //
-// Note: --context and --project are separate flags in cmd_recall.go. The
-// runner does not pass --project, so project="" and scope-boosting is not
-// applied during eval recalls. A dedicated --format json flag in cmd_recall.go
-// would eliminate this sentinel coupling; TODO(#91).
+// The sentinel is still accepted by cmd_recall.go (any non-empty --context
+// value activates JSON mode) so older runner binaries built against this
+// constant continue to work. New code should use --format json.
 const recallJSONModeSentinel = "_"
 
 // Compile-time assertion: recallJSONModeSentinel must be non-empty.
@@ -75,9 +74,8 @@ const recallJSONModeSentinel = "_"
 //
 //	invalid string index 0 (out of bounds for 0-character string)
 //
-// Note: this only guards against the sentinel becoming the empty string
-// specifically. A change to a different non-empty value would still
-// compile — the TODO(#91) --format json flag is the proper fix.
+// The sentinel is preserved for backward compatibility; --format json is the
+// canonical way to request JSON output from cmd_recall.go (issue #91 resolved).
 var _ = recallJSONModeSentinel[0]
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
@@ -115,7 +113,7 @@ func (c *CortexClient) callTimeout() time.Duration {
 }
 
 // RecallJSONResult is a minimal struct for parsing JSON output from
-// `openclaw-cortex recall --context _`.
+// `openclaw-cortex recall --format json`.
 //
 // Schema: matches cmd_recall.go output as of commit e38b3d5f.
 // The binary serializes []models.RecallResult (internal/models/memory.go):
@@ -135,19 +133,17 @@ type RecallJSONResult struct {
 	} `json:"memory"`
 }
 
-// Recall runs `openclaw-cortex recall --context _ <query>` and returns up to
-// limit memory content strings parsed from the JSON output.
+// Recall runs `openclaw-cortex recall --format json --limit <limit> <query>`
+// and returns up to limit memory content strings parsed from the JSON output.
 //
-// --budget limit*500 is a token-based heuristic, not a hard result count.
-// The binary trims output to that many tokens; if memories are verbose the
-// binary may return fewer than limit results, and the trailing contents[:limit]
-// slice becomes a no-op. For the synthetic benchmark datasets (each fact/turn
-// ≤ 30 tokens) 500 tokens per expected result is intentionally generous, making
-// under-counting in practice very unlikely.
+// --limit N is a hard result count cap applied by the binary before token
+// trimming. --budget is still passed as a generous ceiling (limit*500 tokens)
+// so the token budget never silently truncates results for the synthetic
+// benchmark datasets (each fact/turn ≤ 30 tokens).
 //
-// Note: Memgraph itself may also return fewer than limit items if fewer
-// memories match the query. In that case len(contents) < limit with no error
-// — RecallAtK is evaluated against the actual candidates returned, not a
+// Note: Memgraph itself may return fewer than limit items if fewer memories
+// match the query. In that case len(contents) < limit with no error —
+// RecallAtK is evaluated against the actual candidates returned, not a
 // padded set. For the synthetic datasets this is expected and correct.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	if limit <= 0 {
@@ -172,7 +168,12 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if c.ConfigPath != "" {
 		args = append(args, "--config", c.ConfigPath)
 	}
-	args = append(args, "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
+	args = append(args, "recall",
+		"--format", "json",
+		"--limit", strconv.Itoa(limit),
+		"--budget", strconv.Itoa(limit*500),
+		"--", query,
+	)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer

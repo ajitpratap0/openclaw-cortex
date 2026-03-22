@@ -19,6 +19,8 @@ func recallCmd() *cobra.Command {
 	var (
 		budget           int
 		ctxJSON          string
+		format           string
+		limit            int
 		project          string
 		memType          string
 		memScope         string
@@ -61,8 +63,13 @@ func recallCmd() *cobra.Command {
 				filters.IncludeInvalidated = true
 			}
 
-			// Fetch more results than needed for re-ranking
+			// Fetch more results than needed for re-ranking. When --limit is
+			// set, use it as a floor so we always retrieve at least that many
+			// candidates before post-ranking truncation.
 			searchLimit := uint64(50)
+			if limit > 0 && uint64(limit) > searchLimit {
+				searchLimit = uint64(limit)
+			}
 			results, err := st.Search(ctx, vec, searchLimit, filters)
 			if err != nil {
 				return cmdErr("recall: searching store", err)
@@ -100,6 +107,13 @@ func recallCmd() *cobra.Command {
 				logger.Warn("--reason requires ANTHROPIC_API_KEY; skipping re-rank")
 			}
 
+			// Apply --limit cap before token-budget trimming so the result
+			// count is deterministic when --limit is set. This is the hard
+			// result count cap; --budget still applies for text mode.
+			if limit > 0 && len(ranked) > limit {
+				ranked = ranked[:limit]
+			}
+
 			// Apply token budget
 			var contents []string
 			for i := range ranked {
@@ -108,10 +122,14 @@ func recallCmd() *cobra.Command {
 
 			output, count := tokenizer.FormatMemoriesWithBudget(contents, budget)
 
-			// NOTE: ctxJSON != "" is the JSON-mode sentinel check. eval/runner/runner.go
-			// passes --context "_" (recallJSONModeSentinel) to activate this branch.
-			// If this condition changes, update recallJSONModeSentinel in runner.go. TODO(#91).
-			if ctxJSON != "" {
+			// JSON output mode is activated by either:
+			//   --format json  (preferred; explicit, no sentinel hack)
+			//   --context <any non-empty value>  (backward-compat sentinel used by
+			//     older eval harness versions; see recallJSONModeSentinel in
+			//     eval/runner/runner.go).
+			// The sentinel is kept for backward compatibility; the --format flag
+			// is the canonical way to request JSON output (resolves issue #91).
+			if format == "json" || ctxJSON != "" {
 				// Output as JSON
 				jsonResults := ranked
 				if count < len(ranked) {
@@ -140,6 +158,8 @@ func recallCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
 	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: any non-empty value activates JSON output mode and suppresses human-readable text")
+	cmd.Flags().StringVar(&format, "format", "text", "output format: text or json (json is preferred over --context sentinel)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to return (0 = no cap beyond searchLimit)")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
 	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
