@@ -580,9 +580,12 @@ func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
 	return nil
 }
 
-// DeleteAllMemories clears all in-memory data from the mock store (memories
-// and entities). Episodes are not tracked separately by MockStore; the
-// MemgraphStore implementation removes them via MATCH (n) DETACH DELETE n.
+// DeleteAllMemories clears all in-memory data from the mock store.
+// MockStore's complete mutable state is exactly two maps — memories and
+// entities — both reset here. There are no relationship or episode maps:
+// MemgraphStore stores episodes and relationships as graph nodes/edges removed
+// by MATCH (n) DETACH DELETE n; MockStore has no equivalent structures, so
+// resetting memories + entities is a full wipe and matches the contract.
 func (m *MockStore) DeleteAllMemories(_ context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
