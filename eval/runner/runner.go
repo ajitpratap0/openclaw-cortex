@@ -134,6 +134,10 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("runner: recall binary error: %w (stderr: %s)", err, stderr.String())
 	}
+	// The binary must emit at least `[]` (2 bytes) when there are zero results
+	// in JSON mode — empty stdout is not a valid "no results" response and
+	// indicates a broken binary or unexpected output format. cmd_recall.go must
+	// preserve this invariant if its empty-result behavior ever changes.
 	if stdout.Len() == 0 {
 		return nil, fmt.Errorf("runner: recall binary produced no output (exit 0 but empty stdout)")
 	}

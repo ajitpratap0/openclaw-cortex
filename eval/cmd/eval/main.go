@@ -115,6 +115,15 @@ func run() error {
 		fmt.Println()
 	}
 
+	// Warn on stderr if any benchmark had partial recall failures so the
+	// degraded run is visible even when only reading the markdown table.
+	for _, s := range summaries {
+		if s.RecallFailures > 0 {
+			fmt.Fprintf(os.Stderr, "WARNING: %s had %d/%d recall failures — scores are deflated\n",
+				s.Name, s.RecallFailures, s.TotalQuestions)
+		}
+	}
+
 	// Print markdown summary table to stderr so stdout stays clean JSON
 	// (allows: go run ./eval/cmd/eval | jq '.').
 	fmt.Fprintln(os.Stderr, markdownTable(summaries, *k))
