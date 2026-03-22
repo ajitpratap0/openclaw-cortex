@@ -18,6 +18,8 @@ func TestResetRequiresYesFlag(t *testing.T) {
 		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
 	}
 
+	// runCLI uses CombinedOutput, so out contains both stdout and stderr.
+	// Cobra writes RunE errors to stderr, which is captured here.
 	out, err := runCLI("reset")
 	if err == nil {
 		t.Fatal("reset without --yes should exit non-zero, but got nil error")

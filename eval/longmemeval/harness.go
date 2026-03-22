@@ -77,7 +77,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			Question:    qp.Question,
 			GroundTruth: qp.GroundTruth,
 			Retrieved:   best,
-			ExactMatch:  runner.ExactMatch(best, qp.GroundTruth),
+			ExactMatch:  runner.ExactMatch(best, qp.GroundTruth), // oracle substring containment, not strict equality — see BenchmarkResult doc
 			F1Score:     runner.TokenF1(best, qp.GroundTruth),
 			RecalledAtK: runner.RecallAtK(memories, qp.GroundTruth, k),
 		}

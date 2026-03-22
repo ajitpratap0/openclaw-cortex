@@ -12,6 +12,7 @@
 //	--k          int      k for recall@k metric (default: 5)
 //	--output     string   Output file path for JSON results (default: stdout)
 //	--config     string   Path to openclaw-cortex config file (optional)
+//	--timeout    int      Total timeout in seconds (default: 300)
 package main
 
 import (
