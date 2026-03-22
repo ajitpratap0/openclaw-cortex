@@ -14,7 +14,7 @@ import (
 // the new schema emitted by cmd_recall.go.
 func TestRecallJSONResultSchema(t *testing.T) {
 	// Minimal JSON matching the shape cmd_recall.go produces:
-	// []models.RecallResult serialised as an array of objects with a "memory"
+	// []models.RecallResult serialized as an array of objects with a "memory"
 	// key whose nested object has a "content" key.
 	const input = `[{"memory":{"content":"the cat sat on the mat"}},{"memory":{"content":"Paris is the capital of France"}}]`
 
