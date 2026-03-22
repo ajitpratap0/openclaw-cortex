@@ -74,6 +74,13 @@ type recallJSONResult struct {
 
 // Recall runs `openclaw-cortex recall --context _ <query>` and returns up to
 // limit memory content strings parsed from the JSON output.
+//
+// --budget limit*500 is a token-based heuristic, not a hard result count.
+// The binary trims output to that many tokens; if memories are verbose the
+// binary may return fewer than limit results, and the trailing contents[:limit]
+// slice becomes a no-op. For the synthetic benchmark datasets (each fact/turn
+// ≤ 30 tokens) 500 tokens per expected result is intentionally generous, making
+// under-counting in practice very unlikely.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	if limit <= 0 {
 		return nil, fmt.Errorf("runner: limit must be > 0, got %d", limit)

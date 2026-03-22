@@ -60,6 +60,8 @@ func BuildEntityVectorIndexDDL(dim int) string {
 // BuildSearchEntitiesCypher returns the Cypher query used by SearchEntities for text search.
 // Exported so that tests in the tests/ package can verify the query uses the correct
 // Memgraph procedure (text_search.search_all) and clause order (WITH before WHERE).
+// Do not call from production code; exported only to satisfy the tests/ package
+// testing convention (tests are black-box and cannot access unexported identifiers).
 //
 // Fixes:
 //   - Bug 1: Memgraph requires an explicit WITH clause to bridge YIELD and WHERE;
