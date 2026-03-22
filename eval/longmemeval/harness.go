@@ -21,6 +21,7 @@ const benchmarkName = "LongMemEval"
 func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.BenchmarkSummary, error) {
 	pairs := Dataset()
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
+	recallFailures := 0
 
 	for i := range pairs {
 		if err := ctx.Err(); err != nil {
@@ -51,6 +52,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			if ctx.Err() != nil {
 				return nil, fmt.Errorf("longmemeval: context canceled during recall for %s: %w", qp.ID, ctx.Err())
 			}
+			recallFailures++
 			fmt.Fprintf(os.Stderr, "[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
 			memories = nil
 		}
@@ -73,5 +75,8 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		results = append(results, result)
 	}
 
+	if recallFailures == len(pairs) && len(pairs) > 0 {
+		return nil, fmt.Errorf("longmemeval: all %d recall calls failed — check binary path and Memgraph/Ollama connectivity", len(pairs))
+	}
 	return runner.Summarize(benchmarkName, results, k), nil
 }

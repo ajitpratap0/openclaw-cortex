@@ -90,6 +90,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if limit <= 0 {
 		return nil, fmt.Errorf("runner: limit must be > 0, got %d", limit)
 	}
+	// "--context _" passes any non-empty value to trigger JSON output mode in
+	// cmd_recall.go (the flag is checked via `ctxJSON != ""`); the value itself
+	// is never used by the binary — "_" is just a readable sentinel.
 	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", "_", "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
