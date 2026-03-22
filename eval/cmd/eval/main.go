@@ -111,7 +111,7 @@ func run() error {
 	}
 
 	if *output != "" {
-		if writeErr := os.WriteFile(*output, enc, 0o600); writeErr != nil {
+		if writeErr := os.WriteFile(*output, enc, 0o644); writeErr != nil {
 			return fmt.Errorf("writing output file: %w", writeErr)
 		}
 		fmt.Fprintf(os.Stderr, "Results written to %s\n\n", *output)

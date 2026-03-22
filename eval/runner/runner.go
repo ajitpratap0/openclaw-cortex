@@ -70,15 +70,13 @@ const defaultCallTimeout = 30 * time.Second
 // would eliminate this sentinel coupling; TODO(#91).
 const recallJSONModeSentinel = "_"
 
-func init() {
-	// Belt-and-suspenders: recallJSONModeSentinel must stay non-empty because
-	// cmd_recall.go activates JSON mode via `ctxJSON != ""`. An empty sentinel
-	// would silently produce plain-text output and fail the first-byte check.
-	// TODO(#91): remove once --format json flag replaces the sentinel.
-	if recallJSONModeSentinel == "" {
-		panic("recallJSONModeSentinel must be non-empty — see issue #91")
-	}
-}
+// Compile-time assertion: recallJSONModeSentinel must be non-empty.
+// If it is ever changed to "", this line produces a compile error:
+//
+//	invalid string index 0 (out of bounds for 0-character string)
+//
+// TODO(#91): remove once --format json flag replaces the sentinel.
+var _ = recallJSONModeSentinel[0]
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 // It implements Client.
@@ -116,11 +114,16 @@ func (c *CortexClient) callTimeout() time.Duration {
 
 // recallJSONResult is a minimal struct for parsing JSON output from
 // `openclaw-cortex recall --context _`.
-// It mirrors the relevant fields of models.RecallResult
-// (internal/models/memory.go): the binary serializes []models.RecallResult
-// whose Memory field carries json:"memory" and whose Content field carries
-// json:"content". If the recall command's output schema changes, update this
-// struct and the corresponding tests.
+//
+// Schema: matches cmd_recall.go output as of commit e38b3d5f.
+// The binary serializes []models.RecallResult (internal/models/memory.go):
+//
+//	[{"memory":{"content":"..."},...}, ...]
+//
+// The outer key is "memory" (json:"memory") and the content key is "content"
+// (json:"content"). If the recall command's output schema changes — e.g. the
+// outer wrapper is flattened or the field is renamed — update this struct and
+// TestRecallJSONResultSchema in runner_test.go.
 type recallJSONResult struct {
 	Memory struct {
 		Content string `json:"content"`
