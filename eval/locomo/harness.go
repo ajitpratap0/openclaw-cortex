@@ -42,6 +42,13 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 		// represents the semantic content of the turn.
 		// Any store failure aborts the pair: partial ingestion means the recall
 		// results are based on incomplete data, producing silently deflated scores.
+		//
+		// Note: content is passed after `--` in client.Store (positional arg, not
+		// a flag), so it is safe from flag injection. Unlike the `capture` path
+		// (internal/capture/capture.go), content is not XML-escaped here because
+		// `store` writes directly to the graph and never interpolates content into
+		// an LLM prompt. If this harness ever switches to `capture`, escaping must
+		// be re-evaluated.
 		for j := range qp.Conversation {
 			turn := &qp.Conversation[j]
 			content := fmt.Sprintf("User: %s\nAssistant: %s", turn.User, turn.Assistant)

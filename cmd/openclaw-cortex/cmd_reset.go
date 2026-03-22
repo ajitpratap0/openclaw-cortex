@@ -15,7 +15,12 @@ func resetCmd() *cobra.Command {
 		Short: "Delete all memories and entities from the store",
 		Long: `WARNING: Deletes every Memory, Entity, and Episode from the graph database.
 This operation is irreversible. Intended for eval benchmark isolation.
-Pass --yes to confirm; without it the command exits non-zero without deleting anything.`,
+Pass --yes to confirm; without it the command exits non-zero without deleting anything.
+
+Note: deletion runs as a single Bolt transaction (MATCH (n) DETACH DELETE n). On
+large stores this may exhaust Memgraph's transaction-memory budget and return an
+error, leaving the store partially wiped. If that happens, restart Memgraph and
+re-run reset. Batched deletion is tracked in issue #91.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
 				return fmt.Errorf("this will permanently delete ALL memories — pass --yes to confirm")
