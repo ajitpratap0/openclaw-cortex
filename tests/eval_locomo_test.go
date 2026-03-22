@@ -231,4 +231,3 @@ func TestLoCoMoRunContextCancel(t *testing.T) {
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "context canceled")
 }
-

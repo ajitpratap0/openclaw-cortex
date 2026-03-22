@@ -23,7 +23,7 @@ type stubHarnessClient struct {
 
 var _ runner.Client = (*stubHarnessClient)(nil)
 
-func (s *stubHarnessClient) Reset(_ context.Context) error { return s.resetErr }
+func (s *stubHarnessClient) Reset(_ context.Context) error           { return s.resetErr }
 func (s *stubHarnessClient) Store(_ context.Context, _ string) error { return s.storeErr }
 func (s *stubHarnessClient) Recall(_ context.Context, _ string, _ int) ([]string, error) {
 	idx := s.callIdx
