@@ -27,6 +27,10 @@ var _ store.ResettableStore = (*MemgraphStore)(nil)
 const (
 	memgraphReadTimeout  = 10 * time.Second
 	memgraphWriteTimeout = 30 * time.Second
+	// memgraphDeleteAllTimeout is intentionally generous: MATCH (n) DETACH DELETE n
+	// scans the entire graph and can be slow on large stores. memgraphWriteTimeout
+	// (30 s) is sized for single-node upserts and is too short for a full-graph wipe.
+	memgraphDeleteAllTimeout = 5 * time.Minute
 )
 
 // MemgraphStore implements store.Store using Memgraph (Bolt-compatible).
@@ -993,7 +997,7 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 // DeleteAllMemories removes all nodes and relationships from the graph.
 // This is intended for eval benchmark isolation only — it is destructive.
 func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
-	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
+	wctx, cancel := context.WithTimeout(ctx, memgraphDeleteAllTimeout)
 	defer cancel()
 
 	session := s.driver.NewSession(wctx, s.sessionConfig())

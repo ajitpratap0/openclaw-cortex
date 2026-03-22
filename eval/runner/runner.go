@@ -37,8 +37,18 @@ type BenchmarkSummary struct {
 	AvgF1          float64           `json:"avg_f1"`
 	RecallAtK      float64           `json:"recall_at_k"`
 	K              int               `json:"k"`
+	// RecallFailures is the number of QA pairs for which the recall call failed
+	// (binary error, connectivity issue, etc.). Non-zero values indicate that
+	// scores for those pairs are artificially zero and should not be compared
+	// against baselines without qualification.
+	RecallFailures int               `json:"recall_failures,omitempty"`
 	Results        []BenchmarkResult `json:"results"`
 }
+
+// recallContextSentinel is a non-empty value passed to --context to trigger
+// JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
+// itself is unused by the binary; "_" is a readable no-op.
+const recallContextSentinel = "_"
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 type CortexClient struct {
@@ -97,10 +107,17 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if limit <= 0 {
 		return nil, fmt.Errorf("runner: limit must be > 0, got %d", limit)
 	}
-	// "--context _" passes any non-empty value to trigger JSON output mode in
-	// cmd_recall.go (the flag is checked via `ctxJSON != ""`); the value itself
-	// is never used by the binary — "_" is just a readable sentinel.
-	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", "_", "--", query)
+	if query == "" {
+		return nil, fmt.Errorf("runner: query must not be empty")
+	}
+	// maxLimit guards against int overflow on 32-bit targets: limit*500 uses
+	// int arithmetic, which is 32-bit on GOARCH=386/arm. A limit of 4295 would
+	// overflow to a negative --budget value and cause the binary to error out.
+	const maxLimit = 1 << 20 // 1 048 576 — far beyond any reasonable k
+	if limit > maxLimit {
+		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
+	}
+	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", recallContextSentinel, "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -266,10 +283,12 @@ func RecallAtK(memories []string, groundTruth string, k int) bool {
 }
 
 // Summarize aggregates a slice of BenchmarkResult into a BenchmarkSummary.
-func Summarize(name string, results []BenchmarkResult, k int) *BenchmarkSummary {
+// recallFailures is the number of QA pairs for which the recall step failed;
+// it is recorded in the summary so callers can detect partially-degraded runs.
+func Summarize(name string, results []BenchmarkResult, k, recallFailures int) *BenchmarkSummary {
 	total := len(results)
 	if total == 0 {
-		return &BenchmarkSummary{Name: name, K: k}
+		return &BenchmarkSummary{Name: name, K: k, RecallFailures: recallFailures}
 	}
 
 	exactMatches := 0
@@ -293,6 +312,7 @@ func Summarize(name string, results []BenchmarkResult, k int) *BenchmarkSummary 
 		AvgF1:          f1Sum / float64(total),
 		RecallAtK:      float64(recallHits) / float64(total),
 		K:              k,
+		RecallFailures: recallFailures,
 		Results:        results,
 	}
 }

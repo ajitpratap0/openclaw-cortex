@@ -153,7 +153,7 @@ func TestRunnerSummarize(t *testing.T) {
 		{QuestionID: "q4", ExactMatch: true, F1Score: 0.8, RecalledAtK: true},
 	}
 
-	summary := runner.Summarize("test", results, 5)
+	summary := runner.Summarize("test", results, 5, 0)
 
 	if summary.Name != "test" {
 		t.Errorf("Name = %q, want %q", summary.Name, "test")
@@ -182,7 +182,7 @@ func TestRunnerSummarize(t *testing.T) {
 }
 
 func TestRunnerSummarizeEmpty(t *testing.T) {
-	summary := runner.Summarize("empty", nil, 5)
+	summary := runner.Summarize("empty", nil, 5, 0)
 	if summary.TotalQuestions != 0 {
 		t.Errorf("TotalQuestions = %d, want 0", summary.TotalQuestions)
 	}

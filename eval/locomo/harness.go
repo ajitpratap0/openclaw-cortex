@@ -82,7 +82,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 	if recallFailures == len(pairs) && len(pairs) > 0 {
 		return nil, fmt.Errorf("locomo: all %d recall calls failed — check binary path and Memgraph/Ollama connectivity", len(pairs))
 	}
-	return runner.Summarize(benchmarkName, results, k), nil
+	return runner.Summarize(benchmarkName, results, k, recallFailures), nil
 }
 
 // CategoryBreakdown returns ExactMatch accuracy broken down by QA category.

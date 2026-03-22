@@ -100,7 +100,7 @@ func TestLoCoMoCategoryBreakdown(t *testing.T) {
 			ExactMatch: true,
 		}
 	}
-	summary := runner.Summarize("LoCoMo", results, 5)
+	summary := runner.Summarize("LoCoMo", results, 5, 0)
 
 	breakdown := locomo.CategoryBreakdown(summary)
 	for _, cat := range []string{"single-hop", "multi-hop", "temporal"} {
