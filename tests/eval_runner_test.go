@@ -81,6 +81,22 @@ func TestRunnerTokenF1(t *testing.T) {
 			wantMin:     0.0,
 			wantMax:     0.0,
 		},
+		{
+			// All-punctuation ground truth tokenizes to zero tokens — guard prevents
+			// division by zero (NaN) at the recallScore line.
+			name:        "all-punctuation ground truth",
+			retrieved:   "Alice uses Go",
+			groundTruth: "---",
+			wantMin:     0.0,
+			wantMax:     0.0,
+		},
+		{
+			name:        "all-punctuation retrieved",
+			retrieved:   "---",
+			groundTruth: "Go",
+			wantMin:     0.0,
+			wantMax:     0.0,
+		},
 	}
 
 	for _, tt := range tests {

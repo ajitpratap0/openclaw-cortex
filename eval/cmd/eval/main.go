@@ -127,8 +127,11 @@ func markdownTable(summaries []*runner.BenchmarkSummary, k int) string {
 	var sb strings.Builder
 
 	header := fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d |\n", "Benchmark", k)
-	sep := fmt.Sprintf("|%s|-----------|-------------|---------|----------|\n",
-		strings.Repeat("-", 16))
+	// Recall@k column width grows with k (e.g. "Recall@5"=8, "Recall@10"=9, "Recall@100"=10).
+	// Match the separator to the header to avoid misalignment for k>=10.
+	recallColW := len(fmt.Sprintf("Recall@%d", k)) + 2
+	sep := fmt.Sprintf("|%s|-----------|-------------|---------|%s|\n",
+		strings.Repeat("-", 16), strings.Repeat("-", recallColW))
 
 	sb.WriteString(header)
 	sb.WriteString(sep)
