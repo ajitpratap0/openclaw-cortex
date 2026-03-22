@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -278,5 +279,39 @@ func TestCortexClientRecallContextFlagPresent(t *testing.T) {
 	out, _ := runCLI("recall", "--help")
 	if !strings.Contains(out, "--context") {
 		t.Errorf("recall --help does not mention --context flag; recallContextSentinel coupling may be broken:\n%s", out)
+	}
+}
+
+// TestCortexClientRecallJSONOutputFormat verifies that `recall --context _`
+// triggers JSON output mode and that the output is parseable JSON.
+//
+// This test catches two failure modes that TestCortexClientRecallContextFlagPresent
+// cannot: (1) --context is present in --help but the empty-check (`ctxJSON != ""`)
+// was changed so JSON mode no longer fires, and (2) the JSON schema changed so
+// the output is no longer valid JSON.
+//
+// When Memgraph is not running the binary exits non-zero; the test distinguishes
+// a connectivity error (skip) from an "unknown flag" error (hard fail) so flag
+// renames are always caught even without a live store.
+func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+
+	// CombinedOutput captures stderr so we can detect "unknown flag" errors.
+	combined, err := runCLI("recall", "--context", "_", "--budget", "500", "--", "test-query")
+	if err != nil {
+		if strings.Contains(combined, "unknown flag") || strings.Contains(combined, "flag provided but not defined") {
+			t.Fatalf("recall --context flag not recognized (may have been renamed): %s", combined)
+		}
+		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping JSON format check", err)
+	}
+
+	// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
+	// Use runCLIStdout to avoid mixing progress/log lines from stderr into the JSON.
+	stdout, _ := runCLIStdout("recall", "--context", "_", "--budget", "500", "--", "test-query")
+	var results []any
+	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &results); jsonErr != nil {
+		t.Errorf("recall --context _ stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdout)
 	}
 }

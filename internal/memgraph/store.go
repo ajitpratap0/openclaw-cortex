@@ -996,6 +996,14 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 
 // DeleteAllMemories removes all nodes and relationships from the graph.
 // This is intended for eval benchmark isolation only — it is destructive.
+//
+// Known limitation: `MATCH (n) DETACH DELETE n` runs as a single Bolt
+// transaction. On a large or heavily-indexed graph this can exhaust the
+// Memgraph transaction memory budget and fail even within
+// memgraphDeleteAllTimeout. The eval harness synthetic datasets are small
+// (O(100) nodes per QA pair), so this is safe in practice. For production
+// stores with millions of nodes, batched deletion (WITH n LIMIT N) would be
+// required; tracked in issue #91 alongside the --format json follow-up.
 func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
 	wctx, cancel := context.WithTimeout(ctx, memgraphDeleteAllTimeout)
 	defer cancel()
