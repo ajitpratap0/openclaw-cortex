@@ -194,7 +194,7 @@
         "ground_truth": "89%",
         "retrieved": "Laura's ML model version 1.0 achieved 82% accuracy on the test set in January 2024.",
         "exact_match": false,
-        "f1_score": 0,
+        "f1_score": 0.0,
         "recalled_at_k": false
       }
     ]
