@@ -20,9 +20,6 @@ type failingUpsertStore struct {
 	err   error
 }
 
-// Compile-time assertion: failingUpsertStore must satisfy store.ResettableStore.
-var _ store.ResettableStore = (*failingUpsertStore)(nil)
-
 func (f *failingUpsertStore) EnsureCollection(ctx context.Context) error {
 	return f.inner.EnsureCollection(ctx)
 }
@@ -97,10 +94,6 @@ func (f *failingUpsertStore) GetHistory(ctx context.Context, id string) ([]model
 
 func (f *failingUpsertStore) MigrateTemporalFields(ctx context.Context) error {
 	return f.inner.MigrateTemporalFields(ctx)
-}
-
-func (f *failingUpsertStore) DeleteAllMemories(ctx context.Context) error {
-	return f.inner.DeleteAllMemories(ctx)
 }
 
 func (f *failingUpsertStore) Close() error {

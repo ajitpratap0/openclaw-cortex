@@ -1009,7 +1009,7 @@ func (s *MemgraphStore) DeleteAllMemories(ctx context.Context) error {
 	defer cancel()
 
 	session := s.driver.NewSession(wctx, s.sessionConfig())
-	defer s.closeSession(ctx, session) // use parent ctx, not wctx — close must not be limited by the write timeout
+	defer s.closeSession(context.Background(), session) // fresh ctx — both wctx and caller's ctx may be expired by close time
 
 	_, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, txErr := tx.Run(wctx, "MATCH (n) DETACH DELETE n", nil)
