@@ -44,6 +44,10 @@ func run() error {
 	timeout := flag.Int("timeout", 300, "Total timeout in seconds (default: 300)")
 	flag.Parse()
 
+	if *timeout <= 0 {
+		return fmt.Errorf("--timeout must be > 0, got %d", *timeout)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
 	defer cancel()
 

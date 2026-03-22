@@ -39,17 +39,14 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		// Ingest conversation turns as stored facts so the recall engine can
 		// find them.  We combine user + assistant into a single string that
 		// represents the semantic content of the turn.
-		storeFailures := 0
+		// Any store failure aborts the pair: partial ingestion means the recall
+		// results are based on incomplete data, producing silently deflated scores.
 		for j := range qp.Conversation {
 			turn := &qp.Conversation[j]
 			content := fmt.Sprintf("User: %s Assistant: %s", turn.User, turn.Assistant)
 			if err := client.Store(ctx, content); err != nil {
-				storeFailures++
-				fmt.Fprintf(os.Stderr, "[locomo] warn: ingest turn failed for %s: %v\n", qp.ID, err)
+				return nil, fmt.Errorf("locomo: ingest turn failed for %s (turn %d): %w", qp.ID, j, err)
 			}
-		}
-		if storeFailures == len(qp.Conversation) && len(qp.Conversation) > 0 {
-			return nil, fmt.Errorf("locomo: all %d store calls failed for %s — check binary path and Memgraph connectivity", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories for the question.

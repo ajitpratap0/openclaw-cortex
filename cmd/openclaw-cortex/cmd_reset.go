@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +28,12 @@ Pass --yes to confirm; without it the command exits non-zero without deleting an
 			}
 			defer func() { _ = st.Close() }()
 
-			if err := st.DeleteAllMemories(ctx); err != nil {
+			// Use the ResettableStore interface as documented: only cmd_reset.go
+			// and eval benchmark harnesses should call DeleteAllMemories. The
+			// compile-time assertion in internal/memgraph/store.go guarantees
+			// *memgraph.MemgraphStore implements this interface.
+			var rs store.ResettableStore = st
+			if err := rs.DeleteAllMemories(ctx); err != nil {
 				return cmdErr("reset: deleting memories", err)
 			}
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "All memories deleted.")
@@ -35,6 +41,6 @@ Pass --yes to confirm; without it the command exits non-zero without deleting an
 		},
 	}
 
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation and proceed with deletion")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm deletion; without this flag the command exits non-zero without deleting anything")
 	return cmd
 }

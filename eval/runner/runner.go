@@ -53,9 +53,10 @@ func NewCortexClient(binaryPath, configPath string) *CortexClient {
 }
 
 // baseArgs returns the base CLI arguments for all subcommands.
-// It always returns a freshly-allocated slice (never a slice with spare
+// It returns nil or a freshly-allocated slice (never a slice with spare
 // capacity), so callers can safely append to the result without aliasing
-// across concurrent or sequential calls.
+// across concurrent or sequential calls. nil is handled identically to
+// []string{} by append, so callers need not treat the two cases differently.
 func (c *CortexClient) baseArgs() []string {
 	if c.ConfigPath != "" {
 		return []string{"--config", c.ConfigPath}
@@ -127,6 +128,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 }
 
 // Store runs `openclaw-cortex store <content>` to persist a fact memory.
+// --scope permanent is intentional: eval facts represent ground-truth
+// knowledge that should outlive a session, and all eval facts receive the
+// same scope so relative recall scoring is unaffected by scope-boost.
 func (c *CortexClient) Store(ctx context.Context, content string) error {
 	if content == "" {
 		return fmt.Errorf("runner: content must not be empty")

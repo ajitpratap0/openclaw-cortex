@@ -36,16 +36,13 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		}
 
 		// Ingest the facts for this QA pair.
-		storeFailures := 0
+		// Any store failure aborts the pair: partial ingestion means the recall
+		// results are based on incomplete data, producing silently deflated scores.
 		for j := range qp.Facts {
 			fact := &qp.Facts[j]
 			if err := client.Store(ctx, fact.Content); err != nil {
-				storeFailures++
-				fmt.Fprintf(os.Stderr, "[longmemeval] warn: ingest fact failed for %s: %v\n", qp.ID, err)
+				return nil, fmt.Errorf("longmemeval: ingest fact failed for %s (fact %d): %w", qp.ID, j, err)
 			}
-		}
-		if storeFailures == len(qp.Facts) && len(qp.Facts) > 0 {
-			return nil, fmt.Errorf("longmemeval: all %d store calls failed for %s — check binary path and Memgraph connectivity", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories.
