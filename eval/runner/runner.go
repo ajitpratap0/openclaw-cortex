@@ -31,12 +31,12 @@ type BenchmarkResult struct {
 
 // BenchmarkSummary aggregates results from a single benchmark run.
 type BenchmarkSummary struct {
-	Name           string            `json:"name"`
-	TotalQuestions int               `json:"total_questions"`
-	ExactMatchAcc  float64           `json:"exact_match_accuracy"`
-	AvgF1          float64           `json:"avg_f1"`
-	RecallAtK      float64           `json:"recall_at_k"`
-	K              int               `json:"k"`
+	Name           string  `json:"name"`
+	TotalQuestions int     `json:"total_questions"`
+	ExactMatchAcc  float64 `json:"exact_match_accuracy"`
+	AvgF1          float64 `json:"avg_f1"`
+	RecallAtK      float64 `json:"recall_at_k"`
+	K              int     `json:"k"`
 	// RecallFailures is the number of QA pairs for which the recall call failed
 	// (binary error, connectivity issue, etc.). Non-zero values indicate that
 	// scores for those pairs are artificially zero and should not be compared
