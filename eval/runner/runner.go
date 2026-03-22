@@ -143,10 +143,8 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	}
 	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
 	defer callCancel()
-	// Build args inline rather than via baseArgs() to guarantee no shared
-	// backing array across concurrent or sequential calls. baseArgs() is
-	// freshly-allocated today, but inlining makes the non-aliasing property
-	// local to this call site instead of a cross-function invariant.
+	// Build args without a shared helper to keep the non-aliasing
+	// property local to this call site.
 	var args []string
 	if c.ConfigPath != "" {
 		args = append(args, "--config", c.ConfigPath)
@@ -175,14 +173,13 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	// means JSON mode did not activate — the sentinel coupling (issue #91) may be
 	// broken. Surface an actionable error rather than a confusing JSON parse error.
 	if trimmed[0] != '[' {
-		firstByte := trimmed[0]
 		hint := ""
-		if firstByte == '{' {
+		if trimmed[0] == '{' {
 			hint = " (got JSON object — binary may be returning a single result instead of an array; check recall output schema)"
 		} else {
 			hint = " — JSON mode may not have activated; check --context sentinel coupling (issue #91)"
 		}
-		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", firstByte, hint, stdout.String())
+		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", trimmed[0], hint, stdout.String())
 	}
 	var results []recallJSONResult
 	if err := json.Unmarshal(trimmed, &results); err != nil {
@@ -224,7 +221,7 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 		args = append(args, "--config", c.ConfigPath)
 	}
 	args = append(args, "store", "--scope", "permanent", "--type", "fact", "--", content)
-	//nolint:gosec
+	//nolint:gosec // BinaryPath is caller-controlled, not user-supplied in a web context.
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -245,7 +242,7 @@ func (c *CortexClient) Reset(ctx context.Context) error {
 		args = append(args, "--config", c.ConfigPath)
 	}
 	args = append(args, "reset", "--yes")
-	//nolint:gosec
+	//nolint:gosec // BinaryPath is caller-controlled, not user-supplied in a web context.
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("runner: reset binary error: %w (output: %s)", err, out)
