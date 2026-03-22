@@ -15,10 +15,10 @@ const benchmarkName = "LongMemEval"
 // It returns a BenchmarkSummary with individual and aggregate results.
 //
 // For each QA pair:
-//  1. Ingest all facts via CortexClient.Store.
+//  1. Ingest all facts via client.Store.
 //  2. Run Recall(question, k) to retrieve relevant memories.
 //  3. Score: ExactMatch + TokenF1 + RecallAtK.
-func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.BenchmarkSummary, error) {
+func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
 	pairs := Dataset()
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 	recallFailures := 0

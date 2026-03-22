@@ -131,12 +131,12 @@ func run() error {
 	return nil
 }
 
-func runLocomo(ctx context.Context, client *runner.CortexClient, k int) (*runner.BenchmarkSummary, error) {
+func runLocomo(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LoCoMo benchmark...")
 	return locomo.Run(ctx, client, k)
 }
 
-func runLongMemEval(ctx context.Context, client *runner.CortexClient, k int) (*runner.BenchmarkSummary, error) {
+func runLongMemEval(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LongMemEval benchmark...")
 	return longmemeval.Run(ctx, client, k)
 }

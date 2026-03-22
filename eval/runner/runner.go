@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // BenchmarkResult holds the outcome of one QA pair evaluation.
@@ -46,6 +47,19 @@ type BenchmarkSummary struct {
 	Results        []BenchmarkResult `json:"results"`
 }
 
+// Client is the interface that benchmark harnesses use to interact with the
+// openclaw-cortex binary. CortexClient implements it; tests can inject a stub.
+type Client interface {
+	Reset(ctx context.Context) error
+	Store(ctx context.Context, content string) error
+	Recall(ctx context.Context, query string, limit int) ([]string, error)
+}
+
+// defaultCallTimeout is the per-subprocess call deadline applied by CortexClient.
+// It bounds each individual Reset/Store/Recall invocation so a hung binary cannot
+// consume the entire benchmark budget. Override via CortexClient.CallTimeout.
+const defaultCallTimeout = 30 * time.Second
+
 // recallJSONModeSentinel is a non-empty value passed to --context to trigger
 // JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
 // itself is unused by the binary; "_" is a readable no-op.
@@ -57,12 +71,19 @@ type BenchmarkSummary struct {
 const recallJSONModeSentinel = "_"
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
+// It implements Client.
 type CortexClient struct {
 	// BinaryPath is the path to the openclaw-cortex binary. Defaults to "openclaw-cortex".
 	BinaryPath string
 	// ConfigPath optionally points to an openclaw-cortex config file.
 	ConfigPath string
+	// CallTimeout is the per-subprocess deadline for each Reset/Store/Recall call.
+	// Zero means use defaultCallTimeout (30 s).
+	CallTimeout time.Duration
 }
+
+// Compile-time assertion: CortexClient must implement Client.
+var _ Client = (*CortexClient)(nil)
 
 // NewCortexClient returns a CortexClient with sensible defaults.
 func NewCortexClient(binaryPath, configPath string) *CortexClient {
@@ -73,6 +94,14 @@ func NewCortexClient(binaryPath, configPath string) *CortexClient {
 		BinaryPath: binaryPath,
 		ConfigPath: configPath,
 	}
+}
+
+// callTimeout returns the effective per-call deadline.
+func (c *CortexClient) callTimeout() time.Duration {
+	if c.CallTimeout > 0 {
+		return c.CallTimeout
+	}
+	return defaultCallTimeout
 }
 
 // baseArgs returns the base CLI arguments for all subcommands.
@@ -124,9 +153,11 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
 	}
+	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
+	defer callCancel()
 	args := append(c.baseArgs(), "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
-	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
+	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -163,17 +194,17 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	}
 	// Guard against silent JSON shape mismatch: if the binary returned items
 	// but every content field is empty, the schema likely doesn't match.
-	// allEmpty is checked inline while building contents to avoid a second pass.
-	allEmpty := len(results) > 0
+	// hasNonEmpty is set inline while building contents to avoid a second pass.
+	hasNonEmpty := false
 	contents := make([]string, 0, len(results))
 	for i := range results {
 		s := results[i].Memory.Content
 		contents = append(contents, s)
 		if s != "" {
-			allEmpty = false
+			hasNonEmpty = true
 		}
 	}
-	if allEmpty {
+	if len(results) > 0 && !hasNonEmpty {
 		return nil, fmt.Errorf("runner: recall returned %d results but all content fields are empty — possible JSON schema mismatch (output: %s)", len(results), stdout.String())
 	}
 	if len(contents) > limit {
@@ -190,9 +221,11 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 	if content == "" {
 		return fmt.Errorf("runner: content must not be empty")
 	}
+	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
+	defer callCancel()
 	args := append(c.baseArgs(), "store", "--scope", "permanent", "--type", "fact", "--", content)
 	//nolint:gosec
-	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
+	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -205,9 +238,11 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 // Reset calls `openclaw-cortex reset --yes` to wipe all memories from the store.
 // Used by benchmark harnesses to isolate QA pairs from each other.
 func (c *CortexClient) Reset(ctx context.Context) error {
+	callCtx, callCancel := context.WithTimeout(ctx, c.callTimeout())
+	defer callCancel()
 	args := append(c.baseArgs(), "reset", "--yes")
 	//nolint:gosec
-	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
+	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("runner: reset binary error: %w (output: %s)", err, out)
 	}
