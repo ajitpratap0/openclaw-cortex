@@ -154,6 +154,35 @@ are representative but not statistically equivalent to the full benchmarks.
 Use them for regression detection and qualitative comparison, not
 for publication-grade claims.
 
+### Isolation Design and Comparison Caveats
+
+**The harness resets the memory store before each QA pair.** This means
+every question is evaluated against a freshly-empty store containing only
+the facts/turns for that single pair. This differs from the published
+LoCoMo and LongMemEval protocols, which accumulate conversation history
+across all turns before running evaluation:
+
+- **LoCoMo** is designed to stress *multi-session* recall — the model is
+  expected to answer questions by drawing on a long, accumulated
+  conversation history. Resetting between pairs removes cross-pair context,
+  so questions that require facts from earlier conversations will always
+  score zero here. The published LoCoMo numbers assume full history is
+  available.
+- **LongMemEval** similarly expects the full fact set to be in the store
+  simultaneously.
+
+**Why the harness resets anyway:** The reset ensures deterministic,
+non-contaminating isolation between QA pairs — a required property for
+CI/regression use. Each run produces identical scores regardless of
+ordering or prior state. The trade-off is that scores reflect
+*single-pair retrieval capability* rather than *long-horizon accumulation*.
+
+**Consequence:** Scores from this harness will generally be lower than
+published benchmarks for cross-turn questions. Do not compare raw numbers
+directly against the academic literature. Use the scores as a stable
+regression baseline — if scores drop between commits, retrieval quality
+degraded; if they hold steady, the change is neutral.
+
 ---
 
 ## How to Reproduce

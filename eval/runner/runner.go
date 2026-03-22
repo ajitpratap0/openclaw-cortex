@@ -52,6 +52,10 @@ func NewCortexClient(binaryPath, configPath string) *CortexClient {
 	}
 }
 
+// baseArgs returns the base CLI arguments for all subcommands.
+// It always returns a freshly-allocated slice (never a slice with spare
+// capacity), so callers can safely append to the result without aliasing
+// across concurrent or sequential calls.
 func (c *CortexClient) baseArgs() []string {
 	if c.ConfigPath != "" {
 		return []string{"--config", c.ConfigPath}
