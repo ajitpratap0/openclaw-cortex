@@ -156,12 +156,13 @@ func markdownTable(summaries []*runner.BenchmarkSummary, k int) string {
 	sb.WriteString(sep)
 
 	for _, s := range summaries {
-		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %8.1f%% |\n",
+		recallCell := fmt.Sprintf("%*.1f%%", recallColW-3, s.RecallAtK*100)
+		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
 			s.Name,
 			s.TotalQuestions,
 			s.ExactMatchAcc*100,
 			s.AvgF1,
-			s.RecallAtK*100,
+			recallCell,
 		)
 	}
 
