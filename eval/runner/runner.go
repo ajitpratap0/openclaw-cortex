@@ -139,11 +139,12 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if stdout.Len() == 0 {
 		return nil, fmt.Errorf("runner: recall binary produced no output (exit 0 but empty stdout)")
 	}
+	trimmed := bytes.TrimSpace(stdout.Bytes())
 	// First-byte sanity check: JSON arrays start with '['. Any other first byte
 	// means JSON mode did not activate — the sentinel coupling (issue #91) may be
 	// broken. Surface an actionable error rather than a confusing JSON parse error.
-	if b := bytes.TrimSpace(stdout.Bytes()); len(b) > 0 && b[0] != '[' {
-		firstByte := b[0]
+	if len(trimmed) > 0 && trimmed[0] != '[' {
+		firstByte := trimmed[0]
 		hint := ""
 		if firstByte == '{' {
 			hint = " (got JSON object — binary may be returning a single result instead of an array; check recall output schema)"
@@ -153,7 +154,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", firstByte, hint, stdout.String())
 	}
 	var results []recallJSONResult
-	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &results); err != nil {
+	if err := json.Unmarshal(trimmed, &results); err != nil {
 		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
 	}
 	contents := make([]string, 0, len(results))
