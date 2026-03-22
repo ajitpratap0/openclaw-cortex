@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os/exec"
 	"strings"
 )
@@ -62,6 +61,11 @@ func (c *CortexClient) baseArgs() []string {
 
 // recallJSONResult is a minimal struct for parsing JSON output from
 // `openclaw-cortex recall --context _`.
+// It mirrors the relevant fields of models.RecallResult
+// (internal/models/memory.go): the binary serializes []models.RecallResult
+// whose Memory field carries json:"memory" and whose Content field carries
+// json:"content". If the recall command's output schema changes, update this
+// struct and the corresponding tests.
 type recallJSONResult struct {
 	Memory struct {
 		Content string `json:"content"`
@@ -208,7 +212,7 @@ func TokenF1(retrieved, groundTruth string) float64 {
 	overlap := 0
 	for tok, predCount := range predFreq {
 		goldCount := goldFreq[tok]
-		overlap += int(math.Min(float64(predCount), float64(goldCount)))
+		overlap += min(predCount, goldCount)
 	}
 
 	if overlap == 0 {

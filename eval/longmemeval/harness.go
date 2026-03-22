@@ -45,7 +45,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			}
 		}
 		if storeFailures == len(qp.Facts) && len(qp.Facts) > 0 {
-			fmt.Fprintf(os.Stderr, "[longmemeval] error: all %d store calls failed for %s — recall will return nothing\n", storeFailures, qp.ID)
+			return nil, fmt.Errorf("longmemeval: all %d store calls failed for %s — check binary path and Memgraph connectivity", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories.

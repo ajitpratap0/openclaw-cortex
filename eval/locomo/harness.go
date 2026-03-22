@@ -49,7 +49,7 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 			}
 		}
 		if storeFailures == len(qp.Conversation) && len(qp.Conversation) > 0 {
-			fmt.Fprintf(os.Stderr, "[locomo] error: all %d store calls failed for %s — recall will return nothing\n", storeFailures, qp.ID)
+			return nil, fmt.Errorf("locomo: all %d store calls failed for %s — check binary path and Memgraph connectivity", storeFailures, qp.ID)
 		}
 
 		// Retrieve relevant memories for the question.

@@ -222,7 +222,10 @@ func TestRunnerBestCandidate(t *testing.T) {
 			want:        "Bob likes hiking",
 		},
 		{
-			name:        "first wins on tie",
+			// "Alice uses Go" (3 tokens, 2 overlap with "Go Alice") → F1≈0.80
+			// "Go is used by Alice" (5 tokens, 2 overlap) → F1≈0.57
+			// First wins by higher F1, not by tie-break.
+			name:        "higher F1 wins over longer candidate",
 			memories:    []string{"Alice uses Go", "Go is used by Alice"},
 			groundTruth: "Go Alice",
 			want:        "Alice uses Go",

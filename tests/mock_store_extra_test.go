@@ -231,6 +231,34 @@ func TestMockStore_UpsertWithTags(t *testing.T) {
 	assert.Equal(t, "tag1", got2.Tags[0], "stored tags should be immutable from outside")
 }
 
+func TestMockStore_DeleteAllMemories(t *testing.T) {
+	ctx := context.Background()
+	s := store.NewMockStore()
+
+	// Populate the store with a few memories.
+	for _, id := range []string{"dam-1", "dam-2", "dam-3"} {
+		mem := newTestMemory(id, models.MemoryTypeFact, "some content "+id)
+		require.NoError(t, s.Upsert(ctx, mem, testVector(0.5)))
+	}
+
+	// Verify they exist.
+	results, err := s.Search(ctx, testVector(0.5), 10, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, results, "store should have memories before DeleteAllMemories")
+
+	// Delete all.
+	require.NoError(t, s.DeleteAllMemories(ctx))
+
+	// Search must return nothing.
+	results, err = s.Search(ctx, testVector(0.5), 10, nil)
+	require.NoError(t, err)
+	assert.Empty(t, results, "Search should return nothing after DeleteAllMemories")
+
+	// Get must fail for any previously stored ID.
+	_, err = s.Get(ctx, "dam-1")
+	assert.Error(t, err, "Get should fail for memory removed by DeleteAllMemories")
+}
+
 func TestMockStore_SearchLimitRespected(t *testing.T) {
 	ctx := context.Background()
 	s := store.NewMockStore()
