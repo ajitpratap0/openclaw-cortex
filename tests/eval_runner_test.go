@@ -272,7 +272,7 @@ func TestCortexClientRecallEmptyQuery(t *testing.T) {
 }
 
 // TestCortexClientRecallContextFlagPresent verifies that the recall command
-// still exposes --context, which recallContextSentinel depends on. A flag
+// still exposes --context, which recallJSONModeSentinel depends on. A flag
 // rename in cmd_recall.go would otherwise break the harness silently.
 func TestCortexClientRecallContextFlagPresent(t *testing.T) {
 	if !binExists() {
@@ -280,7 +280,7 @@ func TestCortexClientRecallContextFlagPresent(t *testing.T) {
 	}
 	out, _ := runCLI("recall", "--help")
 	if !strings.Contains(out, "--context") {
-		t.Errorf("recall --help does not mention --context flag; recallContextSentinel coupling may be broken:\n%s", out)
+		t.Errorf("recall --help does not mention --context flag; recallJSONModeSentinel coupling may be broken:\n%s", out)
 	}
 }
 

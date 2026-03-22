@@ -45,15 +45,15 @@ type BenchmarkSummary struct {
 	Results        []BenchmarkResult `json:"results"`
 }
 
-// recallContextSentinel is a non-empty value passed to --context to trigger
+// recallJSONModeSentinel is a non-empty value passed to --context to trigger
 // JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
 // itself is unused by the binary; "_" is a readable no-op.
 //
 // Note: --context and --project are separate flags in cmd_recall.go. The
 // runner does not pass --project, so project="" and scope-boosting is not
 // applied during eval recalls. A dedicated --format json flag in cmd_recall.go
-// would eliminate this sentinel coupling; tracked in issue #91.
-const recallContextSentinel = "_"
+// would eliminate this sentinel coupling; TODO(#91).
+const recallJSONModeSentinel = "_"
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 type CortexClient struct {
@@ -123,7 +123,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
 	}
-	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", recallContextSentinel, "--", query)
+	args := append(c.baseArgs(), "recall", "--budget", fmt.Sprintf("%d", limit*500), "--context", recallJSONModeSentinel, "--", query)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
