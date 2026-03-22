@@ -48,6 +48,9 @@ func Run(ctx context.Context, client *runner.CortexClient, k int) (*runner.Bench
 		// Retrieve relevant memories.
 		memories, err := client.Recall(ctx, qp.Question, k)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("longmemeval: context canceled during recall for %s: %w", qp.ID, ctx.Err())
+			}
 			fmt.Fprintf(os.Stderr, "[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
 			memories = nil
 		}

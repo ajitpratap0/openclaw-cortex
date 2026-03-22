@@ -99,6 +99,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("runner: recall binary error: %w (stderr: %s)", err, stderr.String())
 	}
+	if stdout.Len() == 0 {
+		return nil, fmt.Errorf("runner: recall binary produced no output (exit 0 but empty stdout)")
+	}
 	var results []recallJSONResult
 	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
 		return nil, fmt.Errorf("runner: recall JSON parse error: %w (output: %s)", err, stdout.String())
