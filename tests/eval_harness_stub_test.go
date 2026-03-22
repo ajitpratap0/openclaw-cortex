@@ -18,7 +18,10 @@ type stubHarnessClient struct {
 	storeErr   error
 	recallErrs []error // indexed by call order; nil entry = success
 	recallResp []string
-	callIdx    int
+	// callIdx is incremented sequentially by Recall. It is not protected by a
+	// mutex because all harness Run() functions are single-threaded: they call
+	// Reset → Store* → Recall for each pair in a plain for-loop with no goroutines.
+	callIdx int
 }
 
 var _ runner.Client = (*stubHarnessClient)(nil)

@@ -37,8 +37,8 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 		}
 
 		// Ingest the facts for this QA pair.
-		// Any store failure aborts the pair: partial ingestion means the recall
-		// results are based on incomplete data, producing silently deflated scores.
+		// Any store failure aborts the entire benchmark run: partial ingestion means
+		// the recall results are based on incomplete data, producing silently deflated scores.
 		//
 		// Note: knowledge-update pairs (lme-K*) have facts with a ValidTo field
 		// marking the superseded fact, but this harness only stores fact.Content and

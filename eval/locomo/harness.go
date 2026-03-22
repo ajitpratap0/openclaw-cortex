@@ -40,8 +40,8 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 		// Ingest conversation turns as stored facts so the recall engine can
 		// find them.  We combine user + assistant into a single string that
 		// represents the semantic content of the turn.
-		// Any store failure aborts the pair: partial ingestion means the recall
-		// results are based on incomplete data, producing silently deflated scores.
+		// Any store failure aborts the entire benchmark run: partial ingestion means
+		// the recall results are based on incomplete data, producing silently deflated scores.
 		//
 		// Note: content is passed after `--` in client.Store (positional arg, not
 		// a flag), so it is safe from flag injection. Unlike the `capture` path

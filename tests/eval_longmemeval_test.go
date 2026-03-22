@@ -221,6 +221,18 @@ func TestLongMemEvalRunPartialRecallFail(t *testing.T) {
 	require.Equal(t, len(pairs)-1, summary.RecallFailures)
 }
 
+// TestLongMemEvalRunStoreFailure verifies that Run() propagates a Store error
+// and aborts immediately rather than producing a partial summary.
+func TestLongMemEvalRunStoreFailure(t *testing.T) {
+	stub := &stubHarnessClient{
+		storeErr: errors.New("stub: store failed"),
+	}
+	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "ingest fact failed")
+}
+
 // TestLongMemEvalRunContextCancel verifies that Run() returns a context error
 // when the context is already canceled on entry.
 func TestLongMemEvalRunContextCancel(t *testing.T) {

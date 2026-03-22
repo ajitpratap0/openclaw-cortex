@@ -218,6 +218,18 @@ func TestLoCoMoRunPartialRecallFail(t *testing.T) {
 	require.Equal(t, len(pairs)-1, summary.RecallFailures)
 }
 
+// TestLoCoMoRunStoreFailure verifies that Run() propagates a Store error
+// and aborts immediately rather than producing a partial summary.
+func TestLoCoMoRunStoreFailure(t *testing.T) {
+	stub := &stubHarnessClient{
+		storeErr: errors.New("stub: store failed"),
+	}
+	summary, err := locomo.Run(context.Background(), stub, 5)
+	require.Error(t, err)
+	require.Nil(t, summary)
+	require.ErrorContains(t, err, "ingest turn failed")
+}
+
 // TestLoCoMoRunContextCancel verifies that Run() returns a context error
 // when the context is already canceled on entry.
 func TestLoCoMoRunContextCancel(t *testing.T) {
