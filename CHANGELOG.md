@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-23
+
+> Note: v0.9.0 was skipped; all post-v0.8.0 work is consolidated here.
+
+### Added
+
+- **LoCoMo + LongMemEval benchmark harness** (`eval/` package) — end-to-end evaluation framework with synthetic datasets, Token-F1 scoring, Recall@K metrics, and CSV/JSON report output ([#88])
+- **Eval reset command** — `CortexClient.Reset` wipes the store before each benchmark run; `ResettableStore` interface added to `memgraph.Client`; `openclaw-cortex reset --yes` exits non-zero without the flag ([#88])
+- **Standalone Next.js 15 admin app** (`apps/admin/`) — browser UI for browsing memories, entities, and conflict groups with pagination, filtering, and inline resolution ([#81])
+- **ResilientClient** (`internal/llm/`) — wraps any `LLMClient` with circuit breaker, configurable retry with exponential back-off, and a bounded worker pool to cap concurrent LLM calls ([#78])
+- **LM Studio embedder** — new `lmstudio` provider in `internal/embedder/`; factory selects provider from config; OpenAI embedder removed ([#79])
+- **Per-user memory namespacing** — `UserID` field on `Memory` and `SearchFilters`; memories are scoped per user when set ([#71])
+- **Sentry integration** — error tracking and performance tracing wired into all CLI commands and hot paths; configurable via `sentry.dsn` and `sentry.environment` in config ([#69])
+- **Next.js marketing + documentation website** (`web/`) with product logo, hero, architecture diagram, feature list, and 404 page ([#66])
+- **Project logo** — SVG and optimised PNG variants (16 / 32 / 64 / 128 / 256 px) added to `web/public/logo/`
+- **Parallel PostTurnHook** — per-memory embed + upsert pipeline now runs concurrently with a semaphore-bounded worker pool, reducing hook latency on multi-memory captures ([#80])
+
+### Changed
+
+- **`ResettableStore` interface** — `DeleteAllMemories(ctx)` moved from `memgraph.MemgraphClient` into the new `memgraph.ResettableStore` interface; callers that need reset must assert or embed this interface
+- **`RecallJSONResult` exported** — struct moved to `eval/runner` package and exported for use in tests and external harnesses
+- **Eval harness** — `Recall` now runs in JSON mode (`--context _` sentinel), uses separate stdout/stderr capture, applies a per-call timeout, and propagates context cancellation with the original subprocess error preserved
+- **API authentication** — auth is now opt-*out* rather than opt-in; a new `--unsafe-no-auth` flag is required to disable the `Authorization: Bearer` check (previously the server started without auth by default)
+
+### Fixed
+
+- **Memgraph DDL** — vector dimension is now injected from `embedder.dimension` config at startup rather than hardcoded, preventing index mismatches when using non-default embedding models ([#67])
+- **Pagination cursors** — list endpoints now return signed, opaque cursors; entity search limit and skip-re-embed logic corrected ([#68])
+- **API rate limiting** — `RateLimitMiddleware` now receives and propagates the request context correctly ([#82])
+- **Memory forget** — `memory_forget` delete now supports prefix matching, allowing bulk deletion by ID prefix ([#83])
+- **Graph SearchEntities** — Memgraph Cypher dialect fix: `search_all` procedure requires a `WITH` clause before the `WHERE` filter; previously returned no results silently ([#89])
+- **Eval context cancellation** — when a recall subprocess is killed due to context cancellation, both the subprocess error and `ctx.Err()` are wrapped and surfaced; the original error is no longer silently dropped ([#90])
+- **LLM client** — unexported `http` field renamed to `httpClient` to avoid shadowing the `net/http` package import; `TestGatewayClient_Timeout` added ([#76])
+- **Web visual audit** — skip-nav links, loading/error boundaries, CSS custom-property tokens, contrast ratios, and active nav states corrected ([#85])
+- **Admin visual audit** — skip-nav, ARIA dialog roles, loading state spinners, CSS token consistency, and responsive breakpoints corrected ([#86])
+- **CI** — `trivy-action` updated from 0.28.0 to 0.35.0; `claude-review` action switched to native action mode and now posts inline comments correctly
+
+### Security
+
+- **Explicit auth opt-out** — HTTP API no longer starts in an unauthenticated state by default; `--unsafe-no-auth` must be passed explicitly, preventing accidental public exposure ([#77])
+- **Per-IP rate limiting** — configurable rate limiter applied to all API endpoints to mitigate abuse ([#77])
+- **TLS support** — `--tls-cert` and `--tls-key` flags added to `serve` command for HTTPS termination at the binary level ([#77])
+
+### Tests
+
+- Overall test coverage raised from 56.7 % to 85.3 % with targeted unit tests across recall, capture, lifecycle, and API packages ([#75])
+- Eval harness: JSON sentinel test, temporal versioning test, `TestRunnerBestCandidate`, store-failure tests, and LoCoMo ground-truth integrity check added
+- Compile-time `ResettableStore` assertions added to `failingUpsertStore` test stub
+
 ## [0.8.0] - 2026-03-15
 
 ### Added
@@ -161,7 +210,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Comprehensive test suite with mocked Qdrant
 - golangci-lint configuration
 
-[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.8.0...v0.10.0
 [0.8.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.0...v0.7.1
@@ -172,3 +222,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.3.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.1.0
+
+[#66]: https://github.com/ajitpratap0/openclaw-cortex/pull/66
+[#67]: https://github.com/ajitpratap0/openclaw-cortex/pull/67
+[#68]: https://github.com/ajitpratap0/openclaw-cortex/pull/68
+[#69]: https://github.com/ajitpratap0/openclaw-cortex/pull/69
+[#71]: https://github.com/ajitpratap0/openclaw-cortex/pull/71
+[#75]: https://github.com/ajitpratap0/openclaw-cortex/pull/75
+[#76]: https://github.com/ajitpratap0/openclaw-cortex/pull/76
+[#77]: https://github.com/ajitpratap0/openclaw-cortex/pull/77
+[#78]: https://github.com/ajitpratap0/openclaw-cortex/pull/78
+[#79]: https://github.com/ajitpratap0/openclaw-cortex/pull/79
+[#80]: https://github.com/ajitpratap0/openclaw-cortex/pull/80
+[#81]: https://github.com/ajitpratap0/openclaw-cortex/pull/81
+[#82]: https://github.com/ajitpratap0/openclaw-cortex/pull/82
+[#83]: https://github.com/ajitpratap0/openclaw-cortex/pull/83
+[#85]: https://github.com/ajitpratap0/openclaw-cortex/pull/85
+[#86]: https://github.com/ajitpratap0/openclaw-cortex/pull/86
+[#88]: https://github.com/ajitpratap0/openclaw-cortex/pull/88
+[#89]: https://github.com/ajitpratap0/openclaw-cortex/pull/89
+[#90]: https://github.com/ajitpratap0/openclaw-cortex/pull/90

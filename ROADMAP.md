@@ -43,7 +43,7 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 - [ ] Streaming recall (SSE endpoint for progressive context injection)
 - [ ] Batch capture from chat export files (JSON, Markdown)
 
-## v0.8.0 — Current (Temporal Versioning, Triple Extraction, Contradiction Detection, Graph-Aware Recall)
+## v0.8.0 — Complete (Temporal Versioning, Triple Extraction, Contradiction Detection, Graph-Aware Recall)
 
 - [x] Phase 1: Temporal versioning — valid_from/valid_to fields, supersession auto-invalidates old versions, as-of point-in-time queries
 - [x] Phase 2: Episodic→Semantic triple extraction — Episode provenance nodes, automatic fact extraction from captured memories, entity linking
@@ -55,6 +55,34 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 - [x] CreateEpisode and GetEpisodesForMemory on graph.Client interface
 - [x] SearchFilters extended with IncludeInvalidated and AsOf temporal filters
 - [x] MockStore updated to filter invalidated memories by default
+
+## v0.9.0 — Skipped
+
+v0.9.0 was not tagged; all work from this cycle was consolidated into v0.10.0.
+
+## v0.10.0 — Current (Eval Framework, Admin UI, Resilience, Security Hardening)
+
+- [x] LoCoMo + LongMemEval benchmark harness (`eval/` package) with Token-F1, Recall@K, CSV/JSON reports
+- [x] `ResettableStore` interface + `openclaw-cortex reset --yes` command for benchmark isolation
+- [x] Standalone Next.js 15 admin app (`apps/admin/`) for memory, entity, and conflict management
+- [x] `ResilientClient` — circuit breaker, retry with back-off, bounded worker pool for LLM calls
+- [x] LM Studio embedder provider; OpenAI embedder removed
+- [x] Per-user memory namespacing via `UserID` field on `Memory` and `SearchFilters`
+- [x] Sentry error tracking + performance tracing across all CLI commands
+- [x] Next.js marketing website + project logo (`web/`)
+- [x] Parallel PostTurnHook per-memory pipeline (semaphore-bounded concurrency)
+- [x] HTTP API security: `--unsafe-no-auth` required to disable auth, per-IP rate limiting, TLS flags
+- [x] Memgraph DDL: vector dimension injected from config; SearchEntities Cypher dialect fix
+- [x] Test coverage raised from 56.7 % to 85.3 %
+
+## v0.11.0 — Planned
+
+- [ ] Multi-model embedder support (Cohere, Gemini, OpenAI-compatible endpoints)
+- [ ] Streaming recall (SSE endpoint for progressive context injection)
+- [ ] Batch capture from chat export files (JSON, Markdown)
+- [ ] `cortex hook install` command (auto-writes `.claude/settings.json`)
+- [ ] Prometheus metrics endpoint (`/metrics`) with optional exporter
+- [ ] Per-user Memgraph namespace isolation (tenant prefix or separate collections)
 
 ## Community
 
