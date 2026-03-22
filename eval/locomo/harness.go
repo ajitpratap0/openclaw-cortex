@@ -60,6 +60,12 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 		// Retrieve relevant memories for the question.
 		memories, err := client.Recall(ctx, qp.Question, k)
 		if err != nil {
+			// ctx.Err() distinguishes two cases:
+			//   - parent context canceled: abort (global benchmark timeout fired)
+			//   - per-call timeout inside CortexClient.Recall: count as recallFailure and continue
+			// Narrow race: if the parent context is canceled between Recall returning
+			// and this check, the cancellation is counted as a recallFailure instead of
+			// aborting. Acceptable for benchmark purposes — scores show one extra failure.
 			if ctx.Err() != nil {
 				return nil, fmt.Errorf("locomo: context canceled during recall for %s: %w", qp.ID, ctx.Err())
 			}

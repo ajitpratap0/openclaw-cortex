@@ -70,6 +70,16 @@ const defaultCallTimeout = 30 * time.Second
 // would eliminate this sentinel coupling; TODO(#91).
 const recallJSONModeSentinel = "_"
 
+func init() {
+	// Belt-and-suspenders: recallJSONModeSentinel must stay non-empty because
+	// cmd_recall.go activates JSON mode via `ctxJSON != ""`. An empty sentinel
+	// would silently produce plain-text output and fail the first-byte check.
+	// TODO(#91): remove once --format json flag replaces the sentinel.
+	if recallJSONModeSentinel == "" {
+		panic("recallJSONModeSentinel must be non-empty — see issue #91")
+	}
+}
+
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 // It implements Client.
 type CortexClient struct {

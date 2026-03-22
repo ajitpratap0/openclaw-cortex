@@ -257,6 +257,12 @@ func TestMockStore_DeleteAllMemories(t *testing.T) {
 	// Get must fail for any previously stored ID.
 	_, err = s.Get(ctx, "dam-1")
 	assert.Error(t, err, "Get should fail for memory removed by DeleteAllMemories")
+
+	// Verify entity deletion: UpsertEntity then DeleteAllMemories must wipe entities too.
+	require.NoError(t, s.UpsertEntity(ctx, models.Entity{ID: "ent-1", Name: "Alice", Type: "person"}))
+	require.NoError(t, s.DeleteAllMemories(ctx))
+	_, entErr := s.GetEntity(ctx, "ent-1")
+	assert.Error(t, entErr, "entity should be removed by DeleteAllMemories")
 }
 
 func TestMockStore_SearchLimitRespected(t *testing.T) {
