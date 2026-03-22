@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -239,5 +240,21 @@ func TestRunnerBestCandidate(t *testing.T) {
 				t.Errorf("BestCandidate(%v, %q) = %q, want %q", tt.memories, tt.groundTruth, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCortexClientStoreEmptyContent(t *testing.T) {
+	c := runner.NewCortexClient("", "")
+	err := c.Store(context.Background(), "")
+	if err == nil {
+		t.Fatal("Store(\"\") should return an error, got nil")
+	}
+}
+
+func TestCortexClientRecallZeroLimit(t *testing.T) {
+	c := runner.NewCortexClient("", "")
+	_, err := c.Recall(context.Background(), "query", 0)
+	if err == nil {
+		t.Fatal("Recall with limit=0 should return an error, got nil")
 	}
 }

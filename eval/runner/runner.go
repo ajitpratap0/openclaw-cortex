@@ -128,6 +128,9 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 
 // Store runs `openclaw-cortex store <content>` to persist a fact memory.
 func (c *CortexClient) Store(ctx context.Context, content string) error {
+	if content == "" {
+		return fmt.Errorf("runner: content must not be empty")
+	}
 	args := append(c.baseArgs(), "store", "--scope", "permanent", "--type", "fact", "--", content)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
