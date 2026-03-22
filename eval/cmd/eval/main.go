@@ -127,7 +127,7 @@ func run() error {
 
 	// Print markdown summary table to stderr so stdout stays clean JSON
 	// (allows: go run ./eval/cmd/eval | jq '.').
-	fmt.Fprintln(os.Stderr, markdownTable(summaries, *k))
+	fmt.Fprintln(os.Stderr, runner.FormatMarkdownTable(summaries, *k))
 	return nil
 }
 
@@ -139,32 +139,4 @@ func runLocomo(ctx context.Context, client runner.Client, k int) (*runner.Benchm
 func runLongMemEval(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LongMemEval benchmark...")
 	return longmemeval.Run(ctx, client, k)
-}
-
-// markdownTable renders a results table in GitHub-flavored markdown.
-func markdownTable(summaries []*runner.BenchmarkSummary, k int) string {
-	var sb strings.Builder
-
-	header := fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d |\n", "Benchmark", k)
-	// Recall@k column width grows with k (e.g. "Recall@5"=8, "Recall@10"=9, "Recall@100"=10).
-	// Match the separator to the header to avoid misalignment for k>=10.
-	recallColW := len(fmt.Sprintf("Recall@%d", k)) + 2
-	sep := fmt.Sprintf("|%s|-----------|-------------|---------|%s|\n",
-		strings.Repeat("-", 16), strings.Repeat("-", recallColW))
-
-	sb.WriteString(header)
-	sb.WriteString(sep)
-
-	for _, s := range summaries {
-		recallCell := fmt.Sprintf("%*.1f%%", recallColW-3, s.RecallAtK*100)
-		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
-			s.Name,
-			s.TotalQuestions,
-			s.ExactMatchAcc*100,
-			s.AvgF1,
-			recallCell,
-		)
-	}
-
-	return sb.String()
 }

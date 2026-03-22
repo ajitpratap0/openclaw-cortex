@@ -174,7 +174,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	// First-byte sanity check: JSON arrays start with '['. Any other first byte
 	// means JSON mode did not activate — the sentinel coupling (issue #91) may be
 	// broken. Surface an actionable error rather than a confusing JSON parse error.
-	if len(trimmed) > 0 && trimmed[0] != '[' {
+	if trimmed[0] != '[' {
 		firstByte := trimmed[0]
 		hint := ""
 		if firstByte == '{' {
@@ -402,4 +402,35 @@ func BestCandidate(memories []string, groundTruth string) string {
 		}
 	}
 	return best
+}
+
+// FormatMarkdownTable renders a GitHub-flavored markdown results table for
+// a slice of BenchmarkSummary values. k is the recall-at-k value used only
+// for the column header label.
+//
+// Column widths are fixed except for Recall@k, which grows with k to avoid
+// misalignment for k>=10 (e.g. "Recall@5"=8 chars, "Recall@100"=10 chars).
+func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
+	var sb strings.Builder
+
+	header := fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d |\n", "Benchmark", k)
+	recallColW := len(fmt.Sprintf("Recall@%d", k)) + 2
+	sep := fmt.Sprintf("|%s|-----------|-------------|---------|%s|\n",
+		strings.Repeat("-", 16), strings.Repeat("-", recallColW))
+
+	sb.WriteString(header)
+	sb.WriteString(sep)
+
+	for _, s := range summaries {
+		recallCell := fmt.Sprintf("%*.1f%%", recallColW-3, s.RecallAtK*100)
+		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
+			s.Name,
+			s.TotalQuestions,
+			s.ExactMatchAcc*100,
+			s.AvgF1,
+			recallCell,
+		)
+	}
+
+	return sb.String()
 }

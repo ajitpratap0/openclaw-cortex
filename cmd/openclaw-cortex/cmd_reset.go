@@ -31,7 +31,11 @@ re-run reset. Batched deletion is tracked in issue #91.`,
 			if err != nil {
 				return cmdErr("reset: connecting to store", err)
 			}
-			defer func() { _ = st.Close() }()
+			defer func() {
+				if cerr := st.Close(); cerr != nil {
+					logger.Warn("reset: close store", "error", cerr)
+				}
+			}()
 
 			// Use the ResettableStore interface as documented: only cmd_reset.go
 			// and eval benchmark harnesses should call DeleteAllMemories. The

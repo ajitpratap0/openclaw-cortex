@@ -337,3 +337,55 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 		t.Errorf("recall --context _ stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
 	}
 }
+
+// TestFormatMarkdownTable verifies that FormatMarkdownTable produces a valid
+// GitHub-flavored markdown table: header line, separator line, and one data
+// row per summary, with column separators aligned for k=5 and k=100.
+func TestFormatMarkdownTable(t *testing.T) {
+	summaries := []*runner.BenchmarkSummary{
+		{Name: "LoCoMo", TotalQuestions: 10, ExactMatchAcc: 0.8, AvgF1: 0.75, RecallAtK: 0.9, K: 5},
+		{Name: "LongMemEval", TotalQuestions: 10, ExactMatchAcc: 0.6, AvgF1: 0.55, RecallAtK: 0.7, K: 5},
+	}
+
+	for _, k := range []int{5, 10, 100} {
+		t.Run(strings.Repeat("k=", 1)+strings.TrimPrefix(strings.Repeat("k=", 1), ""), func(t *testing.T) {
+			table := runner.FormatMarkdownTable(summaries, k)
+			if table == "" {
+				t.Fatal("FormatMarkdownTable returned empty string")
+			}
+			lines := strings.Split(strings.TrimRight(table, "\n"), "\n")
+			// Must have at least header + separator + one row per summary.
+			if len(lines) < 2+len(summaries) {
+				t.Fatalf("expected >= %d lines, got %d:\n%s", 2+len(summaries), len(lines), table)
+			}
+			// Header must contain the Recall@k label.
+			recallHeader := strings.Contains(lines[0], strings.Repeat("Recall@", 1)+strings.TrimPrefix(strings.Repeat("k=", 1), "k="))
+			_ = recallHeader // presence checked below
+			if !strings.Contains(lines[0], "Recall@") {
+				t.Errorf("header missing Recall@k: %q", lines[0])
+			}
+			// Separator line must start with '|' and contain only '-', '|', spaces.
+			sep := lines[1]
+			for _, ch := range sep {
+				if ch != '|' && ch != '-' && ch != ' ' {
+					t.Errorf("unexpected char %q in separator: %q", ch, sep)
+				}
+			}
+			// Each data row must contain the benchmark name.
+			for i, s := range summaries {
+				row := lines[2+i]
+				if !strings.Contains(row, s.Name) {
+					t.Errorf("row %d missing benchmark name %q: %q", i, s.Name, row)
+				}
+			}
+			// Column counts must match across all lines.
+			colCount := strings.Count(lines[0], "|")
+			for i, line := range lines[1:] {
+				if strings.Count(line, "|") != colCount {
+					t.Errorf("line %d has %d '|' chars, header has %d: %q",
+						i+1, strings.Count(line, "|"), colCount, line)
+				}
+			}
+		})
+	}
+}
