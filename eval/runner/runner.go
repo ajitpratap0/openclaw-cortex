@@ -191,8 +191,11 @@ func (c *CortexClient) Store(ctx context.Context, content string) error {
 	args := append(c.baseArgs(), "store", "--scope", "permanent", "--type", "fact", "--", content)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, c.BinaryPath, args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("runner: store binary error: %w (output: %s)", err, out)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("runner: store binary error: %w (stderr: %s)", err, stderr.String())
 	}
 	return nil
 }
