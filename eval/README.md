@@ -146,7 +146,7 @@ Run against the full v0.10.0 binary with live Memgraph + Ollama (`nomic-embed-te
 | Benchmark   | Questions | Exact Match | Avg F1 | Recall@5 | Recall failures |
 |-------------|-----------|-------------|--------|----------|-----------------|
 | LoCoMo      | 10        | **100.0%**  | 0.085  | **100%** | 0               |
-| LongMemEval | 10        | **80.0%**   | 0.179  | **80%**  | 0               |
+| LongMemEval | 10        | **80.0%**   | 0.179  | **80%**  | 2               |
 
 Full per-question results: [`eval/results_v0.10.0.json`](results_v0.10.0.json)
 
