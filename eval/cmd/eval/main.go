@@ -47,6 +47,9 @@ func run() error {
 	if *timeout <= 0 {
 		return fmt.Errorf("--timeout must be > 0, got %d", *timeout)
 	}
+	if *k <= 0 {
+		return fmt.Errorf("--k must be > 0, got %d", *k)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
 	defer cancel()
@@ -77,9 +80,11 @@ func run() error {
 		}
 		summaries = append(summaries, s1)
 
-		// Reset between benchmarks so LoCoMo facts don't contaminate LongMemEval.
-		// If this fails, LongMemEval results would be meaningless — abort rather than
-		// produce tainted scores.
+		// Reset between benchmarks so any residual LoCoMo state doesn't bleed into
+		// LongMemEval. This is a defensive belt-and-suspenders step: longmemeval.Run
+		// already calls Reset as its first operation, so the store would be wiped
+		// anyway. The explicit reset here makes the isolation intent visible at the
+		// call-site and ensures abort-on-failure semantics if the reset itself errors.
 		if resetErr := client.Reset(ctx); resetErr != nil {
 			return fmt.Errorf("inter-benchmark reset failed (aborting to prevent contamination): %w", resetErr)
 		}
