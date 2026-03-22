@@ -49,12 +49,10 @@ type BenchmarkSummary struct {
 // JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
 // itself is unused by the binary; "_" is a readable no-op.
 //
-// Side-effect: --context also sets Memory.Project for recall scope-boosting
-// (8% weight in the scoring formula). Passing "_" means every recall runs with
-// project="_". No eval fact ever has Project="_", so the boost is always zero
-// and today's effect is neutral. If that invariant changes, recall scores could
-// shift unexpectedly. A dedicated --format json flag in cmd_recall.go would
-// eliminate the coupling; tracked in issue #91.
+// Note: --context and --project are separate flags in cmd_recall.go. The
+// runner does not pass --project, so project="" and scope-boosting is not
+// applied during eval recalls. A dedicated --format json flag in cmd_recall.go
+// would eliminate this sentinel coupling; tracked in issue #91.
 const recallContextSentinel = "_"
 
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
