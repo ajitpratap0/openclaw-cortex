@@ -19,9 +19,8 @@ type healthResult struct {
 	Errors   map[string]string `json:"errors,omitempty"`
 }
 
-var skipLLMPing bool
-
 func healthCmd() *cobra.Command {
+	var skipLLMPing bool
 	cmd := &cobra.Command{
 		Use:   "health",
 		Short: "Check connectivity to required services",
@@ -70,7 +69,7 @@ func healthCmd() *cobra.Command {
 				// No API call; LLM remains true so overall OK is not affected.
 			} else {
 				llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
-				defer llmCancel()
+				defer llmCancel() // safety net; canceled explicitly below
 				model := cfg.Claude.Model
 				if model == "" {
 					model = "claude-haiku-4-5-20251001"
@@ -101,6 +100,7 @@ func healthCmd() *cobra.Command {
 					}
 					result.Errors["llm"] = "no API key or gateway configured"
 				}
+				llmCancel()
 			}
 
 			result.OK = result.Memgraph && result.Ollama && result.LLM
@@ -132,7 +132,7 @@ func healthCmd() *cobra.Command {
 
 			switch {
 			case skipLLMPing:
-				fmt.Println("LLM: SKIP (--skip-llm-ping)")
+				fmt.Println("Claude LLM: SKIP (--skip-llm-ping)")
 			case result.LLM:
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
