@@ -15,7 +15,7 @@ type healthResult struct {
 	OK       bool              `json:"ok"`
 	Memgraph bool              `json:"memgraph"`
 	Ollama   bool              `json:"ollama"`
-	LLM      *bool             `json:"llm"`
+	LLM      *bool             `json:"llm,omitempty"`
 	Errors   map[string]string `json:"errors,omitempty"`
 	Skipped  []string          `json:"skipped,omitempty"`
 }
@@ -77,7 +77,7 @@ func healthCmd() *cobra.Command {
 				}
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 5)
+					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0)
 					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
 						result.LLM = boolPtr(false)
 						if result.Errors == nil {
