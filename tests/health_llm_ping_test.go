@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,27 +77,36 @@ func TestHealthLLMPing_GatewayForbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, httpErr.StatusCode)
 }
 
-// TestHealthLLMPing_GatewayContextTimeout verifies that context cancellation is
-// propagated correctly — the health check applies a 5s timeout via context.WithTimeout.
+// TestHealthLLMPing_GatewayContextTimeout verifies that an in-flight request is
+// aborted when the context deadline fires — the health check applies a 5 s timeout
+// via context.WithTimeout, and a slow gateway must not block indefinitely.
 func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
-	// Pre-cancel the context to simulate a timeout firing before the server responds.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Block until the client cancels — simulates a gateway that never responds
+		// within the health-check timeout window.
+		<-r.Context().Done()
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	t.Cleanup(srv.Close)
 
-	client := llm.NewGatewayClient(srv.URL, "tok", 5)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // cancel before the call
+	client := llm.NewGatewayClient(srv.URL, "tok", 0) // no http-level timeout; rely on context
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
 
 	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
-	require.Error(t, err, "canceled context should return an error")
+	require.Error(t, err, "timed-out context should return an error")
 }
 
-// TestHealthLLMPing_NoCredentials_NilClient verifies that llm.NewClient returns nil
-// when no credentials are configured, which the health check handles as the "no API
-// key or gateway configured" error case.
-func TestHealthLLMPing_NoCredentials_NilClient(t *testing.T) {
+// TestNewClient_NoCredentials_ReturnsNil verifies that llm.NewClient returns nil
+// when no credentials are configured. Note: the health command does not call
+// llm.NewClient directly — it calls llm.NewGatewayClient / llm.NewAnthropicClient
+// and handles the no-credentials case via an explicit default: branch. This test
+// covers the factory's nil-return contract independently.
+//
+// AnthropicClient coverage note: AnthropicClient.Complete calls the Anthropic SDK
+// directly (no HTTP interceptor is possible at test time), so its error path is
+// covered by integration testing only. The gateway path is fully unit-tested above.
+func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
 	client := llm.NewClient(config.ClaudeConfig{})
-	assert.Nil(t, client, "no credentials should produce a nil client — health check marks LLM FAIL")
+	assert.Nil(t, client, "no credentials should produce a nil client")
 }
