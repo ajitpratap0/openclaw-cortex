@@ -75,14 +75,14 @@ func healthCmd() *cobra.Command {
 				if model == "" {
 					model = "claude-haiku-4-5-20251001"
 				}
+				if result.Errors == nil {
+					result.Errors = make(map[string]string)
+				}
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0)
+					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0) // no http-level timeout; rely on llmCtx
 					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
 						result.LLM = boolPtr(false)
-						if result.Errors == nil {
-							result.Errors = make(map[string]string)
-						}
 						result.Errors["llm"] = fmt.Sprintf("gateway ping failed: %v", err)
 					} else {
 						result.LLM = boolPtr(true)
@@ -91,18 +91,12 @@ func healthCmd() *cobra.Command {
 					client := llm.NewAnthropicClient(cfg.Claude.APIKey)
 					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
 						result.LLM = boolPtr(false)
-						if result.Errors == nil {
-							result.Errors = make(map[string]string)
-						}
 						result.Errors["llm"] = fmt.Sprintf("api key ping failed: %v", err)
 					} else {
 						result.LLM = boolPtr(true)
 					}
 				default:
 					result.LLM = boolPtr(false)
-					if result.Errors == nil {
-						result.Errors = make(map[string]string)
-					}
 					result.Errors["llm"] = "no API key or gateway configured"
 				}
 				llmCancel()

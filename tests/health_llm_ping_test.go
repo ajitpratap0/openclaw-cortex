@@ -25,7 +25,7 @@ import (
 // — the health check would mark LLM as OK.
 func TestHealthLLMPing_GatewayOK(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer valid-token", r.Header.Get("Authorization"))
+		assert.Equal(t, "Bearer valid-token", r.Header.Get("Authorization")) // assert, not require: t.FailNow() must not be called from a handler goroutine
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]string{"content": "ok"}},
@@ -97,7 +97,7 @@ func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	client := llm.NewGatewayClient(srv.URL, "tok", 0) // no http-level timeout; rely on context
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
 	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
