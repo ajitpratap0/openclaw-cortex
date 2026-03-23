@@ -74,8 +74,8 @@ func recallCmd() *cobra.Command {
 			// set, use it as a floor so we always retrieve at least that many
 			// candidates before post-ranking truncation.
 			searchLimit := uint64(50)
-			if limit > 0 && uint64(limit) > searchLimit {
-				searchLimit = uint64(limit)
+			if limit > 0 && uint64(limit)*2 > searchLimit {
+				searchLimit = uint64(limit) * 2
 			}
 			results, err := st.Search(ctx, vec, searchLimit, filters)
 			if err != nil {
