@@ -39,6 +39,8 @@ func recallCmd() *cobra.Command {
 			if format != "text" && format != "json" {
 				return fmt.Errorf("recall: unknown --format %q; expected \"text\" or \"json\"", format)
 			}
+			// Note: "--limit -1" (space-separated) is rejected by pflag before RunE fires;
+			// "--limit=-1" (equals form) reaches this check and returns the custom error.
 			if limit < 0 {
 				return fmt.Errorf("recall: --limit must be non-negative, got %d", limit)
 			}

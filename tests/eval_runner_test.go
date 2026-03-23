@@ -337,6 +337,10 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 			wantJSON: true,
 		},
 		{
+			// Note: this subtest only exercises the precedence logic when Memgraph is live
+			// and returns results. Without a live store the binary exits non-zero and the
+			// subtest is skipped — the invariant ("--format text wins over --context") is
+			// not verified in a unit context. See cmd_recall.go jsonMode for the actual guard.
 			name:     "format_text_wins_over_context_sentinel",
 			args:     []string{"recall", "--format", "text", "--context", "_", "--budget", "500", "--", "test-query"},
 			wantJSON: false,
@@ -367,13 +371,15 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 					t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
 				}
 			} else {
-				// Binary exited 0 with --format text: stdout must NOT be a JSON array.
-				// An empty output is also acceptable (no memories found in plain-text mode).
+				// Note: this subtest only exercises the precedence logic when Memgraph is live
+				// and returns results. Without a live store the binary exits non-zero and the
+				// subtest is skipped — the invariant ("--format text wins over --context") is
+				// not verified in a unit context. See cmd_recall.go jsonMode for the actual guard.
 				out := strings.TrimSpace(stdoutBuf.String())
-				var results []any
 				if out != "" {
-					if jsonErr := json.Unmarshal([]byte(out), &results); jsonErr == nil {
-						t.Errorf("recall stdout parsed as JSON array but --format text was requested; plain text expected\nstdout: %s", stdoutBuf.String())
+					var jsonCheck []any
+					if json.Unmarshal([]byte(out), &jsonCheck) == nil {
+						t.Errorf("format_text_wins_over_context_sentinel: stdout parsed as JSON but --format text should produce text output; got: %s", out)
 					}
 				}
 			}

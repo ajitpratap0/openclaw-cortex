@@ -134,10 +134,10 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if query == "" {
 		return nil, fmt.Errorf("runner: query must not be empty")
 	}
-	// maxLimit guards against int overflow on 32-bit targets: limit*500 uses
-	// int arithmetic, which is 32-bit on GOARCH=386/arm. On a 32-bit target
-	// the overflow threshold is 2^31/500 ≈ 4,294,967; maxLimit (1<<20 = 1,048,576)
-	// keeps limit*500 well below that ceiling.
+	// maxLimit is a Memgraph query-size sanity cap: values above 1<<20 are
+	// implausible for any real benchmark and indicate a caller bug. This is NOT
+	// an overflow guard — min(limit, 2000)*500 already bounds the --budget product
+	// to at most 1_000_000, well within int range on all supported targets.
 	const maxLimit = 1 << 20 // 1 048 576 — far beyond any reasonable k
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
@@ -183,7 +183,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		if trimmed[0] == '{' {
 			hint = " (got JSON object — binary may be returning a single result instead of an array; check recall output schema)"
 		} else {
-			hint = " — JSON mode may not have activated; check --context sentinel coupling (issue #91)"
+			hint = " — JSON mode may not have activated; check --format json / --context sentinel coupling"
 		}
 		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", trimmed[0], hint, stdout.String())
 	}
