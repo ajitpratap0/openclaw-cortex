@@ -134,11 +134,10 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if query == "" {
 		return nil, fmt.Errorf("runner: query must not be empty")
 	}
-	// maxLimit is a Memgraph query-size sanity cap: values above 1<<20 are
-	// implausible for any real benchmark and indicate a caller bug. This is NOT
-	// an overflow guard — min(limit, 2000)*500 already bounds the --budget product
-	// to at most 1_000_000, well within int range on all supported targets.
-	const maxLimit = 1 << 20 // 1 048 576 — far beyond any reasonable k
+	// maxLimit must match the --limit upper bound enforced by cmd_recall.go RunE
+	// (currently 10000). Values above this will be rejected by the binary with a
+	// non-zero exit, producing an opaque error rather than the friendly runner message.
+	const maxLimit = 10000
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
 	}
