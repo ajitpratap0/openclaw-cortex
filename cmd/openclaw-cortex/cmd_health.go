@@ -74,7 +74,7 @@ func healthCmd() *cobra.Command {
 					if result.Errors == nil {
 						result.Errors = make(map[string]string)
 					}
-					result.Errors["llm"] = fmt.Sprintf("gateway auth failed: %v", err)
+					result.Errors["llm"] = fmt.Sprintf("gateway ping failed: %v", err)
 				}
 			case cfg.Claude.APIKey != "":
 				client := llm.NewAnthropicClient(cfg.Claude.APIKey)
@@ -83,7 +83,7 @@ func healthCmd() *cobra.Command {
 					if result.Errors == nil {
 						result.Errors = make(map[string]string)
 					}
-					result.Errors["llm"] = fmt.Sprintf("api key auth failed: %v", err)
+					result.Errors["llm"] = fmt.Sprintf("api key ping failed: %v", err)
 				}
 			default:
 				result.LLM = false
