@@ -15,7 +15,7 @@ type healthResult struct {
 	OK       bool              `json:"ok"`
 	Memgraph bool              `json:"memgraph"`
 	Ollama   bool              `json:"ollama"`
-	LLM      *bool             `json:"llm,omitempty"`
+	LLM      *bool             `json:"llm"`
 	Errors   map[string]string `json:"errors,omitempty"`
 	Skipped  []string          `json:"skipped,omitempty"`
 }
@@ -78,32 +78,14 @@ func healthCmd() *cobra.Command {
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
 					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0) // no http-level timeout; rely on llmCtx
-					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
-						result.LLM = boolPtr(false)
-						if result.Errors == nil {
-							result.Errors = make(map[string]string)
-						}
-						result.Errors["llm"] = fmt.Sprintf("gateway ping failed: %v", err)
-					} else {
-						result.LLM = boolPtr(true)
-					}
+					_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
+					applyLLMPingResult(&result, pingErr, "gateway ping failed")
 				case cfg.Claude.APIKey != "":
 					client := llm.NewAnthropicClient(cfg.Claude.APIKey)
-					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
-						result.LLM = boolPtr(false)
-						if result.Errors == nil {
-							result.Errors = make(map[string]string)
-						}
-						result.Errors["llm"] = fmt.Sprintf("api key ping failed: %v", err)
-					} else {
-						result.LLM = boolPtr(true)
-					}
+					_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
+					applyLLMPingResult(&result, pingErr, "api key ping failed")
 				default:
-					result.LLM = boolPtr(false)
-					if result.Errors == nil {
-						result.Errors = make(map[string]string)
-					}
-					result.Errors["llm"] = "no API key or gateway configured"
+					applyLLMPingResult(&result, fmt.Errorf("no API key or gateway configured"), "")
 				}
 				llmCancel()
 			}

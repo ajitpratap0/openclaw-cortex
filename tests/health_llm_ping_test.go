@@ -36,7 +36,7 @@ func TestHealthLLMPing_GatewayOK(t *testing.T) {
 
 	client := llm.NewGatewayClient(srv.URL, "valid-token", 5)
 	ctx := context.Background()
-	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
+	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
 	require.NoError(t, err, "valid gateway token should succeed — health check would mark LLM OK")
 }
 
@@ -51,7 +51,7 @@ func TestHealthLLMPing_GatewayUnauthorized(t *testing.T) {
 
 	client := llm.NewGatewayClient(srv.URL, "bad-token", 5)
 	ctx := context.Background()
-	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
+	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
 	require.Error(t, err, "invalid gateway token should return error — health check would mark LLM FAIL")
 
 	var httpErr *llm.HTTPError
@@ -69,7 +69,7 @@ func TestHealthLLMPing_GatewayForbidden(t *testing.T) {
 
 	client := llm.NewGatewayClient(srv.URL, "expired-token", 5)
 	ctx := context.Background()
-	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
+	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
 	require.Error(t, err, "forbidden gateway response should return error — health check would mark LLM FAIL")
 
 	var httpErr *llm.HTTPError
@@ -83,14 +83,18 @@ func TestHealthLLMPing_GatewayForbidden(t *testing.T) {
 func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Block until the client cancels or a safety timeout fires.
-		// We select on time.After as well as r.Context().Done() because with
+		// We select on a timer as well as r.Context().Done() because with
 		// HTTP/1.1 keep-alive the server-side request context may not be
 		// canceled immediately when the client transport abandons the request —
 		// the TCP connection stays open in the pool, so r.Context() can remain
 		// live indefinitely and cause srv.Close() to deadlock.
+		// Use time.NewTimer (not time.After) so the timer goroutine is freed
+		// immediately when the context fires rather than after 1 s.
+		timer := time.NewTimer(time.Second)
+		defer timer.Stop()
 		select {
 		case <-r.Context().Done():
-		case <-time.After(time.Second):
+		case <-timer.C:
 		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
@@ -100,7 +104,7 @@ func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	_, err := client.Complete(ctx, "claude-haiku-4-5", "ping", "respond with ok", 5)
+	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
 	require.Error(t, err, "timed-out context should return an error")
 }
 
