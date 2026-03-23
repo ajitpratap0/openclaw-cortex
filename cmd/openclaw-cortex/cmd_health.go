@@ -11,6 +11,11 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 )
 
+// healthResult is the JSON-serializable output of the health command.
+//
+// LLM is a three-state field: nil means the check was skipped (--skip-llm-ping),
+// true means the ping succeeded, and false means it failed. Consumers must test
+// the "skipped" array before interpreting a null LLM field as a failure.
 type healthResult struct {
 	OK       bool              `json:"ok"`
 	Memgraph bool              `json:"memgraph"`
@@ -70,11 +75,14 @@ func healthCmd() *cobra.Command {
 				result.Skipped = append(result.Skipped, "llm")
 			} else {
 				llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
-				defer llmCancel() // belt-and-suspenders: explicit call below; defer covers early-return paths
+				defer llmCancel() // safety-net: cancels llmCtx if a future early-return is added inside this block
 				model := cfg.Claude.Model
 				if model == "" {
 					model = "claude-haiku-4-5-20251001"
 				}
+				// Use bare clients (not llm.NewClient / ResilientClient): health checks must
+				// be single-shot — retries inflate latency and repeated failures trip the
+				// circuit breaker, which would mask real connectivity issues.
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
 					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0) // no http-level timeout; rely on llmCtx
@@ -90,7 +98,7 @@ func healthCmd() *cobra.Command {
 				llmCancel()
 			}
 
-			llmOK := result.LLM == nil || *result.LLM
+			llmOK := LLMHealthOK(result.LLM)
 			result.OK = result.Memgraph && result.Ollama && llmOK
 
 			if jsonOut {

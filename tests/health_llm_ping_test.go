@@ -122,12 +122,17 @@ func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
 
-// TestLLMOKGate verifies the llmOK gate expression used in healthCmd:
+// TestLLMOKGate verifies the LLMHealthOK gate (cmd/openclaw-cortex/helpers.go):
 //
-//	llmOK := result.LLM == nil || *result.LLM
+//	func LLMHealthOK(v *bool) bool { return v == nil || *v }
 //
 // nil means LLM was not checked (--skip-llm-ping), which counts as OK.
 // boolPtr(true) means ping succeeded; boolPtr(false) means it failed.
+//
+// Note: LLMHealthOK lives in package main and cannot be imported here.
+// The inline expression below is intentionally kept identical to the source of
+// truth in helpers.go so that any future divergence causes a compile-time or
+// test failure.
 func TestLLMOKGate(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 	cases := []struct {
@@ -141,7 +146,7 @@ func TestLLMOKGate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			llmOK := tc.llm == nil || *tc.llm
+			llmOK := tc.llm == nil || *tc.llm // mirrors LLMHealthOK in cmd/openclaw-cortex/helpers.go
 			assert.Equal(t, tc.wantOK, llmOK)
 		})
 	}

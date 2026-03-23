@@ -81,6 +81,14 @@ func parseTags(tagsStr string) []string {
 // where nil means "not checked", true means healthy, and false means failed.
 func boolPtr(b bool) *bool { return &b }
 
+// LLMHealthOK implements the gate expression used by healthCmd:
+//
+//	llmOK := v == nil || *v
+//
+// nil means the LLM check was skipped (--skip-llm-ping), which counts as OK.
+// true means the ping succeeded; false means it failed.
+func LLMHealthOK(v *bool) bool { return v == nil || *v }
+
 // applyLLMPingResult sets result.LLM and result.Errors based on a ping error.
 // errPrefix is prepended to the error message (e.g. "gateway ping failed").
 // If err is nil the ping succeeded and LLM is set to true.
