@@ -82,9 +82,16 @@ func TestHealthLLMPing_GatewayForbidden(t *testing.T) {
 // via context.WithTimeout, and a slow gateway must not block indefinitely.
 func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Block until the client cancels — simulates a gateway that never responds
-		// within the health-check timeout window.
-		<-r.Context().Done()
+		// Block until the client cancels or a safety timeout fires.
+		// We select on time.After as well as r.Context().Done() because with
+		// HTTP/1.1 keep-alive the server-side request context may not be
+		// canceled immediately when the client transport abandons the request —
+		// the TCP connection stays open in the pool, so r.Context() can remain
+		// live indefinitely and cause srv.Close() to deadlock.
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	t.Cleanup(srv.Close)
