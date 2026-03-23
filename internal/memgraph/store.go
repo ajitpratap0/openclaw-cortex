@@ -819,22 +819,39 @@ func redactURI(rawURI string) string {
 
 // LinkMemoryToEntity appends a memory ID to an entity's memory_ids list (idempotent).
 func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memoryID string) error {
-	entity, err := s.GetEntity(ctx, entityID)
-	if err != nil {
-		return fmt.Errorf("memgraph link memory to entity: getting entity %s: %w", entityID, err)
-	}
+	wctx, cancel := context.WithTimeout(ctx, memgraphWriteTimeout)
+	defer cancel()
 
-	// Idempotency check.
-	for _, id := range entity.MemoryIDs {
-		if id == memoryID {
-			return nil
+	session := s.driver.NewSession(wctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	result, err := session.ExecuteWrite(wctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		res, txErr := tx.Run(wctx, `
+			MATCH (e:Entity {uuid: $entityID})
+			SET e.memory_ids = CASE
+			  WHEN $memoryID IN coalesce(e.memory_ids, []) THEN coalesce(e.memory_ids, [])
+			  ELSE coalesce(e.memory_ids, []) + $memoryID
+			END
+			RETURN e
+		`, map[string]any{"entityID": entityID, "memoryID": memoryID})
+		if txErr != nil {
+			return nil, txErr
 		}
+		if res.Next(wctx) {
+			return true, res.Err()
+		}
+		if consumeErr := res.Err(); consumeErr != nil {
+			return nil, consumeErr
+		}
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph link memory to entity: %w", err)
 	}
 
-	entity.MemoryIDs = append(entity.MemoryIDs, memoryID)
-
-	if upsertErr := s.UpsertEntity(ctx, *entity); upsertErr != nil {
-		return fmt.Errorf("memgraph link memory to entity: upserting entity %s: %w", entityID, upsertErr)
+	matched, ok := result.(bool)
+	if !ok || !matched {
+		return fmt.Errorf("memgraph link memory to entity: %w: %s", store.ErrNotFound, entityID)
 	}
 
 	return nil
