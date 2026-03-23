@@ -19,6 +19,8 @@ type healthResult struct {
 	Errors   map[string]string `json:"errors,omitempty"`
 }
 
+var skipLLMPing bool
+
 func healthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "health",
@@ -64,33 +66,41 @@ func healthCmd() *cobra.Command {
 			}
 
 			// Check Claude LLM access: actually test the credentials with a cheap ping.
-			llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
-			defer llmCancel()
-			switch {
-			case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-				client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 5)
-				if _, err := client.Complete(llmCtx, cfg.Claude.Model, "ping", "respond with ok", 5); err != nil {
+			if skipLLMPing {
+				// No API call; LLM remains true so overall OK is not affected.
+			} else {
+				llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
+				defer llmCancel()
+				model := cfg.Claude.Model
+				if model == "" {
+					model = "claude-haiku-4-5-20251001"
+				}
+				switch {
+				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
+					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 5)
+					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
+						result.LLM = false
+						if result.Errors == nil {
+							result.Errors = make(map[string]string)
+						}
+						result.Errors["llm"] = fmt.Sprintf("gateway ping failed: %v", err)
+					}
+				case cfg.Claude.APIKey != "":
+					client := llm.NewAnthropicClient(cfg.Claude.APIKey)
+					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
+						result.LLM = false
+						if result.Errors == nil {
+							result.Errors = make(map[string]string)
+						}
+						result.Errors["llm"] = fmt.Sprintf("api key ping failed: %v", err)
+					}
+				default:
 					result.LLM = false
 					if result.Errors == nil {
 						result.Errors = make(map[string]string)
 					}
-					result.Errors["llm"] = fmt.Sprintf("gateway ping failed: %v", err)
+					result.Errors["llm"] = "no API key or gateway configured"
 				}
-			case cfg.Claude.APIKey != "":
-				client := llm.NewAnthropicClient(cfg.Claude.APIKey)
-				if _, err := client.Complete(llmCtx, cfg.Claude.Model, "ping", "respond with ok", 5); err != nil {
-					result.LLM = false
-					if result.Errors == nil {
-						result.Errors = make(map[string]string)
-					}
-					result.Errors["llm"] = fmt.Sprintf("api key ping failed: %v", err)
-				}
-			default:
-				result.LLM = false
-				if result.Errors == nil {
-					result.Errors = make(map[string]string)
-				}
-				result.Errors["llm"] = "no API key or gateway configured"
 			}
 
 			result.OK = result.Memgraph && result.Ollama && result.LLM
@@ -120,14 +130,17 @@ func healthCmd() *cobra.Command {
 				fmt.Printf("Ollama: FAIL (%s)\n", result.Errors["ollama"])
 			}
 
-			if result.LLM {
+			switch {
+			case skipLLMPing:
+				fmt.Println("LLM: SKIP (--skip-llm-ping)")
+			case result.LLM:
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
 					fmt.Printf("Claude LLM: OK (via gateway %s)\n", cfg.Claude.GatewayURL)
 				default:
 					fmt.Println("Claude LLM: OK (API key)")
 				}
-			} else {
+			default:
 				fmt.Printf("Claude LLM: FAIL (%s)\n", result.Errors["llm"])
 			}
 
@@ -138,5 +151,6 @@ func healthCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("json", false, "Output health status as JSON")
+	cmd.Flags().BoolVar(&skipLLMPing, "skip-llm-ping", false, "skip LLM API ping (avoids billing; for use in monitoring scripts)")
 	return cmd
 }
