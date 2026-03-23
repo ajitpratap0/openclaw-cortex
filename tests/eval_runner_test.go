@@ -322,16 +322,24 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 	}
 
 	cases := []struct {
-		name string
-		args []string
+		name     string
+		args     []string
+		wantJSON bool
 	}{
 		{
-			name: "format_json_flag",
-			args: []string{"recall", "--format", "json", "--budget", "500", "--", "test-query"},
+			name:     "format_json_flag",
+			args:     []string{"recall", "--format", "json", "--budget", "500", "--", "test-query"},
+			wantJSON: true,
 		},
 		{
-			name: "context_sentinel_backward_compat",
-			args: []string{"recall", "--context", "_", "--budget", "500", "--", "test-query"},
+			name:     "context_sentinel_backward_compat",
+			args:     []string{"recall", "--context", "_", "--budget", "500", "--", "test-query"},
+			wantJSON: true,
+		},
+		{
+			name:     "format_text_wins_over_context_sentinel",
+			args:     []string{"recall", "--format", "text", "--context", "_", "--budget", "500", "--", "test-query"},
+			wantJSON: false,
 		},
 	}
 
@@ -352,10 +360,22 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 				t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping JSON format check", runErr)
 			}
 
-			// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
-			var results []any
-			if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
-				t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+			if tc.wantJSON {
+				// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
+				var results []any
+				if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
+					t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+				}
+			} else {
+				// Binary exited 0 with --format text: stdout must NOT be a JSON array.
+				// An empty output is also acceptable (no memories found in plain-text mode).
+				out := strings.TrimSpace(stdoutBuf.String())
+				var results []any
+				if out != "" {
+					if jsonErr := json.Unmarshal([]byte(out), &results); jsonErr == nil {
+						t.Errorf("recall stdout parsed as JSON array but --format text was requested; plain text expected\nstdout: %s", stdoutBuf.String())
+					}
+				}
 			}
 		})
 	}

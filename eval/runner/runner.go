@@ -119,7 +119,7 @@ type RecallJSONResult struct {
 // and returns up to limit memory content strings parsed from the JSON output.
 //
 // --limit N is a hard result count cap applied by the binary before token
-// trimming. --budget is still passed as a generous ceiling (limit*500 tokens)
+// trimming. --budget is still passed as a generous ceiling (min(limit,2000)*500 tokens)
 // so the token budget never silently truncates results for the synthetic
 // benchmark datasets (each fact/turn ≤ 30 tokens).
 //
