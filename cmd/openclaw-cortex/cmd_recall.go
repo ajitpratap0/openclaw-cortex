@@ -168,7 +168,7 @@ func recallCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
-	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: any non-empty value activates JSON output mode and suppresses human-readable text")
+	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: activates JSON output mode unless --format text is explicitly set (backward-compat; prefer --format json)")
 	cmd.Flags().StringVar(&format, "format", "text", "output format: text or json (json is preferred over --context sentinel)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to return (0 = no cap beyond searchLimit)")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")

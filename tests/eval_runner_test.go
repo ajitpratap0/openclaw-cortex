@@ -405,7 +405,7 @@ func TestCortexClientRecallLimitCapBehavior(t *testing.T) {
 		if strings.Contains(stderr, "unknown flag") || strings.Contains(stderr, "flag provided but not defined") {
 			t.Fatalf("flag not recognized: %s", stderr)
 		}
-		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping cap behaviour check", runErr)
+		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping cap behavior check", runErr)
 	}
 
 	var results []any
@@ -414,6 +414,24 @@ func TestCortexClientRecallLimitCapBehavior(t *testing.T) {
 	}
 	if len(results) > limit {
 		t.Errorf("--limit %d: expected ≤ %d results, got %d", limit, limit, len(results))
+	}
+}
+
+// TestCortexClientRecallInvalidFormat verifies that passing an unrecognized
+// --format value causes the binary to exit non-zero with a descriptive error.
+func TestCortexClientRecallInvalidFormat(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--format", "csv", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero exit for --format csv, got exit 0")
+	}
+	if !strings.Contains(stderrBuf.String(), "unknown --format") {
+		t.Errorf("expected error mentioning unknown --format, got: %s", stderrBuf.String())
 	}
 }
 
