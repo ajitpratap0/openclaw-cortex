@@ -137,7 +137,7 @@ func recallCmd() *cobra.Command {
 			// Precedence: an explicit --format text always wins over the sentinel.
 			// This lets callers opt out of the legacy behavior cleanly.
 			jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format"))
-			if ctxJSON != "" && cmd.Flags().Changed("format") && format == "text" {
+			if ctxJSON != "" && !jsonMode {
 				logger.Warn("--context is set but --format text was explicitly requested; outputting text")
 			}
 			if jsonMode {

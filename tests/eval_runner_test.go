@@ -435,6 +435,23 @@ func TestCortexClientRecallInvalidFormat(t *testing.T) {
 	}
 }
 
+// TestCortexClientRecallNegativeLimitError verifies that --limit -1 causes
+// the binary to exit non-zero with an error message that mentions --limit.
+func TestCortexClientRecallNegativeLimitError(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--limit", "-1", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected non-zero exit for --limit -1, got exit 0")
+	}
+	if !strings.Contains(stderrBuf.String(), "--limit") {
+		t.Errorf("expected error mentioning --limit, got: %s", stderrBuf.String())
+	}
+}
+
 // TestFormatMarkdownTable verifies that FormatMarkdownTable produces a valid
 // GitHub-flavored markdown table: header line, separator line, and one data
 // row per summary, with column separators aligned for k=5 and k=100.
