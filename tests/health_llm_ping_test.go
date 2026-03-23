@@ -127,9 +127,9 @@ func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
 func TestLLMOKGate(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 	cases := []struct {
-		name    string
-		llm     *bool
-		wantOK  bool
+		name   string
+		llm    *bool
+		wantOK bool
 	}{
 		{"nil (skipped)", nil, true},
 		{"true (ping ok)", boolPtr(true), true},

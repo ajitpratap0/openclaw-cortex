@@ -160,4 +160,3 @@ func healthCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&skipLLMPing, "skip-llm-ping", false, "skip LLM API ping (avoids billing; for use in monitoring scripts)")
 	return cmd
 }
-
