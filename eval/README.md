@@ -139,6 +139,34 @@ After the JSON block the tool prints a summary table:
 | **Avg F1** | Mean token-level F1 between the oracle-selected best candidate and ground truth. Upper-bound metric; same oracle selection as Exact Match. |
 | **Recall\@K** | Fraction of questions where *any* of the top-K retrieved memories contains the ground truth. The canonical recall metric. |
 
+### Baseline Results — v0.10.0 (2026-03-23)
+
+Run against the full v0.10.0 binary with live Memgraph + Ollama (`nomic-embed-text`), k=5.
+
+| Benchmark   | Questions | Exact Match | Avg F1 | Recall@5 | Recall failures |
+|-------------|-----------|-------------|--------|----------|-----------------|
+| LoCoMo      | 10        | **100.0%**  | 0.085  | **100%** | 0               |
+| LongMemEval | 10        | **80.0%**   | 0.179  | **80%**  | 2               |
+
+Full per-question results: [`eval/results_v0.10.0.json`](results_v0.10.0.json)
+
+**Why Avg F1 is low despite high Exact Match:**
+The oracle-selected candidate is a full conversation turn or fact sentence
+(10–30 tokens), while the ground truth is a short keyword (1–3 tokens, e.g.
+`"Go"`, `"blue-green"`, `"A100 GPUs"`). Token-F1 precision is low because the
+candidate contains far more tokens than the ground truth. Exact Match and
+Recall@K are the more meaningful metrics for this harness.
+
+**LongMemEval miss analysis (2 / 10 failed):**
+
+| QA ID  | Question | Ground Truth | Retrieved | Root cause |
+|--------|----------|--------------|-----------|------------|
+| lme-T1 | Diana's current job title? | `Senior Software Engineer` | `Software Engineer` (Jan 2024 entry) | Temporal supersession — the v1 memory (Jan 2024) was recalled instead of the superseding entry carrying the promotion; the updated title fact was not stored with a later `valid_from` |
+| lme-T4 | Laura's latest ML model accuracy? | `89%` | `82% accuracy` (v1.0 entry) | Knowledge-update — the newer model version (89%) should have invalidated the old entry (82%); temporal ordering was not reflected in recall ranking |
+
+Both failures are knowledge-update / temporal-supersession cases — exactly the
+class of retrieval the [ROADMAP v0.11.0 items](../ROADMAP.md) target.
+
 ### Competitor Context (from issue #88)
 
 | System | LoCoMo EM | LongMemEval EM |
@@ -146,7 +174,14 @@ After the JSON block the tool prints a summary table:
 | GPT-4 (RAG baseline) | ~58% | ~52% |
 | MemGPT | ~61% | ~55% |
 | A-MEM | ~63% | ~57% |
-| **openclaw-cortex (target)** | **>60%** | **>55%** |
+| **openclaw-cortex v0.10.0 (synthetic, per-pair isolation)** | **100%** | **80%** |
+
+> **Comparison caveat:** Published numbers accumulate full conversation history;
+> this harness resets between pairs. Per-pair isolation removes cross-session
+> distractors, so single-hop within-pair scores can be *higher* than published
+> numbers; multi-session cross-turn questions would score lower. The synthetic
+> dataset (10 pairs) is representative but not statistically equivalent.
+> See *Isolation Design* below.
 
 These numbers are from the academic literature and reflect full-scale
 benchmark runs. The synthetic datasets here have 10 QA pairs each — they

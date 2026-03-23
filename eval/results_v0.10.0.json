@@ -1,0 +1,202 @@
+[
+  {
+    "name": "LoCoMo",
+    "total_questions": 10,
+    "exact_match_accuracy": 1,
+    "avg_f1": 0.08476502696663987,
+    "recall_at_k": 1,
+    "k": 5,
+    "results": [
+      {
+        "question_id": "locomo-A1",
+        "question": "What is Alice's favorite programming language?",
+        "ground_truth": "Go",
+        "retrieved": "User: I've been using Python for most of my data work, but lately I've been falling in love with Go.\nAssistant: Go is great for performance-critical services. What kind of data work are you doing?",
+        "exact_match": true,
+        "f1_score": 0.05405405405405406,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-A2",
+        "question": "What language does Alice use for the log ingestion project?",
+        "ground_truth": "Go",
+        "retrieved": "User: The log ingestion project I mentioned — we've decided to use Go as the primary implementation language.\nAssistant: That's a solid choice for your concurrency requirements. Do you have a timeline?",
+        "exact_match": true,
+        "f1_score": 0.0625,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-A3",
+        "question": "Before Alice switched to software engineering, what was her role?",
+        "ground_truth": "data analyst",
+        "retrieved": "User: Before I joined my current team I was a data analyst at a fintech startup.\nAssistant: That's quite a pivot — from data analysis to building infrastructure. What prompted the change?",
+        "exact_match": true,
+        "f1_score": 0.12121212121212122,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-B1",
+        "question": "What container orchestration platform is Bob's team experienced with?",
+        "ground_truth": "Kubernetes",
+        "retrieved": "User: We're evaluating Kubernetes versus Nomad for our container orchestration.\nAssistant: Both are solid choices. What does your team's operational experience look like?",
+        "exact_match": true,
+        "f1_score": 0.08333333333333333,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-B2",
+        "question": "What deployment strategy will Bob's team use initially for Kubernetes?",
+        "ground_truth": "blue-green",
+        "retrieved": "User: Yes — blue-green deployments initially, then we'll switch to canary releases.\nAssistant: Blue-green is safer for the first migration. Canary can come once you're confident in the pipeline.",
+        "exact_match": true,
+        "f1_score": 0.125,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-B3",
+        "question": "Before Kubernetes, what did Bob's team use for configuration management?",
+        "ground_truth": "Ansible",
+        "retrieved": "User: Slowly but surely. The engineers who were heavy Ansible users are now becoming Helm chart authors.\nAssistant: That's a natural evolution. Helm charts give you the same declarative mindset.",
+        "exact_match": true,
+        "f1_score": 0.06451612903225806,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-C1",
+        "question": "What framework does Carol use to train deep learning models?",
+        "ground_truth": "PyTorch",
+        "retrieved": "User: My go-to framework for training deep learning models is PyTorch.\nAssistant: PyTorch has become dominant for research. Are you using it for production serving too?",
+        "exact_match": true,
+        "f1_score": 0.07142857142857142,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-C2",
+        "question": "What hardware does Carol use for training PyTorch models?",
+        "ground_truth": "A100 GPUs",
+        "retrieved": "User: I'm now running my PyTorch training jobs on a cluster with 8 A100 GPUs.\nAssistant: Eight A100s is serious compute. What's your typical training time for a large model?",
+        "exact_match": true,
+        "f1_score": 0.125,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-C3",
+        "question": "What ML framework did Carol use before PyTorch?",
+        "ground_truth": "TensorFlow",
+        "retrieved": "User: I started my ML career working with TensorFlow 1.x before TF2 and PyTorch took over.\nAssistant: TF1's session-based graph approach was quite different. Do you miss anything from it?",
+        "exact_match": true,
+        "f1_score": 0.06060606060606061,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "locomo-D1",
+        "question": "What did the team initially use for feature vector storage before switching?",
+        "ground_truth": "Redis",
+        "retrieved": "User: Currently native Redis with RediSearch, but we're evaluating Pinecone.\nAssistant: Pinecone handles very large vector workloads better at scale. Benchmark latency before deciding.",
+        "exact_match": true,
+        "f1_score": 0.07999999999999999,
+        "recalled_at_k": true
+      }
+    ]
+  },
+  {
+    "name": "LongMemEval",
+    "total_questions": 10,
+    "exact_match_accuracy": 0.8,
+    "avg_f1": 0.17909864645158766,
+    "recall_at_k": 0.8,
+    "k": 5,
+    "results": [
+      {
+        "question_id": "lme-T1",
+        "question": "What is Diana's current job title?",
+        "ground_truth": "Senior Software Engineer",
+        "retrieved": "As of January 2024, Diana's job title is Software Engineer at Acme Corp.",
+        "exact_match": false,
+        "f1_score": 0.25,
+        "recalled_at_k": false
+      },
+      {
+        "question_id": "lme-T2",
+        "question": "What database does the team use after September 2024?",
+        "ground_truth": "PostgreSQL",
+        "retrieved": "In September 2024, the team migrated their primary database from MySQL to PostgreSQL on AWS RDS.",
+        "exact_match": true,
+        "f1_score": 0.11764705882352941,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-T3",
+        "question": "Where does Ethan work from after April 2024?",
+        "ground_truth": "Austin, Texas",
+        "retrieved": "From April 2024 onwards, Ethan relocated to Austin, Texas and works in a hybrid model.",
+        "exact_match": true,
+        "f1_score": 0.23529411764705882,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-M1",
+        "question": "What language does the Project Atlas lead engineer use?",
+        "ground_truth": "Rust",
+        "retrieved": "Project Atlas uses Rust as its primary programming language.",
+        "exact_match": true,
+        "f1_score": 0.19999999999999998,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-M2",
+        "question": "What cloud service does George's team use for containerised deployments?",
+        "ground_truth": "Cloud Run",
+        "retrieved": "GCP deployments in the Berlin office use Cloud Run for containerised services.",
+        "exact_match": true,
+        "f1_score": 0.2857142857142857,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-M3",
+        "question": "Where is the training data for Hannah's team's model stored?",
+        "ground_truth": "BigQuery",
+        "retrieved": "Click-through data is stored in BigQuery and refreshed daily.",
+        "exact_match": true,
+        "f1_score": 0.18181818181818182,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-K1",
+        "question": "What was Ivan's original team meeting cadence before Q3 2024?",
+        "ground_truth": "weekly",
+        "retrieved": "Ivan's team meeting cadence was weekly every Monday (valid until Q2 2024).",
+        "exact_match": true,
+        "f1_score": 0.15384615384615385,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-K2",
+        "question": "What CI/CD tool did Julia's team use before October 2024?",
+        "ground_truth": "Jenkins",
+        "retrieved": "Before October 2024, Julia's team used Jenkins for CI/CD pipelines.",
+        "exact_match": true,
+        "f1_score": 0.16666666666666669,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-K3",
+        "question": "What protocol did Kevin's services originally use for communication?",
+        "ground_truth": "REST",
+        "retrieved": "Until mid-2024, Kevin's microservices communicated over REST/HTTP.",
+        "exact_match": true,
+        "f1_score": 0.19999999999999998,
+        "recalled_at_k": true
+      },
+      {
+        "question_id": "lme-T4",
+        "question": "What accuracy did Laura's latest ML model version achieve?",
+        "ground_truth": "89%",
+        "retrieved": "Laura's ML model version 1.0 achieved 82% accuracy on the test set in January 2024.",
+        "exact_match": false,
+        "f1_score": 0.0,
+        "recalled_at_k": false
+      }
+    ]
+  }
+]
