@@ -177,8 +177,11 @@ class of retrieval the [ROADMAP v0.11.0 items](../ROADMAP.md) target.
 | **openclaw-cortex v0.10.0 (synthetic, per-pair isolation)** | **100%** | **80%** |
 
 > **Comparison caveat:** Published numbers accumulate full conversation history;
-> this harness resets between pairs. The synthetic dataset (10 pairs) is
-> representative but not statistically equivalent. See *Isolation Design* below.
+> this harness resets between pairs. Per-pair isolation removes cross-session
+> distractors, so single-hop within-pair scores can be *higher* than published
+> numbers; multi-session cross-turn questions would score lower. The synthetic
+> dataset (10 pairs) is representative but not statistically equivalent.
+> See *Isolation Design* below.
 
 These numbers are from the academic literature and reflect full-scale
 benchmark runs. The synthetic datasets here have 10 QA pairs each — they
