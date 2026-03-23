@@ -17,6 +17,7 @@ type healthResult struct {
 	Ollama   bool              `json:"ollama"`
 	LLM      bool              `json:"llm"`
 	Errors   map[string]string `json:"errors,omitempty"`
+	Skipped  []string          `json:"skipped,omitempty"`
 }
 
 func healthCmd() *cobra.Command {
@@ -67,6 +68,7 @@ func healthCmd() *cobra.Command {
 			// Check Claude LLM access: actually test the credentials with a cheap ping.
 			if skipLLMPing {
 				// No API call; LLM remains true so overall OK is not affected.
+				result.Skipped = append(result.Skipped, "llm")
 			} else {
 				llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
 				defer llmCancel() // safety net; canceled explicitly below
@@ -76,7 +78,7 @@ func healthCmd() *cobra.Command {
 				}
 				switch {
 				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 5)
+					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, cfg.Claude.GatewayTimeoutSeconds)
 					if _, err := client.Complete(llmCtx, model, "ping", "respond with ok", 5); err != nil {
 						result.LLM = false
 						if result.Errors == nil {
