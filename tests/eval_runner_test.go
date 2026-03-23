@@ -457,6 +457,10 @@ func TestCortexClientRecallInvalidFormat(t *testing.T) {
 
 // TestCortexClientRecallNegativeLimitError verifies that --limit -1 causes
 // the binary to exit non-zero with an error message that mentions --limit.
+//
+// Note: pflag may reject "--limit -1" before RunE fires (interpreting -1 as
+// shorthand flag), producing "invalid argument" instead of the custom --limit
+// message. The assertion accepts either so the test is robust across pflag versions.
 func TestCortexClientRecallNegativeLimitError(t *testing.T) {
 	if !binExists() {
 		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
@@ -467,8 +471,9 @@ func TestCortexClientRecallNegativeLimitError(t *testing.T) {
 	if err := cmd.Run(); err == nil {
 		t.Fatal("expected non-zero exit for --limit -1, got exit 0")
 	}
-	if !strings.Contains(stderrBuf.String(), "--limit") {
-		t.Errorf("expected error mentioning --limit, got: %s", stderrBuf.String())
+	stderr := stderrBuf.String()
+	if !strings.Contains(stderr, "--limit") && !strings.Contains(stderr, "invalid argument") {
+		t.Errorf("expected error mentioning --limit or invalid argument, got: %s", stderr)
 	}
 }
 

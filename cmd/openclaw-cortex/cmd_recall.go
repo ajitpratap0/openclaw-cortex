@@ -42,6 +42,9 @@ func recallCmd() *cobra.Command {
 			if limit < 0 {
 				return fmt.Errorf("recall: --limit must be non-negative, got %d", limit)
 			}
+			if limit > 10000 {
+				return fmt.Errorf("recall: --limit %d exceeds maximum of 10000", limit)
+			}
 
 			logger := newLogger()
 			ctx := cmd.Context()
@@ -136,6 +139,9 @@ func recallCmd() *cobra.Command {
 			//     eval harness versions pass this to trigger JSON mode)
 			// Precedence: an explicit --format text always wins over the sentinel.
 			// This lets callers opt out of the legacy behavior cleanly.
+			// jsonMode relies on cmd.Flags().Changed("format") returning true only for
+			// explicit CLI flags, not defaults or config-file values. If a viper binding
+			// is added for --format in the future, this logic must be revisited.
 			jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format"))
 			if ctxJSON != "" && !jsonMode {
 				logger.Warn("--context is set but --format text was explicitly requested; outputting text")
@@ -170,7 +176,7 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
 	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: activates JSON output mode unless --format text is explicitly set (backward-compat; prefer --format json)")
 	cmd.Flags().StringVar(&format, "format", "text", "output format: text or json (json is preferred over --context sentinel)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to return (0 = no cap beyond searchLimit)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results (0 = no cap, max 10000)")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
 	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")
