@@ -132,12 +132,15 @@ func recallCmd() *cobra.Command {
 
 			// JSON output mode is activated by either:
 			//   --format json  (preferred; explicit, no sentinel hack)
-			//   --context <any non-empty value>  (backward-compat sentinel used by
-			//     older eval harness versions; see recallJSONModeSentinel in
-			//     eval/runner/runner.go).
-			// The sentinel is kept for backward compatibility; the --format flag
-			// is the canonical way to request JSON output (resolves issue #91).
-			if format == "json" || ctxJSON != "" {
+			//   --context <any non-empty value>  (backward-compat sentinel; older
+			//     eval harness versions pass this to trigger JSON mode)
+			// Precedence: an explicit --format text always wins over the sentinel.
+			// This lets callers opt out of the legacy behavior cleanly.
+			jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format"))
+			if ctxJSON != "" && cmd.Flags().Changed("format") && format == "text" {
+				logger.Warn("--context is set but --format text was explicitly requested; outputting text")
+			}
+			if jsonMode {
 				// Output as JSON
 				jsonResults := ranked
 				if count < len(ranked) {

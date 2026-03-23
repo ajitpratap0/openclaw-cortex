@@ -153,7 +153,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	args = append(args, "recall",
 		"--format", "json",
 		"--limit", strconv.Itoa(limit),
-		"--budget", strconv.Itoa(limit*500),
+		"--budget", strconv.Itoa(min(limit*500, 1_000_000)),
 		"--", query,
 	)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.

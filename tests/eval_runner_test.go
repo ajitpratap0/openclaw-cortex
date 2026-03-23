@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -381,6 +382,38 @@ func TestCortexClientRecallLimitFlag(t *testing.T) {
 		}
 		// Any other non-zero exit (e.g. Memgraph not running) is acceptable —
 		// we only care that the flag itself is accepted by the parser.
+	}
+}
+
+// TestCortexClientRecallLimitCapBehavior asserts that --limit N actually caps
+// the returned JSON result slice to ≤ N items when Memgraph is running. When
+// Memgraph is unavailable the test is skipped (connectivity failure), not
+// failed — matching the pattern used in TestCortexClientRecallJSONOutputFormat.
+func TestCortexClientRecallLimitCapBehavior(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+
+	const limit = 1
+	cmd := exec.Command(cliBinPath, "recall", "--format", "json", "--limit", strconv.Itoa(limit), "--budget", "500", "--", "test-query")
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	runErr := cmd.Run()
+	if runErr != nil {
+		stderr := stderrBuf.String()
+		if strings.Contains(stderr, "unknown flag") || strings.Contains(stderr, "flag provided but not defined") {
+			t.Fatalf("flag not recognized: %s", stderr)
+		}
+		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping cap behaviour check", runErr)
+	}
+
+	var results []any
+	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
+		t.Fatalf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+	}
+	if len(results) > limit {
+		t.Errorf("--limit %d: expected ≤ %d results, got %d", limit, limit, len(results))
 	}
 }
 
