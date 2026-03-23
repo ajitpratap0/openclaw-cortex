@@ -322,29 +322,23 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 	}
 
 	cases := []struct {
-		name     string
-		args     []string
-		wantJSON bool
+		name string
+		args []string
 	}{
 		{
-			name:     "format_json_flag",
-			args:     []string{"recall", "--format", "json", "--budget", "500", "--", "test-query"},
-			wantJSON: true,
+			name: "format_json_flag",
+			args: []string{"recall", "--format", "json", "--budget", "500", "--", "test-query"},
 		},
 		{
-			name:     "context_sentinel_backward_compat",
-			args:     []string{"recall", "--context", "_", "--budget", "500", "--", "test-query"},
-			wantJSON: true,
+			name: "context_sentinel_backward_compat",
+			args: []string{"recall", "--context", "_", "--budget", "500", "--", "test-query"},
 		},
-		{
-			// Note: this subtest only exercises the precedence logic when Memgraph is live
-			// and returns results. Without a live store the binary exits non-zero and the
-			// subtest is skipped — the invariant ("--format text wins over --context") is
-			// not verified in a unit context. See cmd_recall.go jsonMode for the actual guard.
-			name:     "format_text_wins_over_context_sentinel",
-			args:     []string{"recall", "--format", "text", "--context", "_", "--budget", "500", "--", "test-query"},
-			wantJSON: false,
-		},
+		// TODO: add a unit test for the --format text / --context precedence rule
+		// (jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format")))
+		// without requiring Memgraph. The logic is pure boolean and could be extracted
+		// into a testable helper in cmd_recall.go. The binary-level test is omitted here
+		// because the binary exits non-zero without a live store, so the wantJSON: false
+		// branch would see an empty stdout and pass vacuously — providing no real coverage.
 	}
 
 	for _, tc := range cases {
@@ -364,21 +358,10 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 				t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping JSON format check", runErr)
 			}
 
-			if tc.wantJSON {
-				// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
-				var results []any
-				if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
-					t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
-				}
-			} else {
-				// Precedence invariant only verifiable with live Memgraph; acknowledged in case definition above.
-				out := strings.TrimSpace(stdoutBuf.String())
-				if out != "" {
-					var jsonCheck []any
-					if json.Unmarshal([]byte(out), &jsonCheck) == nil {
-						t.Errorf("format_text_wins_over_context_sentinel: stdout parsed as JSON but --format text should produce text output; got: %s", out)
-					}
-				}
+			// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
+			var results []any
+			if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
+				t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
 			}
 		})
 	}
@@ -495,6 +478,25 @@ func TestCortexClientRecallExceedMaxLimitError(t *testing.T) {
 	}
 	if !strings.Contains(stderrBuf.String(), "exceeds maximum") {
 		t.Errorf("expected error mentioning exceeds maximum, got: %s", stderrBuf.String())
+	}
+}
+
+// TestCortexClientRecallMaxLimitBoundaryAccepted verifies that --limit 10000
+// (the runner's own cap, matching the binary's rejection threshold) is accepted
+// by the binary without a "exceeds maximum" error. This creates a coupling signal:
+// if someone lowers the binary's cap below 10000, this test fails and forces
+// maxLimit in runner.go to be updated in sync.
+func TestCortexClientRecallMaxLimitBoundaryAccepted(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--format", "json", "--limit", "10000", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	_ = cmd.Run()
+	stderr := stderrBuf.String()
+	if strings.Contains(stderr, "exceeds maximum") || strings.Contains(stderr, "unknown flag") {
+		t.Errorf("--limit 10000 should be accepted by the binary (no exceeds-maximum or unknown-flag error), got: %s", stderr)
 	}
 }
 
