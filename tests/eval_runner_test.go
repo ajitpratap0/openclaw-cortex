@@ -371,10 +371,7 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 					t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
 				}
 			} else {
-				// Note: this subtest only exercises the precedence logic when Memgraph is live
-				// and returns results. Without a live store the binary exits non-zero and the
-				// subtest is skipped — the invariant ("--format text wins over --context") is
-				// not verified in a unit context. See cmd_recall.go jsonMode for the actual guard.
+				// Precedence invariant only verifiable with live Memgraph; acknowledged in case definition above.
 				out := strings.TrimSpace(stdoutBuf.String())
 				if out != "" {
 					var jsonCheck []any
@@ -480,6 +477,24 @@ func TestCortexClientRecallNegativeLimitError(t *testing.T) {
 	stderr := stderrBuf.String()
 	if !strings.Contains(stderr, "--limit") && !strings.Contains(stderr, "invalid argument") {
 		t.Errorf("expected error mentioning --limit or invalid argument, got: %s", stderr)
+	}
+}
+
+// TestCortexClientRecallExceedMaxLimitError verifies that --limit 10001 causes
+// the binary to exit non-zero with an error message mentioning "exceeds maximum".
+// Like the negative-limit test, validation fires before any Memgraph connection.
+func TestCortexClientRecallExceedMaxLimitError(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--limit", "10001", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected non-zero exit for --limit 10001, got exit 0")
+	}
+	if !strings.Contains(stderrBuf.String(), "exceeds maximum") {
+		t.Errorf("expected error mentioning exceeds maximum, got: %s", stderrBuf.String())
 	}
 }
 
