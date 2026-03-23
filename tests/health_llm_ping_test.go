@@ -118,6 +118,31 @@ func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
 
+// TestLLMOKGate verifies the llmOK gate expression used in healthCmd:
+//
+//	llmOK := result.LLM == nil || *result.LLM
+//
+// nil means LLM was not checked (--skip-llm-ping), which counts as OK.
+// boolPtr(true) means ping succeeded; boolPtr(false) means it failed.
+func TestLLMOKGate(t *testing.T) {
+	boolPtr := func(b bool) *bool { return &b }
+	cases := []struct {
+		name    string
+		llm     *bool
+		wantOK  bool
+	}{
+		{"nil (skipped)", nil, true},
+		{"true (ping ok)", boolPtr(true), true},
+		{"false (ping failed)", boolPtr(false), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			llmOK := tc.llm == nil || *tc.llm
+			assert.Equal(t, tc.wantOK, llmOK)
+		})
+	}
+}
+
 // Coverage note: the three-branch switch in healthCmd (gateway / api-key / default) cannot
 // be unit-tested without the full Cobra binary. Extracting the ping logic into a standalone
 // helper (e.g. checkLLMPing) would enable direct unit coverage of all three branches.

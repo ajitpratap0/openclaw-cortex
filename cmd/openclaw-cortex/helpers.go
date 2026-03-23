@@ -76,3 +76,7 @@ func parseTags(tagsStr string) []string {
 	}
 	return parts
 }
+
+// boolPtr returns a pointer to b. Used for *bool fields in health check results
+// where nil means "not checked", true means healthy, and false means failed.
+func boolPtr(b bool) *bool { return &b }
