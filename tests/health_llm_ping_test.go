@@ -100,24 +100,28 @@ func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	// Client deadline (50 ms) is much shorter than the server safety timer (1 s),
+	// so context cancellation is guaranteed to fire first regardless of runner load.
 	client := llm.NewGatewayClient(srv.URL, "tok", 0) // no http-level timeout; rely on context
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
 	require.Error(t, err, "timed-out context should return an error")
 }
 
-// TestNewClient_NoCredentials_ReturnsNil verifies that llm.NewClient returns nil
-// when no credentials are configured. Note: the health command does not call
-// llm.NewClient directly — it calls llm.NewGatewayClient / llm.NewAnthropicClient
-// and handles the no-credentials case via an explicit default: branch. This test
-// covers the factory's nil-return contract independently.
+// TestNewClient_NoCredentials_FactoryReturnsNil verifies that llm.NewClient (the
+// factory wrapper) returns nil when no credentials are configured.
+//
+// Note: healthCmd does NOT call llm.NewClient. The no-credentials path in
+// healthCmd is the default: branch of the switch in cmd_health.go, which calls
+// applyLLMPingResult directly with a synthetic error. This test covers the
+// factory's nil-return contract independently of the health command.
 //
 // AnthropicClient coverage note: AnthropicClient.Complete calls the Anthropic SDK
 // directly (no HTTP interceptor is possible at test time), so its error path is
 // covered by integration testing only. The gateway path is fully unit-tested above.
-func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
+func TestNewClient_NoCredentials_FactoryReturnsNil(t *testing.T) {
 	client := llm.NewClient(config.ClaudeConfig{})
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
@@ -146,7 +150,8 @@ func TestLLMOKGate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			llmOK := tc.llm == nil || *tc.llm // mirrors llmHealthOK in cmd/openclaw-cortex/helpers.go
+			// keep in sync with llmHealthOK in cmd/openclaw-cortex/helpers.go
+			llmOK := tc.llm == nil || *tc.llm
 			assert.Equal(t, tc.wantOK, llmOK)
 		})
 	}

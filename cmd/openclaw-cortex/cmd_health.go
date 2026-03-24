@@ -74,28 +74,31 @@ func healthCmd() *cobra.Command {
 				// result.LLM remains nil (not checked); excluded from the OK gate.
 				result.Skipped = append(result.Skipped, "llm")
 			} else {
-				llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
-				defer llmCancel() // safety-net: cancels llmCtx if a future early-return is added inside this block
-				model := cfg.Claude.Model
-				if model == "" {
-					model = "claude-haiku-4-5-20251001"
-				}
-				// Use bare clients (not llm.NewClient / ResilientClient): health checks must
-				// be single-shot — retries inflate latency and repeated failures trip the
-				// circuit breaker, which would mask real connectivity issues.
-				switch {
-				case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
-					client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0) // no http-level timeout; rely on llmCtx
-					_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
-					applyLLMPingResult(&result, pingErr, "gateway ping failed")
-				case cfg.Claude.APIKey != "":
-					client := llm.NewAnthropicClient(cfg.Claude.APIKey)
-					_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
-					applyLLMPingResult(&result, pingErr, "api key ping failed")
-				default:
-					applyLLMPingResult(&result, fmt.Errorf("no API key or gateway configured"), "")
-				}
-				llmCancel()
+				// Wrap in a closure so defer llmCancel() is scoped to the LLM block,
+				// not to RunE as a whole.
+				func() {
+					llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
+					defer llmCancel()
+					model := cfg.Claude.Model
+					if model == "" {
+						model = "claude-haiku-4-5-20251001"
+					}
+					// Use bare clients (not llm.NewClient / ResilientClient): health checks must
+					// be single-shot — retries inflate latency and repeated failures trip the
+					// circuit breaker, which would mask real connectivity issues.
+					switch {
+					case cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != "":
+						client := llm.NewGatewayClient(cfg.Claude.GatewayURL, cfg.Claude.GatewayToken, 0) // no http-level timeout; rely on llmCtx
+						_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
+						applyLLMPingResult(&result, pingErr, "gateway ping failed")
+					case cfg.Claude.APIKey != "":
+						client := llm.NewAnthropicClient(cfg.Claude.APIKey)
+						_, pingErr := client.Complete(llmCtx, model, "ping", "respond with ok", 5)
+						applyLLMPingResult(&result, pingErr, "api key ping failed")
+					default:
+						applyLLMPingResult(&result, fmt.Errorf("no API key or gateway configured"), "")
+					}
+				}()
 			}
 
 			llmOK := llmHealthOK(result.LLM)
