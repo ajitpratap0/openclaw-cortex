@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -273,15 +274,18 @@ func TestCortexClientRecallEmptyQuery(t *testing.T) {
 }
 
 // TestCortexClientRecallContextFlagPresent verifies that the recall command
-// still exposes --context, which recallJSONModeSentinel depends on. A flag
-// rename in cmd_recall.go would otherwise break the harness silently.
+// still exposes --context (backward-compat sentinel) and the new --format and
+// --limit flags. A flag rename in cmd_recall.go would otherwise break either
+// the legacy harness (--context) or the updated harness (--format, --limit).
 func TestCortexClientRecallContextFlagPresent(t *testing.T) {
 	if !binExists() {
 		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
 	}
 	out, _ := runCLI("recall", "--help")
-	if !strings.Contains(out, "--context") {
-		t.Errorf("recall --help does not mention --context flag; recallJSONModeSentinel coupling may be broken:\n%s", out)
+	for _, flag := range []string{"--context", "--format", "--limit"} {
+		if !strings.Contains(out, flag) {
+			t.Errorf("recall --help does not mention %s flag:\n%s", flag, out)
+		}
 	}
 }
 
@@ -301,13 +305,13 @@ func TestCortexClientStoreFlagsPresent(t *testing.T) {
 	}
 }
 
-// TestCortexClientRecallJSONOutputFormat verifies that `recall --context _`
-// triggers JSON output mode and that the output is parseable JSON.
+// TestCortexClientRecallJSONOutputFormat verifies that both `recall --format json`
+// (new preferred flag) and `recall --context _` (backward-compat sentinel)
+// trigger JSON output mode and that the output is parseable JSON.
 //
 // This test catches two failure modes that TestCortexClientRecallContextFlagPresent
-// cannot: (1) --context is present in --help but the empty-check (`ctxJSON != ""`)
-// was changed so JSON mode no longer fires, and (2) the JSON schema changed so
-// the output is no longer valid JSON.
+// cannot: (1) the flag is present in --help but JSON mode no longer fires, and
+// (2) the JSON schema changed so the output is no longer valid JSON.
 //
 // When Memgraph is not running the binary exits non-zero; the test distinguishes
 // a connectivity error (skip) from an "unknown flag" error (hard fail) so flag
@@ -317,9 +321,87 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
 	}
 
-	// Single invocation: capture stdout and stderr separately so we can both
-	// detect "unknown flag" errors (stderr) and parse JSON output (stdout).
-	cmd := exec.Command(cliBinPath, "recall", "--context", "_", "--budget", "500", "--", "test-query")
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "format_json_flag",
+			args: []string{"recall", "--format", "json", "--budget", "500", "--", "test-query"},
+		},
+		{
+			name: "context_sentinel_backward_compat",
+			args: []string{"recall", "--context", "_", "--budget", "500", "--", "test-query"},
+		},
+		// TODO: add a unit test for the --format text / --context precedence rule
+		// (jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format")))
+		// without requiring Memgraph. The logic is pure boolean and could be extracted
+		// into a testable helper in cmd_recall.go. The binary-level test is omitted here
+		// because the binary exits non-zero without a live store, so the wantJSON: false
+		// branch would see an empty stdout and pass vacuously — providing no real coverage.
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Single invocation: capture stdout and stderr separately so we can both
+			// detect "unknown flag" errors (stderr) and parse JSON output (stdout).
+			cmd := exec.Command(cliBinPath, tc.args...)
+			var stdoutBuf, stderrBuf bytes.Buffer
+			cmd.Stdout = &stdoutBuf
+			cmd.Stderr = &stderrBuf
+			runErr := cmd.Run()
+			if runErr != nil {
+				stderr := stderrBuf.String()
+				if strings.Contains(stderr, "unknown flag") || strings.Contains(stderr, "flag provided but not defined") {
+					t.Fatalf("flag not recognized: %s", stderr)
+				}
+				t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping JSON format check", runErr)
+			}
+
+			// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
+			var results []any
+			if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
+				t.Errorf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+			}
+		})
+	}
+}
+
+// TestCortexClientRecallLimitFlag verifies that recall --limit N is recognized
+// as a valid flag (not rejected with "unknown flag"). When Memgraph is not
+// running the binary exits non-zero for a connectivity reason, not a flag
+// error — the test distinguishes the two cases so the flag presence check
+// works even without a live store.
+func TestCortexClientRecallLimitFlag(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+
+	cmd := exec.Command(cliBinPath, "recall", "--format", "json", "--limit", "3", "--budget", "1500", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	runErr := cmd.Run()
+	if runErr != nil {
+		stderr := stderrBuf.String()
+		if strings.Contains(stderr, "unknown flag") || strings.Contains(stderr, "flag provided but not defined") {
+			t.Fatalf("recall --limit flag not recognized (may have been removed or renamed): %s", stderr)
+		}
+		// Any other non-zero exit (e.g. Memgraph not running) is acceptable —
+		// we only care that the flag itself is accepted by the parser.
+	}
+}
+
+// TestCortexClientRecallLimitCapBehavior asserts that --limit N actually caps
+// the returned JSON result slice to ≤ N items when Memgraph is running. When
+// Memgraph is unavailable the test is skipped (connectivity failure), not
+// failed — matching the pattern used in TestCortexClientRecallJSONOutputFormat.
+func TestCortexClientRecallLimitCapBehavior(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+
+	const limit = 1
+	cmd := exec.Command(cliBinPath, "recall", "--format", "json", "--limit", strconv.Itoa(limit), "--budget", "500", "--", "test-query")
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
@@ -327,15 +409,94 @@ func TestCortexClientRecallJSONOutputFormat(t *testing.T) {
 	if runErr != nil {
 		stderr := stderrBuf.String()
 		if strings.Contains(stderr, "unknown flag") || strings.Contains(stderr, "flag provided but not defined") {
-			t.Fatalf("recall --context flag not recognized (may have been renamed): %s", stderr)
+			t.Fatalf("flag not recognized: %s", stderr)
 		}
-		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping JSON format check", runErr)
+		t.Skipf("recall exited non-zero (Memgraph likely not running): %v — skipping cap behavior check", runErr)
 	}
 
-	// Binary exited 0: stdout must be parseable JSON (at minimum a valid empty array).
 	var results []any
 	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &results); jsonErr != nil {
-		t.Errorf("recall --context _ stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+		t.Fatalf("recall stdout is not valid JSON: %v\nstdout: %s", jsonErr, stdoutBuf.String())
+	}
+	if len(results) > limit {
+		t.Errorf("--limit %d: expected ≤ %d results, got %d", limit, limit, len(results))
+	}
+}
+
+// TestCortexClientRecallInvalidFormat verifies that passing an unrecognized
+// --format value causes the binary to exit non-zero with a descriptive error.
+func TestCortexClientRecallInvalidFormat(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--format", "csv", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero exit for --format csv, got exit 0")
+	}
+	if !strings.Contains(stderrBuf.String(), "unknown --format") {
+		t.Errorf("expected error mentioning unknown --format, got: %s", stderrBuf.String())
+	}
+}
+
+// TestCortexClientRecallNegativeLimitError verifies that --limit -1 causes
+// the binary to exit non-zero with an error message that mentions --limit.
+//
+// Note: pflag may reject "--limit -1" before RunE fires (interpreting -1 as
+// shorthand flag), producing "invalid argument" instead of the custom --limit
+// message. The assertion accepts either so the test is robust across pflag versions.
+func TestCortexClientRecallNegativeLimitError(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--limit", "-1", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected non-zero exit for --limit -1, got exit 0")
+	}
+	stderr := stderrBuf.String()
+	if !strings.Contains(stderr, "--limit") && !strings.Contains(stderr, "invalid argument") {
+		t.Errorf("expected error mentioning --limit or invalid argument, got: %s", stderr)
+	}
+}
+
+// TestCortexClientRecallExceedMaxLimitError verifies that --limit 10001 causes
+// the binary to exit non-zero with an error message mentioning "exceeds maximum".
+// Like the negative-limit test, validation fires before any Memgraph connection.
+func TestCortexClientRecallExceedMaxLimitError(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--limit", "10001", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected non-zero exit for --limit 10001, got exit 0")
+	}
+	if !strings.Contains(stderrBuf.String(), "exceeds maximum") {
+		t.Errorf("expected error mentioning exceeds maximum, got: %s", stderrBuf.String())
+	}
+}
+
+// TestCortexClientRecallMaxLimitBoundaryAccepted verifies that --limit 10000
+// (the runner's own cap, matching the binary's rejection threshold) is accepted
+// by the binary without a "exceeds maximum" error. This creates a coupling signal:
+// if someone lowers the binary's cap below 10000, this test fails and forces
+// maxLimit in runner.go to be updated in sync.
+func TestCortexClientRecallMaxLimitBoundaryAccepted(t *testing.T) {
+	if !binExists() {
+		t.Skip("binary not built; run: go build -o bin/openclaw-cortex ./cmd/openclaw-cortex")
+	}
+	cmd := exec.Command(cliBinPath, "recall", "--format", "json", "--limit", "10000", "--", "test-query")
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	_ = cmd.Run()
+	stderr := stderrBuf.String()
+	if strings.Contains(stderr, "exceeds maximum") || strings.Contains(stderr, "unknown flag") {
+		t.Errorf("--limit 10000 should be accepted by the binary (no exceeds-maximum or unknown-flag error), got: %s", stderr)
 	}
 }
 

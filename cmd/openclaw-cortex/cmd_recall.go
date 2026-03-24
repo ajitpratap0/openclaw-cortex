@@ -19,6 +19,8 @@ func recallCmd() *cobra.Command {
 	var (
 		budget           int
 		ctxJSON          string
+		format           string
+		limit            int
 		project          string
 		memType          string
 		memScope         string
@@ -34,6 +36,18 @@ func recallCmd() *cobra.Command {
 		Short: "Recall relevant memories with multi-factor ranking",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "text" && format != "json" {
+				return fmt.Errorf("recall: unknown --format %q; expected \"text\" or \"json\"", format)
+			}
+			// Note: "--limit -1" (space-separated) is rejected by pflag before RunE fires;
+			// "--limit=-1" (equals form) reaches this check and returns the custom error.
+			if limit < 0 {
+				return fmt.Errorf("recall: --limit must be non-negative, got %d", limit)
+			}
+			if limit > 10000 {
+				return fmt.Errorf("recall: --limit %d exceeds maximum of 10000", limit)
+			}
+
 			logger := newLogger()
 			ctx := cmd.Context()
 			query := args[0]
@@ -61,8 +75,13 @@ func recallCmd() *cobra.Command {
 				filters.IncludeInvalidated = true
 			}
 
-			// Fetch more results than needed for re-ranking
+			// Fetch more results than needed for re-ranking. When --limit is
+			// set, use it as a floor so we always retrieve at least that many
+			// candidates before post-ranking truncation.
 			searchLimit := uint64(50)
+			if limit > 0 && uint64(limit)*2 > searchLimit {
+				searchLimit = uint64(limit) * 2
+			}
 			results, err := st.Search(ctx, vec, searchLimit, filters)
 			if err != nil {
 				return cmdErr("recall: searching store", err)
@@ -100,6 +119,14 @@ func recallCmd() *cobra.Command {
 				logger.Warn("--reason requires ANTHROPIC_API_KEY; skipping re-rank")
 			}
 
+			// Apply --limit cap before token-budget trimming so the result
+			// count is deterministic when --limit is set. Note: --budget
+			// applies after this cap for both modes — it formats text output
+			// and also trims JSON results when count < len(ranked).
+			if limit > 0 && len(ranked) > limit {
+				ranked = ranked[:limit]
+			}
+
 			// Apply token budget
 			var contents []string
 			for i := range ranked {
@@ -108,10 +135,20 @@ func recallCmd() *cobra.Command {
 
 			output, count := tokenizer.FormatMemoriesWithBudget(contents, budget)
 
-			// NOTE: ctxJSON != "" is the JSON-mode sentinel check. eval/runner/runner.go
-			// passes --context "_" (recallJSONModeSentinel) to activate this branch.
-			// If this condition changes, update recallJSONModeSentinel in runner.go. TODO(#91).
-			if ctxJSON != "" {
+			// JSON output mode is activated by either:
+			//   --format json  (preferred; explicit, no sentinel hack)
+			//   --context <any non-empty value>  (backward-compat sentinel; older
+			//     eval harness versions pass this to trigger JSON mode)
+			// Precedence: an explicit --format text always wins over the sentinel.
+			// This lets callers opt out of the legacy behavior cleanly.
+			// jsonMode relies on cmd.Flags().Changed("format") returning true only for
+			// explicit CLI flags, not defaults or config-file values. If a viper binding
+			// is added for --format in the future, this logic must be revisited.
+			jsonMode := format == "json" || (ctxJSON != "" && !cmd.Flags().Changed("format"))
+			if ctxJSON != "" && !jsonMode {
+				logger.Warn("--context is set but --format text was explicitly requested; outputting text")
+			}
+			if jsonMode {
 				// Output as JSON
 				jsonResults := ranked
 				if count < len(ranked) {
@@ -139,7 +176,9 @@ func recallCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&budget, "budget", 2000, "token budget")
-	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: any non-empty value activates JSON output mode and suppresses human-readable text")
+	cmd.Flags().StringVar(&ctxJSON, "context", "", "output as JSON context; WARNING: activates JSON output mode unless --format text is explicitly set (backward-compat; prefer --format json)")
+	cmd.Flags().StringVar(&format, "format", "text", "output format: text or json (json is preferred over --context sentinel)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results (0 = no cap, max 10000)")
 	cmd.Flags().StringVar(&project, "project", "", "project context for scope boosting")
 	cmd.Flags().StringVar(&memType, "type", "", "filter by memory type (rule|fact|episode|procedure|preference)")
 	cmd.Flags().StringVar(&memScope, "scope", "", "filter by scope (permanent|project|session|ttl)")

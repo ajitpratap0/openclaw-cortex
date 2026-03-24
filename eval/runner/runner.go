@@ -60,26 +60,6 @@ type Client interface {
 // consume the entire benchmark budget. Override via CortexClient.CallTimeout.
 const defaultCallTimeout = 30 * time.Second
 
-// recallJSONModeSentinel is a non-empty value passed to --context to trigger
-// JSON output mode in cmd_recall.go (checked as ctxJSON != ""). The value
-// itself is unused by the binary; "_" is a readable no-op.
-//
-// Note: --context and --project are separate flags in cmd_recall.go. The
-// runner does not pass --project, so project="" and scope-boosting is not
-// applied during eval recalls. A dedicated --format json flag in cmd_recall.go
-// would eliminate this sentinel coupling; TODO(#91).
-const recallJSONModeSentinel = "_"
-
-// Compile-time assertion: recallJSONModeSentinel must be non-empty.
-// If it is ever changed to "", this line produces a compile error:
-//
-//	invalid string index 0 (out of bounds for 0-character string)
-//
-// Note: this only guards against the sentinel becoming the empty string
-// specifically. A change to a different non-empty value would still
-// compile — the TODO(#91) --format json flag is the proper fix.
-var _ = recallJSONModeSentinel[0]
-
 // CortexClient wraps the openclaw-cortex binary via execFile (no shell injection).
 // It implements Client.
 type CortexClient struct {
@@ -115,7 +95,7 @@ func (c *CortexClient) callTimeout() time.Duration {
 }
 
 // RecallJSONResult is a minimal struct for parsing JSON output from
-// `openclaw-cortex recall --context _`.
+// `openclaw-cortex recall --format json`.
 //
 // Schema: matches cmd_recall.go output as of commit e38b3d5f.
 // The binary serializes []models.RecallResult (internal/models/memory.go):
@@ -135,19 +115,17 @@ type RecallJSONResult struct {
 	} `json:"memory"`
 }
 
-// Recall runs `openclaw-cortex recall --context _ <query>` and returns up to
-// limit memory content strings parsed from the JSON output.
+// Recall runs `openclaw-cortex recall --format json --limit <limit> <query>`
+// and returns up to limit memory content strings parsed from the JSON output.
 //
-// --budget limit*500 is a token-based heuristic, not a hard result count.
-// The binary trims output to that many tokens; if memories are verbose the
-// binary may return fewer than limit results, and the trailing contents[:limit]
-// slice becomes a no-op. For the synthetic benchmark datasets (each fact/turn
-// ≤ 30 tokens) 500 tokens per expected result is intentionally generous, making
-// under-counting in practice very unlikely.
+// --limit N is a hard result count cap applied by the binary before token
+// trimming. --budget is still passed as a generous ceiling (min(limit,2000)*500 tokens)
+// so the token budget never silently truncates results for the synthetic
+// benchmark datasets (each fact/turn ≤ 30 tokens).
 //
-// Note: Memgraph itself may also return fewer than limit items if fewer
-// memories match the query. In that case len(contents) < limit with no error
-// — RecallAtK is evaluated against the actual candidates returned, not a
+// Note: Memgraph itself may return fewer than limit items if fewer memories
+// match the query. In that case len(contents) < limit with no error —
+// RecallAtK is evaluated against the actual candidates returned, not a
 // padded set. For the synthetic datasets this is expected and correct.
 func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]string, error) {
 	if limit <= 0 {
@@ -156,11 +134,10 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if query == "" {
 		return nil, fmt.Errorf("runner: query must not be empty")
 	}
-	// maxLimit guards against int overflow on 32-bit targets: limit*500 uses
-	// int arithmetic, which is 32-bit on GOARCH=386/arm. On a 32-bit target
-	// the overflow threshold is 2^31/500 ≈ 4,294,967; maxLimit (1<<20 = 1,048,576)
-	// keeps limit*500 well below that ceiling.
-	const maxLimit = 1 << 20 // 1 048 576 — far beyond any reasonable k
+	// maxLimit must match the --limit upper bound enforced by cmd_recall.go RunE
+	// (currently 10000). Values above this will be rejected by the binary with a
+	// non-zero exit, producing an opaque error rather than the friendly runner message.
+	const maxLimit = 10000
 	if limit > maxLimit {
 		return nil, fmt.Errorf("runner: limit %d exceeds maximum %d", limit, maxLimit)
 	}
@@ -172,7 +149,12 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 	if c.ConfigPath != "" {
 		args = append(args, "--config", c.ConfigPath)
 	}
-	args = append(args, "recall", "--budget", strconv.Itoa(limit*500), "--context", recallJSONModeSentinel, "--", query)
+	args = append(args, "recall",
+		"--format", "json",
+		"--limit", strconv.Itoa(limit),
+		"--budget", strconv.Itoa(min(limit, 2000)*500),
+		"--", query,
+	)
 	//nolint:gosec // binaryPath is set by the caller, not user-supplied in a web context.
 	cmd := exec.CommandContext(callCtx, c.BinaryPath, args...)
 	var stdout, stderr bytes.Buffer
@@ -200,7 +182,7 @@ func (c *CortexClient) Recall(ctx context.Context, query string, limit int) ([]s
 		if trimmed[0] == '{' {
 			hint = " (got JSON object — binary may be returning a single result instead of an array; check recall output schema)"
 		} else {
-			hint = " — JSON mode may not have activated; check --context sentinel coupling (issue #91)"
+			hint = " — JSON mode may not have activated; check --format json / --context sentinel coupling"
 		}
 		return nil, fmt.Errorf("runner: recall output is not a JSON array (first byte %q)%s\noutput: %s", trimmed[0], hint, stdout.String())
 	}
