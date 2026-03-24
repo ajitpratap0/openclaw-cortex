@@ -71,7 +71,9 @@ func healthCmd() *cobra.Command {
 			}
 
 			// Check Claude LLM access: actually test the credentials with a cheap ping.
-			if skipLLMPing {
+			noCredsConfigured := cfg.Claude.GatewayURL == "" && cfg.Claude.GatewayToken == "" && cfg.Claude.APIKey == ""
+			if skipLLMPing && !noCredsConfigured {
+				// Credentials present — skip the network ping only (avoids billing).
 				// result.LLM remains nil (not checked); excluded from the OK gate.
 				result.Skipped = append(result.Skipped, "llm")
 			} else {
@@ -131,7 +133,7 @@ func healthCmd() *cobra.Command {
 			}
 
 			switch {
-			case skipLLMPing:
+			case skipLLMPing && result.LLM == nil:
 				fmt.Println("Claude LLM: SKIP (--skip-llm-ping)")
 			case result.LLM != nil && *result.LLM:
 				switch {
@@ -151,6 +153,6 @@ func healthCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("json", false, "Output health status as JSON")
-	cmd.Flags().BoolVar(&skipLLMPing, "skip-llm-ping", false, "skip LLM API ping (avoids billing; for use in monitoring scripts)")
+	cmd.Flags().BoolVar(&skipLLMPing, "skip-llm-ping", false, "skip LLM API ping (avoids billing; credential presence is still checked)")
 	return cmd
 }

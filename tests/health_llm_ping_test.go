@@ -127,6 +127,14 @@ func TestNewClient_NoCredentials_FactoryReturnsNil(t *testing.T) {
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
 
+// TestLLMOKGate_NoCredentialsPath verifies that health.LLMHealthOK returns false
+// for the value that applyLLMPingResult sets when no credentials are configured
+// (the default: branch in cmd_health.go).
+func TestLLMOKGate_NoCredentialsPath(t *testing.T) {
+	f := false
+	assert.False(t, health.LLMHealthOK(&f), "no-credentials path must mark LLM as failed")
+}
+
 // TestLLMOKGate verifies health.LLMHealthOK — the gate used by healthCmd to
 // determine whether the LLM check passed.
 //
