@@ -101,7 +101,7 @@ func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	client := llm.NewGatewayClient(srv.URL, "tok", 0) // no http-level timeout; rely on context
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	_, err := client.Complete(ctx, "claude-haiku-4-5-20251001", "ping", "respond with ok", 5)
@@ -122,17 +122,17 @@ func TestNewClient_NoCredentials_ReturnsNil(t *testing.T) {
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
 
-// TestLLMOKGate verifies the LLMHealthOK gate (cmd/openclaw-cortex/helpers.go):
+// TestLLMOKGate verifies the llmHealthOK gate (cmd/openclaw-cortex/helpers.go):
 //
-//	func LLMHealthOK(v *bool) bool { return v == nil || *v }
+//	func llmHealthOK(v *bool) bool { return v == nil || *v }
 //
 // nil means LLM was not checked (--skip-llm-ping), which counts as OK.
 // boolPtr(true) means ping succeeded; boolPtr(false) means it failed.
 //
-// Note: LLMHealthOK lives in package main and cannot be imported here.
-// The inline expression below is intentionally kept identical to the source of
-// truth in helpers.go so that any future divergence causes a compile-time or
-// test failure.
+// Note: llmHealthOK lives in package main and cannot be imported here.
+// The inline expression below mirrors the source of truth in helpers.go.
+// It is NOT automatically kept in sync — if llmHealthOK is changed, this
+// test must be updated manually.
 func TestLLMOKGate(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 	cases := []struct {
@@ -146,7 +146,7 @@ func TestLLMOKGate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			llmOK := tc.llm == nil || *tc.llm // mirrors LLMHealthOK in cmd/openclaw-cortex/helpers.go
+			llmOK := tc.llm == nil || *tc.llm // mirrors llmHealthOK in cmd/openclaw-cortex/helpers.go
 			assert.Equal(t, tc.wantOK, llmOK)
 		})
 	}

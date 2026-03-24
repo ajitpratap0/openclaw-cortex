@@ -98,7 +98,7 @@ func healthCmd() *cobra.Command {
 				llmCancel()
 			}
 
-			llmOK := LLMHealthOK(result.LLM)
+			llmOK := llmHealthOK(result.LLM)
 			result.OK = result.Memgraph && result.Ollama && llmOK
 
 			if jsonOut {
