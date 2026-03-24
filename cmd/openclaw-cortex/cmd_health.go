@@ -26,6 +26,29 @@ type healthResult struct {
 	Skipped  []string          `json:"skipped,omitempty"`
 }
 
+// boolPtr returns a pointer to b. Used for the three-state LLM field in
+// healthResult where nil means "not checked", true means healthy, false means failed.
+func boolPtr(b bool) *bool { return &b }
+
+// applyLLMPingResult records a ping result into result.LLM and result.Errors.
+// errPrefix is prepended to the error (e.g. "gateway ping failed"); pass ""
+// to use the error message verbatim. A nil err sets LLM=true.
+func applyLLMPingResult(result *healthResult, err error, errPrefix string) {
+	if err == nil {
+		result.LLM = boolPtr(true)
+		return
+	}
+	result.LLM = boolPtr(false)
+	if result.Errors == nil {
+		result.Errors = make(map[string]string)
+	}
+	if errPrefix == "" {
+		result.Errors["llm"] = err.Error()
+	} else {
+		result.Errors["llm"] = fmt.Sprintf("%s: %v", errPrefix, err)
+	}
+}
+
 func healthCmd() *cobra.Command {
 	var skipLLMPing bool
 	cmd := &cobra.Command{
@@ -71,7 +94,9 @@ func healthCmd() *cobra.Command {
 			}
 
 			// Check Claude LLM access: actually test the credentials with a cheap ping.
-			noCredsConfigured := cfg.Claude.GatewayURL == "" && cfg.Claude.GatewayToken == "" && cfg.Claude.APIKey == ""
+			// hasGatewayCreds mirrors the gateway case condition in the switch below.
+			hasGatewayCreds := cfg.Claude.GatewayURL != "" && cfg.Claude.GatewayToken != ""
+			noCredsConfigured := !hasGatewayCreds && cfg.Claude.APIKey == ""
 			if skipLLMPing && !noCredsConfigured {
 				// Credentials present — skip the network ping only (avoids billing).
 				// result.LLM remains nil (not checked); excluded from the OK gate.

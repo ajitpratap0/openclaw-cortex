@@ -111,20 +111,33 @@ func TestHealthLLMPing_GatewayContextTimeout(t *testing.T) {
 	require.Error(t, err, "timed-out context should return an error")
 }
 
-// TestNewClient_NoCredentials_FactoryReturnsNil verifies that llm.NewClient (the
+// TestNewClient_NoCredentials_FactoryContract verifies that llm.NewClient (the
 // factory wrapper) returns nil when no credentials are configured.
 //
 // Note: healthCmd does NOT call llm.NewClient. The no-credentials path in
 // healthCmd is the default: branch of the switch in cmd_health.go, which calls
-// applyLLMPingResult directly with a synthetic error. This test covers the
-// factory's nil-return contract independently of the health command.
+// applyLLMPingResult directly with a synthetic error. This test covers only the
+// factory's nil-return contract; see TestSkipLLMPing_NoCredentials for the
+// health-command no-credentials behavior.
 //
 // AnthropicClient coverage note: AnthropicClient.Complete calls the Anthropic SDK
 // directly (no HTTP interceptor is possible at test time), so its error path is
 // covered by integration testing only. The gateway path is fully unit-tested above.
-func TestNewClient_NoCredentials_FactoryReturnsNil(t *testing.T) {
+func TestNewClient_NoCredentials_FactoryContract(t *testing.T) {
 	client := llm.NewClient(config.ClaudeConfig{})
 	assert.Nil(t, client, "no credentials should produce a nil client")
+}
+
+// TestSkipLLMPing_NoCredentials verifies the health-command contract when
+// --skip-llm-ping is passed but no credentials are configured.
+//
+// When no credentials are present, healthCmd falls through to the default: branch
+// regardless of the flag and calls applyLLMPingResult with a synthetic error,
+// setting LLM=&false. health.LLMHealthOK must return false so overall result.OK
+// propagates as FAIL — preventing a silent pass on misconfigured nodes.
+func TestSkipLLMPing_NoCredentials(t *testing.T) {
+	f := false // value applyLLMPingResult writes when no credentials are configured
+	assert.False(t, health.LLMHealthOK(&f), "--skip-llm-ping with no credentials must mark LLM as failed")
 }
 
 // TestLLMOKGate_NoCredentialsPath verifies that health.LLMHealthOK returns false
