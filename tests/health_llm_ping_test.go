@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
+	"github.com/ajitpratap0/openclaw-cortex/internal/health"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 )
 
@@ -126,17 +127,11 @@ func TestNewClient_NoCredentials_FactoryReturnsNil(t *testing.T) {
 	assert.Nil(t, client, "no credentials should produce a nil client")
 }
 
-// TestLLMOKGate verifies the llmHealthOK gate (cmd/openclaw-cortex/helpers.go):
-//
-//	func llmHealthOK(v *bool) bool { return v == nil || *v }
+// TestLLMOKGate verifies health.LLMHealthOK — the gate used by healthCmd to
+// determine whether the LLM check passed.
 //
 // nil means LLM was not checked (--skip-llm-ping), which counts as OK.
-// boolPtr(true) means ping succeeded; boolPtr(false) means it failed.
-//
-// Note: llmHealthOK lives in package main and cannot be imported here.
-// The inline expression below mirrors the source of truth in helpers.go.
-// It is NOT automatically kept in sync — if llmHealthOK is changed, this
-// test must be updated manually.
+// true means ping succeeded; false means it failed.
 func TestLLMOKGate(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 	cases := []struct {
@@ -150,13 +145,7 @@ func TestLLMOKGate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// keep in sync with llmHealthOK in cmd/openclaw-cortex/helpers.go
-			llmOK := tc.llm == nil || *tc.llm
-			assert.Equal(t, tc.wantOK, llmOK)
+			assert.Equal(t, tc.wantOK, health.LLMHealthOK(tc.llm))
 		})
 	}
 }
-
-// Coverage note: the three-branch switch in healthCmd (gateway / api-key / default) cannot
-// be unit-tested without the full Cobra binary. Extracting the ping logic into a standalone
-// helper (e.g. checkLLMPing) would enable direct unit coverage of all three branches.

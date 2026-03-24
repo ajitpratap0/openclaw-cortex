@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/health"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 )
 
@@ -101,7 +102,7 @@ func healthCmd() *cobra.Command {
 				}()
 			}
 
-			llmOK := llmHealthOK(result.LLM)
+			llmOK := health.LLMHealthOK(result.LLM)
 			result.OK = result.Memgraph && result.Ollama && llmOK
 
 			if jsonOut {
