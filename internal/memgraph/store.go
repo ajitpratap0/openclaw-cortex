@@ -835,16 +835,16 @@ func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memory
 			RETURN e
 		`, map[string]any{"entityID": entityID, "memoryID": memoryID})
 		if txErr != nil {
-			return nil, txErr
+			return nil, fmt.Errorf("run cypher: %w", txErr)
 		}
 		if res.Next(wctx) {
 			if _, consumeErr := res.Consume(wctx); consumeErr != nil {
-				return nil, fmt.Errorf("consume result: %w", consumeErr)
+				return nil, fmt.Errorf("memgraph link memory to entity: consume result: %w", consumeErr)
 			}
 			return true, nil
 		}
 		if consumeErr := res.Err(); consumeErr != nil {
-			return nil, consumeErr
+			return nil, fmt.Errorf("iterate result: %w", consumeErr)
 		}
 		return false, nil
 	})
