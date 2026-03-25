@@ -40,6 +40,39 @@ func isAlreadyExistsErr(err error) bool {
 		strings.Contains(msg, "index already")
 }
 
+// luceneSpecialChars is a 128-entry boolean lookup table for Lucene special
+// characters that Memgraph's text_search.search_all treats as query syntax
+// operators.  Initialized once at package load time so SanitizeTextSearchQuery
+// is O(q) with no per-call allocation.
+//
+// Stripped set: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
+var luceneSpecialChars = func() [128]bool {
+	var t [128]bool
+	for _, c := range `+-&|!(){}[]^"~*?:\/` {
+		if c < 128 {
+			t[c] = true
+		}
+	}
+	return t
+}()
+
+// SanitizeTextSearchQuery removes characters that Memgraph's text_search.search_all
+// treats as Lucene query syntax operators, causing "Unknown exception!" when present
+// in a plain natural-language query.  The colon is the primary culprit (interpreted
+// as a Lucene field specifier, e.g. "name:foo"), but we strip the full set of
+// Lucene special characters to be safe.
+//
+// Exported so the tests/ package can verify sanitization without requiring a live
+// Memgraph instance.
+func SanitizeTextSearchQuery(q string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 128 && luceneSpecialChars[r] {
+			return ' '
+		}
+		return r
+	}, q)
+}
+
 // BuildMemoryVectorIndexDDL returns the CREATE VECTOR INDEX DDL for the given dimension.
 // Exported for testing.
 func BuildMemoryVectorIndexDDL(dim int) string {
@@ -152,7 +185,7 @@ func (g *GraphAdapter) SearchEntities(ctx context.Context, query string, _ []flo
 
 	if query != "" {
 		cypher = BuildSearchEntitiesCypher()
-		params["query"] = query
+		params["query"] = SanitizeTextSearchQuery(query)
 		params["project"] = project
 	} else {
 		cypher = `MATCH (node:Entity)`
