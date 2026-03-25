@@ -94,13 +94,16 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 					"entity", entities[j].Name, "error", upsertErr)
 				continue
 			}
+			// Always track entity for fact extraction, regardless of link outcome.
+			allEntityNames = append(allEntityNames, entities[j].Name)
+			entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
+
 			if linkErr := deps.Store.LinkMemoryToEntity(ctx, entities[j].ID, memories[i].ID); linkErr != nil {
 				logger.Warn("link entity to memory failed",
 					"entity", entities[j].Name, "error", linkErr)
+				// Don't count as fully extracted since the link is missing.
 				continue
 			}
-			allEntityNames = append(allEntityNames, entities[j].Name)
-			entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
 			entitiesExtracted++
 		}
 	}
