@@ -76,9 +76,8 @@ func TestSanitizeTextSearchQuery(t *testing.T) {
 		mustNotContain string
 		wantExact      string // non-empty: assert output equals this string exactly
 	}{
-		{"colon triggers Unknown exception", "status: active", ":", ""},
+		{"colon triggers Unknown exception", "status: active", ":", "status  active"},
 		{"question mark in recall query", "what's the status of PR #99?", "?", ""},
-		{"question mark stripped", "what is PR 100?", "?", ""},
 		// Plain words must pass through completely unchanged.
 		{"plain query unchanged", "ajit openclaw", "", "ajit openclaw"},
 		{"multiple special chars", "name:foo AND (bar OR baz)", ":", "name foo AND  bar OR baz "},

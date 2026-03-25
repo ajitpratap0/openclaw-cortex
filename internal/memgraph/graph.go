@@ -40,6 +40,22 @@ func isAlreadyExistsErr(err error) bool {
 		strings.Contains(msg, "index already")
 }
 
+// luceneSpecialChars is a 128-entry boolean lookup table for Lucene special
+// characters that Memgraph's text_search.search_all treats as query syntax
+// operators.  Initialized once at package load time so SanitizeTextSearchQuery
+// is O(q) with no per-call allocation.
+//
+// Stripped set: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
+var luceneSpecialChars = func() [128]bool {
+	var t [128]bool
+	for _, c := range `+-&|!(){}[]^"~*?:\/` {
+		if c < 128 {
+			t[c] = true
+		}
+	}
+	return t
+}()
+
 // SanitizeTextSearchQuery removes characters that Memgraph's text_search.search_all
 // treats as Lucene query syntax operators, causing "Unknown exception!" when present
 // in a plain natural-language query.  The colon is the primary culprit (interpreted
@@ -48,19 +64,9 @@ func isAlreadyExistsErr(err error) bool {
 //
 // Exported so the tests/ package can verify sanitization without requiring a live
 // Memgraph instance.
-//
-// Stripped: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
 func SanitizeTextSearchQuery(q string) string {
-	// Build a 128-entry boolean lookup table so the inner strings.Map loop is O(q)
-	// rather than O(q × len(luceneSpecial)).
-	var special [128]bool
-	for _, c := range `+-&|!(){}[]^"~*?:\/` {
-		if c < 128 {
-			special[c] = true
-		}
-	}
 	return strings.Map(func(r rune) rune {
-		if r < 128 && special[r] {
+		if r < 128 && luceneSpecialChars[r] {
 			return ' '
 		}
 		return r
