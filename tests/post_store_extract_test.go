@@ -147,6 +147,58 @@ func TestPostStoreExtract_Facts(t *testing.T) {
 	}
 }
 
+// TestPostStoreExtract_NilStore verifies that a nil Store produces a zero Result.
+func TestPostStoreExtract_NilStore(t *testing.T) {
+	t.Parallel()
+	llm := &mockSeqLLM{responses: []string{`[]`}}
+	res := extract.Run(context.Background(), extract.Deps{
+		LLMClient:   llm,
+		Store:       nil, // intentionally nil
+		GraphClient: graph.NewMockGraphClient(),
+	}, []extract.StoredMemory{{ID: "m1", Content: "test"}})
+	if res.EntitiesExtracted != 0 || res.FactsExtracted != 0 {
+		t.Errorf("expected zero result for nil Store, got %+v", res)
+	}
+}
+
+// failingAppendGraphClient wraps MockGraphClient and makes AppendMemoryToFact always fail.
+type failingAppendGraphClient struct {
+	*graph.MockGraphClient
+}
+
+func (f *failingAppendGraphClient) AppendMemoryToFact(_ context.Context, _, _ string) error {
+	return errors.New("store flake")
+}
+
+// TestPostStoreExtract_AppendMemoryToFactFail verifies that when AppendMemoryToFact
+// fails the fact is not counted as extracted.
+func TestPostStoreExtract_AppendMemoryToFactFail(t *testing.T) {
+	t.Parallel()
+	entityJSON := `[
+		{"name":"Alice","type":"person","aliases":[]},
+		{"name":"Bob","type":"person","aliases":[]}
+	]`
+	factJSON := `[{
+		"source_entity_name": "Alice",
+		"target_entity_name": "Bob",
+		"relation_type": "KNOWS",
+		"fact": "Alice knows Bob",
+		"valid_at": null, "invalid_at": null
+	}]`
+	llm := &mockSeqLLM{responses: []string{entityJSON, factJSON}}
+	ms := store.NewMockStore()
+	gc := &failingAppendGraphClient{MockGraphClient: graph.NewMockGraphClient()}
+
+	res := extract.Run(context.Background(), extract.Deps{
+		LLMClient: llm, Model: "test-model",
+		Store: ms, GraphClient: gc,
+	}, []extract.StoredMemory{{ID: "mem-x", Content: "Alice knows Bob"}})
+
+	if res.FactsExtracted != 0 {
+		t.Errorf("expected 0 facts when AppendMemoryToFact fails, got %d", res.FactsExtracted)
+	}
+}
+
 // TestPostStoreExtract_LLMError verifies that an LLM error produces a zero
 // Result (graceful degradation) without panicking.
 func TestPostStoreExtract_LLMError(t *testing.T) {

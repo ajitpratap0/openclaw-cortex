@@ -125,6 +125,7 @@ func storeCmd() *cobra.Command {
 					GraphClient: gc,
 					Logger:      logger,
 				}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
+				// The switch relies on extract.Run returning Result{} when LLMClient is nil.
 				switch {
 				case res.EntitiesExtracted > 0 || res.FactsExtracted > 0:
 					fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
