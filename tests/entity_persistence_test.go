@@ -190,6 +190,7 @@ func TestEntityPersistence_LinkMemoryToEntity_EntityNotFound(t *testing.T) {
 
 	err := s.LinkMemoryToEntity(ctx, "does-not-exist", "mem-001")
 	assert.Error(t, err)
+	assert.True(t, errors.Is(err, store.ErrNotFound), "expected ErrNotFound, got: %v", err)
 }
 
 // TestEntityPersistence_SearchCaseInsensitive verifies case-insensitive matching

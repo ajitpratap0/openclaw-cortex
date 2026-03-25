@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,7 @@ func TestMockStore_UpdateAccessMetadata_NotFound(t *testing.T) {
 	s := store.NewMockStore()
 	err := s.UpdateAccessMetadata(ctx, "no-such-id")
 	assert.Error(t, err)
+	assert.True(t, errors.Is(err, store.ErrNotFound), "expected ErrNotFound, got: %v", err)
 }
 
 func TestMockStore_SearchWithScopeFilter(t *testing.T) {

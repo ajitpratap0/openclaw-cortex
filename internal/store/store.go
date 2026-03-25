@@ -8,8 +8,10 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
-// ErrNotFound is returned by Get and Delete when the requested memory does not exist.
-var ErrNotFound = errors.New("memory not found")
+// ErrNotFound is returned by Get, Delete, GetEntity, and related lookups when
+// the requested resource does not exist.
+// Callers must use errors.Is(err, ErrNotFound) — the .Error() string is not stable.
+var ErrNotFound = errors.New("not found")
 
 // Store defines the interface for memory persistence with vector search.
 type Store interface {
