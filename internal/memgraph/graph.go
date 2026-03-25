@@ -51,9 +51,16 @@ func isAlreadyExistsErr(err error) bool {
 //
 // Stripped: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
 func SanitizeTextSearchQuery(q string) string {
-	const luceneSpecial = `+-&|!(){}[]^"~*?:\/`
+	// Build a 128-entry boolean lookup table so the inner strings.Map loop is O(q)
+	// rather than O(q × len(luceneSpecial)).
+	var special [128]bool
+	for _, c := range `+-&|!(){}[]^"~*?:\/` {
+		if c < 128 {
+			special[c] = true
+		}
+	}
 	return strings.Map(func(r rune) rune {
-		if strings.ContainsRune(luceneSpecial, r) {
+		if r < 128 && special[r] {
 			return ' '
 		}
 		return r

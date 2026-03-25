@@ -81,7 +81,8 @@ func TestSanitizeTextSearchQuery(t *testing.T) {
 		{"question mark stripped", "what is PR 100?", "?", ""},
 		// Plain words must pass through completely unchanged.
 		{"plain query unchanged", "ajit openclaw", "", "ajit openclaw"},
-		{"multiple special chars", "name:foo AND (bar OR baz)", ":", ""},
+		{"multiple special chars", "name:foo AND (bar OR baz)", ":", "name foo AND  bar OR baz "},
+		{"backslash and slash", `path\to/file`, "", "path to file"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
