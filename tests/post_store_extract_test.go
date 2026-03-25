@@ -161,6 +161,20 @@ func TestPostStoreExtract_NilStore(t *testing.T) {
 	}
 }
 
+// TestPostStoreExtract_NilGraphClient verifies that a nil GraphClient produces a zero Result.
+func TestPostStoreExtract_NilGraphClient(t *testing.T) {
+	t.Parallel()
+	llm := &mockSeqLLM{responses: []string{`[]`}}
+	res := extract.Run(context.Background(), extract.Deps{
+		LLMClient:   llm,
+		Store:       store.NewMockStore(),
+		GraphClient: nil, // intentionally nil
+	}, []extract.StoredMemory{{ID: "m1", Content: "test"}})
+	if res.EntitiesExtracted != 0 || res.FactsExtracted != 0 {
+		t.Errorf("expected zero result for nil GraphClient, got %+v", res)
+	}
+}
+
 // failingAppendGraphClient wraps MockGraphClient and makes AppendMemoryToFact always fail.
 type failingAppendGraphClient struct {
 	*graph.MockGraphClient

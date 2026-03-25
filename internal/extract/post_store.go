@@ -115,6 +115,8 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	factExtractor := graphpkg.NewFactExtractor(deps.LLMClient, deps.Model, logger)
 	var factsExtracted int
 
+	// factExtractor.Extract is called once per memory but with ALL entity names
+	// gathered from every memory, enabling cross-memory relationship facts.
 	for i := range memories {
 		facts, factErr := factExtractor.Extract(ctx, memories[i].Content, allEntityNames)
 		if factErr != nil {
