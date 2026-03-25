@@ -8,19 +8,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/extract"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 )
 
 func storeCmd() *cobra.Command {
 	var (
-		memType      string
-		scope        string
-		tags         string
-		project      string
-		confidence   float64
-		ttlHours     int
-		supersedesID string
-		validUntil   string
+		memType         string
+		scope           string
+		tags            string
+		project         string
+		confidence      float64
+		ttlHours        int
+		supersedesID    string
+		validUntil      string
+		extractEntities bool
 	)
 
 	cmd := &cobra.Command{
@@ -110,6 +114,22 @@ func storeCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Stored memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)
+
+			if extractEntities {
+				llmClient := llm.NewClient(cfg.Claude)
+				gc := memgraph.NewGraphAdapter(st)
+				res := extract.Run(ctx, extract.Deps{
+					LLMClient:   llmClient,
+					Model:       cfg.Claude.Model,
+					Store:       st,
+					GraphClient: gc,
+					Logger:      logger,
+				}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
+				if res.EntitiesExtracted > 0 {
+					fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
+				}
+			}
+
 			return nil
 		},
 	}
@@ -122,6 +142,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&ttlHours, "ttl", 0, "time-to-live in hours (0 = permanent)")
 	cmd.Flags().StringVar(&supersedesID, "supersedes", "", "ID of memory this one replaces")
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
+	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
 	return cmd
 }
 
