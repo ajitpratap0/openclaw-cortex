@@ -10,6 +10,7 @@ import (
 
 // ErrNotFound is returned by Get, Delete, GetEntity, and related lookups when
 // the requested resource does not exist.
+// Callers must use errors.Is(err, ErrNotFound) — the .Error() string is not stable.
 var ErrNotFound = errors.New("not found")
 
 // Store defines the interface for memory persistence with vector search.

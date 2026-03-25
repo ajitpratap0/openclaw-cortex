@@ -838,9 +838,6 @@ func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memory
 			return nil, txErr
 		}
 		if res.Next(wctx) {
-			if err := res.Err(); err != nil {
-				return false, err
-			}
 			return true, nil
 		}
 		if consumeErr := res.Err(); consumeErr != nil {
