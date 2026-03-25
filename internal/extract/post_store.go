@@ -56,8 +56,8 @@ type Result struct {
 // and graph client. Errors from individual extraction or write operations are
 // logged as warnings and do not abort the loop — Run always returns a Result.
 //
-// Callers MUST ensure that deps.Store and deps.GraphClient are non-nil when
-// deps.LLMClient is non-nil.
+// If deps.Store or deps.GraphClient is nil when deps.LLMClient is set, Run
+// logs a warning and returns a zero Result.
 func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	if deps.LLMClient == nil {
 		return Result{}
@@ -144,6 +144,8 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 			if linkErr := deps.GraphClient.AppendMemoryToFact(ctx, facts[j].ID, memories[i].ID); linkErr != nil {
 				logger.Warn("link fact to memory failed",
 					"fact_id", facts[j].ID, "error", linkErr)
+				// Don't count as fully extracted since the memory link is missing.
+				continue
 			}
 			factsExtracted++
 		}
