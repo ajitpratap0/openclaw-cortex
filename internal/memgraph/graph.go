@@ -51,7 +51,7 @@ func isAlreadyExistsErr(err error) bool {
 //
 // Stripped: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
 func SanitizeTextSearchQuery(q string) string {
-	const luceneSpecial = `+-&|!(){}[]^"~*?:\/ `
+	const luceneSpecial = `+-&|!(){}[]^"~*?:\/`
 	return strings.Map(func(r rune) rune {
 		if strings.ContainsRune(luceneSpecial, r) {
 			return ' '

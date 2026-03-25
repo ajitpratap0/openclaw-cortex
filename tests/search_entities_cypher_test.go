@@ -71,17 +71,17 @@ func TestBuildSearchEntitiesCypher_ContainsEntityText(t *testing.T) {
 // text_search.search_all.
 func TestSanitizeTextSearchQuery(t *testing.T) {
 	cases := []struct {
-		name  string
-		input string
-		// All special chars become spaces; consecutive spaces collapse only at display level.
-		// We just check that every special char is absent in the output.
+		name           string
+		input          string
 		mustNotContain string
+		wantExact      string // non-empty: assert output equals this string exactly
 	}{
-		{"colon triggers Unknown exception", "status: active", ":"},
-		{"colon in recall query", "what's the status of PR #99?", "?"},
-		{"question mark stripped", "what is PR 100?", "?"},
-		{"plain query unchanged", "ajit openclaw", ""},
-		{"multiple special chars", "name:foo AND (bar OR baz)", ":"},
+		{"colon triggers Unknown exception", "status: active", ":", ""},
+		{"question mark in recall query", "what's the status of PR #99?", "?", ""},
+		{"question mark stripped", "what is PR 100?", "?", ""},
+		// Plain words must pass through completely unchanged.
+		{"plain query unchanged", "ajit openclaw", "", "ajit openclaw"},
+		{"multiple special chars", "name:foo AND (bar OR baz)", ":", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -89,6 +89,10 @@ func TestSanitizeTextSearchQuery(t *testing.T) {
 			if tc.mustNotContain != "" && strings.Contains(out, tc.mustNotContain) {
 				t.Errorf("SanitizeTextSearchQuery(%q) = %q; still contains %q",
 					tc.input, out, tc.mustNotContain)
+			}
+			if tc.wantExact != "" && out != tc.wantExact {
+				t.Errorf("SanitizeTextSearchQuery(%q) = %q; want exact %q",
+					tc.input, out, tc.wantExact)
 			}
 		})
 	}
