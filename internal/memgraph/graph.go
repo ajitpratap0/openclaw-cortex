@@ -40,6 +40,26 @@ func isAlreadyExistsErr(err error) bool {
 		strings.Contains(msg, "index already")
 }
 
+// SanitizeTextSearchQuery removes characters that Memgraph's text_search.search_all
+// treats as Lucene query syntax operators, causing "Unknown exception!" when present
+// in a plain natural-language query.  The colon is the primary culprit (interpreted
+// as a Lucene field specifier, e.g. "name:foo"), but we strip the full set of
+// Lucene special characters to be safe.
+//
+// Exported so the tests/ package can verify sanitization without requiring a live
+// Memgraph instance.
+//
+// Stripped: + - & | ! ( ) { } [ ] ^ " ~ * ? : \ /
+func SanitizeTextSearchQuery(q string) string {
+	const luceneSpecial = `+-&|!(){}[]^"~*?:\/ `
+	return strings.Map(func(r rune) rune {
+		if strings.ContainsRune(luceneSpecial, r) {
+			return ' '
+		}
+		return r
+	}, q)
+}
+
 // BuildMemoryVectorIndexDDL returns the CREATE VECTOR INDEX DDL for the given dimension.
 // Exported for testing.
 func BuildMemoryVectorIndexDDL(dim int) string {
@@ -152,7 +172,7 @@ func (g *GraphAdapter) SearchEntities(ctx context.Context, query string, _ []flo
 
 	if query != "" {
 		cypher = BuildSearchEntitiesCypher()
-		params["query"] = query
+		params["query"] = SanitizeTextSearchQuery(query)
 		params["project"] = project
 	} else {
 		cypher = `MATCH (node:Entity)`

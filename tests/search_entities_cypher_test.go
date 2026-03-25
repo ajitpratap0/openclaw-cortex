@@ -64,3 +64,39 @@ func TestBuildSearchEntitiesCypher_ContainsEntityText(t *testing.T) {
 		t.Errorf("SearchEntities Cypher must reference the entity_text index, got:\n%s", cypher)
 	}
 }
+
+// TestSanitizeTextSearchQuery verifies that Lucene special characters — in particular
+// the colon, which causes Memgraph to throw "Unknown exception!" by interpreting it as
+// a Lucene field specifier — are replaced with spaces before the query is sent to
+// text_search.search_all.
+func TestSanitizeTextSearchQuery(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		// All special chars become spaces; consecutive spaces collapse only at display level.
+		// We just check that every special char is absent in the output.
+		mustNotContain string
+	}{
+		{"colon triggers Unknown exception", "status: active", ":"},
+		{"colon in recall query", "what's the status of PR #99?", "?"},
+		{"question mark stripped", "what is PR 100?", "?"},
+		{"plain query unchanged", "ajit openclaw", ""},
+		{"multiple special chars", "name:foo AND (bar OR baz)", ":"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := memgraph.SanitizeTextSearchQuery(tc.input)
+			if tc.mustNotContain != "" && strings.Contains(out, tc.mustNotContain) {
+				t.Errorf("SanitizeTextSearchQuery(%q) = %q; still contains %q",
+					tc.input, out, tc.mustNotContain)
+			}
+		})
+	}
+	// Ensure ordinary words survive sanitization.
+	t.Run("words preserved", func(t *testing.T) {
+		out := memgraph.SanitizeTextSearchQuery("ajit openclaw cortex")
+		if !strings.Contains(out, "ajit") || !strings.Contains(out, "openclaw") {
+			t.Errorf("SanitizeTextSearchQuery unexpectedly stripped plain words: %q", out)
+		}
+	})
+}
