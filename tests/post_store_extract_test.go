@@ -213,6 +213,71 @@ func TestPostStoreExtract_AppendMemoryToFactFail(t *testing.T) {
 	}
 }
 
+// TestPostStoreExtract_CrossMemoryEntityPool verifies that entity names extracted
+// from earlier memories are available when extracting facts from later memories.
+// Specifically: "Acme" is extracted from memory[0] but referenced in a fact
+// extracted from memory[1] — the cross-memory entity pool must enable this.
+func TestPostStoreExtract_CrossMemoryEntityPool(t *testing.T) {
+	t.Parallel()
+
+	// LLM call sequence:
+	//   1. Entity extraction for memory[0] ("Alice works at Acme") → Alice + Acme
+	//   2. Entity extraction for memory[1] ("Acme was founded by Bob") → Bob
+	//   3. Fact extraction for memory[0] with all names [Alice, Acme, Bob] → []
+	//   4. Fact extraction for memory[1] with all names [Alice, Acme, Bob] → Bob FOUNDED Acme
+	//      (Acme came from memory[0] — cross-memory pooling is required for this to resolve)
+	mem0EntityJSON := `[
+		{"name":"Alice","type":"person","aliases":[],"description":"A developer"},
+		{"name":"Acme","type":"organization","aliases":[],"description":"A company"}
+	]`
+	mem1EntityJSON := `[{"name":"Bob","type":"person","aliases":[],"description":"A founder"}]`
+	mem0FactJSON := `[]`
+	mem1FactJSON := `[{
+		"source_entity_name": "Bob",
+		"target_entity_name": "Acme",
+		"relation_type": "FOUNDED",
+		"fact": "Bob founded Acme",
+		"valid_at": null,
+		"invalid_at": null
+	}]`
+
+	llm := &mockSeqLLM{responses: []string{mem0EntityJSON, mem1EntityJSON, mem0FactJSON, mem1FactJSON}}
+	ms := store.NewMockStore()
+	gc := graph.NewMockGraphClient()
+
+	res := extract.Run(context.Background(), extract.Deps{
+		LLMClient:   llm,
+		Model:       "test-model",
+		Store:       ms,
+		GraphClient: gc,
+	}, []extract.StoredMemory{
+		{ID: "mem-0", Content: "Alice works at Acme"},
+		{ID: "mem-1", Content: "Acme was founded by Bob"},
+	})
+
+	if res.EntitiesExtracted != 3 {
+		t.Errorf("expected 3 entities (Alice, Acme, Bob), got %d", res.EntitiesExtracted)
+	}
+	if res.FactsExtracted != 1 {
+		t.Errorf("expected 1 fact (Bob FOUNDED Acme), got %d", res.FactsExtracted)
+	}
+
+	facts, err := gc.SearchFacts(context.Background(), "", nil, 10)
+	if err != nil {
+		t.Fatalf("search facts: %v", err)
+	}
+	if len(facts) != 1 {
+		t.Fatalf("expected 1 fact in graph, got %d", len(facts))
+	}
+	if facts[0].Fact != "Bob founded Acme" {
+		t.Errorf("unexpected fact text: %q", facts[0].Fact)
+	}
+	// Fact was extracted from memory[1] — verify provenance link.
+	if len(facts[0].SourceMemoryIDs) == 0 || facts[0].SourceMemoryIDs[0] != "mem-1" {
+		t.Errorf("expected fact linked to mem-1, got %v", facts[0].SourceMemoryIDs)
+	}
+}
+
 // TestPostStoreExtract_LLMError verifies that an LLM error produces a zero
 // Result (graceful degradation) without panicking.
 func TestPostStoreExtract_LLMError(t *testing.T) {

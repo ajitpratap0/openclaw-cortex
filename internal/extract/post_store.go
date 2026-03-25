@@ -87,6 +87,9 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	var entitiesExtracted int
 
 	for i := range memories {
+		if ctx.Err() != nil {
+			break
+		}
 		entities, extractErr := extractor.Extract(ctx, memories[i].Content)
 		if extractErr != nil {
 			logger.Warn("entity extraction failed, skipping", "error", extractErr)
@@ -122,6 +125,9 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	// factExtractor.Extract is called once per memory but with ALL entity names
 	// gathered from every memory, enabling cross-memory relationship facts.
 	for i := range memories {
+		if ctx.Err() != nil {
+			break
+		}
 		facts, factErr := factExtractor.Extract(ctx, memories[i].Content, allEntityNames)
 		if factErr != nil {
 			logger.Warn("fact extraction failed, skipping", "error", factErr)
