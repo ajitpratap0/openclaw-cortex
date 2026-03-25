@@ -844,7 +844,10 @@ func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memory
 			return true, nil
 		}
 		if consumeErr := res.Err(); consumeErr != nil {
-			return nil, fmt.Errorf("iterate result: %w", consumeErr)
+			return nil, fmt.Errorf("memgraph link memory to entity: iterate result: %w", consumeErr)
+		}
+		if _, consumeErr := res.Consume(wctx); consumeErr != nil {
+			return nil, fmt.Errorf("memgraph link memory to entity: consume not-found result: %w", consumeErr)
 		}
 		return false, nil
 	})
