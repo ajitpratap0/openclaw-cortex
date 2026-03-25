@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,7 +9,7 @@ import (
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
-	graphpkg "github.com/ajitpratap0/openclaw-cortex/internal/graph"
+	"github.com/ajitpratap0/openclaw-cortex/internal/extract"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -126,70 +125,19 @@ func captureCmd() *cobra.Command {
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
 			}
 
-			// The MemgraphStore implements graph.Client — use it directly for entity + fact writes.
 			gc := memgraph.NewGraphAdapter(st)
-
-			// Entity extraction (graceful — skipped if no LLM or on error).
-			// entityNameToID maps lowercased entity names to their UUIDs so that
-			// the fact extractor (which returns names) can resolve to UUIDs.
-			var allEntityNames []string
-			entityNameToID := make(map[string]string)
-			if llmClient != nil {
-				extractor := capture.NewEntityExtractor(llmClient, cfg.Claude.Model, logger)
-				for i := range storedMems {
-					entities, extractErr := extractor.Extract(ctx, storedMems[i].content)
-					if extractErr != nil {
-						logger.Warn("entity extraction failed, skipping", "error", extractErr)
-						continue
-					}
-					for j := range entities {
-						if upsertErr := st.UpsertEntity(ctx, entities[j]); upsertErr != nil {
-							logger.Warn("upsert entity to store failed", "entity", entities[j].Name, "error", upsertErr)
-							continue
-						}
-						if linkErr := st.LinkMemoryToEntity(ctx, entities[j].ID, storedMems[i].id); linkErr != nil {
-							logger.Warn("link entity to memory failed", "entity", entities[j].Name, "error", linkErr)
-						}
-						allEntityNames = append(allEntityNames, entities[j].Name)
-						entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
-					}
-				}
+			mems := make([]extract.StoredMemory, len(storedMems))
+			for i := range storedMems {
+				mems[i] = extract.StoredMemory{ID: storedMems[i].id, Content: storedMems[i].content}
 			}
-
-			// Fact extraction + graph write (graceful — skipped on error).
-			// The FactExtractor returns entity names in SourceEntityID/TargetEntityID;
-			// we resolve them to UUIDs via entityNameToID before upserting to Memgraph.
-			if llmClient != nil && len(allEntityNames) > 0 {
-				factExtractor := graphpkg.NewFactExtractor(llmClient, cfg.Claude.Model, logger)
-				for i := range storedMems {
-					facts, factErr := factExtractor.Extract(ctx, storedMems[i].content, allEntityNames)
-					if factErr != nil {
-						logger.Warn("fact extraction failed, skipping", "error", factErr)
-						continue
-					}
-					for j := range facts {
-						// Resolve entity names to UUIDs.
-						srcID, srcOK := entityNameToID[strings.ToLower(facts[j].SourceEntityID)]
-						tgtID, tgtOK := entityNameToID[strings.ToLower(facts[j].TargetEntityID)]
-						if !srcOK || !tgtOK {
-							logger.Warn("fact references unknown entity, skipping",
-								"source", facts[j].SourceEntityID, "target", facts[j].TargetEntityID,
-								"source_resolved", srcOK, "target_resolved", tgtOK)
-							continue
-						}
-						facts[j].SourceEntityID = srcID
-						facts[j].TargetEntityID = tgtID
-
-						if upsertErr := gc.UpsertFact(ctx, facts[j]); upsertErr != nil {
-							logger.Warn("upsert fact failed", "fact_id", facts[j].ID, "error", upsertErr)
-							continue
-						}
-						if linkErr := gc.AppendMemoryToFact(ctx, facts[j].ID, storedMems[i].id); linkErr != nil {
-							logger.Warn("link fact to memory failed", "fact_id", facts[j].ID, "error", linkErr)
-						}
-					}
-				}
-			}
+			res := extract.Run(ctx, extract.Deps{
+				LLMClient:   llmClient,
+				Model:       cfg.Claude.Model,
+				Store:       st,
+				GraphClient: gc,
+				Logger:      logger,
+			}, mems)
+			logger.Info("post-store extraction", "entities", res.EntitiesExtracted, "facts", res.FactsExtracted)
 
 			fmt.Printf("Captured %d memories from conversation\n", stored)
 			return nil
