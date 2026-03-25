@@ -62,6 +62,12 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	if deps.LLMClient == nil {
 		return Result{}
 	}
+	if deps.Store == nil || deps.GraphClient == nil {
+		if deps.Logger != nil {
+			deps.Logger.Warn("extract.Run: Store and GraphClient must be non-nil when LLMClient is set; skipping")
+		}
+		return Result{}
+	}
 
 	logger := deps.Logger
 	if logger == nil {
@@ -91,6 +97,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 			if linkErr := deps.Store.LinkMemoryToEntity(ctx, entities[j].ID, memories[i].ID); linkErr != nil {
 				logger.Warn("link entity to memory failed",
 					"entity", entities[j].Name, "error", linkErr)
+				continue
 			}
 			allEntityNames = append(allEntityNames, entities[j].Name)
 			entityNameToID[strings.ToLower(entities[j].Name)] = entities[j].ID
@@ -98,7 +105,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 		}
 	}
 
-	// Fact extraction requires at least two distinct entities to form a relationship.
+	// Skip fact extraction if no entities were found.
 	if len(allEntityNames) == 0 {
 		return Result{EntitiesExtracted: entitiesExtracted}
 	}

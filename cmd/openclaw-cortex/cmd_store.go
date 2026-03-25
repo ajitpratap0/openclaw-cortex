@@ -125,8 +125,13 @@ func storeCmd() *cobra.Command {
 					GraphClient: gc,
 					Logger:      logger,
 				}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
-				if res.EntitiesExtracted > 0 {
+				switch {
+				case res.EntitiesExtracted > 0 || res.FactsExtracted > 0:
 					fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
+				case llmClient == nil:
+					fmt.Println("  Entity extraction skipped: no LLM configured (set ANTHROPIC_API_KEY or gateway)")
+				default:
+					fmt.Println("  No entities or facts extracted")
 				}
 			}
 
