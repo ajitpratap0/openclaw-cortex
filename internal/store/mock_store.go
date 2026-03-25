@@ -261,7 +261,7 @@ func (m *MockStore) UpdateAccessMetadata(_ context.Context, id string) error {
 	defer m.mu.Unlock()
 	sm, ok := m.memories[id]
 	if !ok {
-		return fmt.Errorf("memory %s not found", id)
+		return fmt.Errorf("mock update access metadata: %w: %s", ErrNotFound, id)
 	}
 	sm.memory.LastAccessed = time.Now().UTC()
 	sm.memory.AccessCount++
@@ -481,7 +481,7 @@ func (m *MockStore) LinkMemoryToEntity(_ context.Context, entityID, memoryID str
 
 	e, ok := m.entities[entityID]
 	if !ok {
-		return fmt.Errorf("entity %s not found", entityID)
+		return fmt.Errorf("mock link memory to entity: %w: %s", ErrNotFound, entityID)
 	}
 
 	// Check for duplicates.
