@@ -46,9 +46,13 @@ type Deps struct {
 
 // Result summarizes what was extracted from the given memories.
 type Result struct {
-	// EntitiesExtracted is the number of distinct entities successfully upserted.
+	// EntitiesExtracted is the number of entities for which UpsertEntity succeeded.
+	// A subsequent LinkMemoryToEntity failure does not reduce this count; the entity
+	// is still tracked for fact extraction regardless of the link outcome.
 	EntitiesExtracted int
-	// FactsExtracted is the number of facts successfully upserted.
+	// FactsExtracted is the number of facts for which both UpsertFact and
+	// AppendMemoryToFact succeeded. A partial write (upsert ok, link fail) is not
+	// counted — the fact exists in the graph but lacks the memory provenance link.
 	FactsExtracted int
 }
 
