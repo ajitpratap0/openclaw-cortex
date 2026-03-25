@@ -838,7 +838,10 @@ func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memory
 			return nil, txErr
 		}
 		if res.Next(wctx) {
-			return true, res.Err()
+			if err := res.Err(); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 		if consumeErr := res.Err(); consumeErr != nil {
 			return nil, consumeErr
@@ -851,7 +854,7 @@ func (s *MemgraphStore) LinkMemoryToEntity(ctx context.Context, entityID, memory
 
 	matched, ok := result.(bool)
 	if !ok || !matched {
-		return fmt.Errorf("memgraph link memory to entity: %w: %s", store.ErrNotFound, entityID)
+		return fmt.Errorf("memgraph link memory to entity: entity %s: %w", entityID, store.ErrNotFound)
 	}
 
 	return nil
