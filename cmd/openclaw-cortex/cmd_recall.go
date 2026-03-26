@@ -29,6 +29,7 @@ func recallCmd() *cobra.Command {
 		reasonCandidates int
 		graphDepth       int
 		includeHistory   bool
+		noAccessUpdate   bool
 	)
 
 	cmd := &cobra.Command{
@@ -164,10 +165,14 @@ func recallCmd() *cobra.Command {
 				fmt.Println(output)
 			}
 
-			// Update access metadata for returned memories
-			for i := 0; i < count && i < len(ranked); i++ {
-				if updateErr := st.UpdateAccessMetadata(ctx, ranked[i].Memory.ID); updateErr != nil {
-					logger.Warn("recall: UpdateAccessMetadata", "id", ranked[i].Memory.ID, "error", updateErr)
+			// Update access metadata for returned memories.
+			// Skipped when --no-access-update is set to prevent automated
+			// injection pipelines from inflating access counts.
+			if !noAccessUpdate {
+				for i := 0; i < count && i < len(ranked); i++ {
+					if updateErr := st.UpdateAccessMetadata(ctx, ranked[i].Memory.ID); updateErr != nil {
+						logger.Warn("recall: UpdateAccessMetadata", "id", ranked[i].Memory.ID, "error", updateErr)
+					}
 				}
 			}
 
@@ -187,5 +192,6 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&reasonCandidates, "reason-candidates", 10, "number of top candidates to pass to Claude for re-ranking")
 	cmd.Flags().IntVar(&graphDepth, "graph-depth", 2, "graph traversal depth for graph-aware recall (1=direct entity facts only, 2=also traverse neighbor entities)")
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
+	cmd.Flags().BoolVar(&noAccessUpdate, "no-access-update", false, "skip updating access metadata (prevents automated pipelines from inflating access counts)")
 	return cmd
 }
