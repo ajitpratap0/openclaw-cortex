@@ -87,14 +87,19 @@ func (m *MockGraphClient) SetEmbedder(e embedder.Embedder) {
 }
 
 func (m *MockGraphClient) UpsertFact(ctx context.Context, fact models.Fact) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if len(fact.FactEmbedding) == 0 && m.embeddr != nil {
-		vec, err := m.embeddr.Embed(ctx, fact.Fact)
+	// Capture embedder under read lock then call Embed outside the lock to avoid
+	// deadlock if the embedder re-enters any MockGraphClient method.
+	m.mu.RLock()
+	emb := m.embeddr
+	m.mu.RUnlock()
+	if len(fact.FactEmbedding) == 0 && emb != nil {
+		vec, err := emb.Embed(ctx, fact.Fact)
 		if err == nil {
 			fact.FactEmbedding = vec
 		}
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.facts[fact.ID] = fact
 	return nil
 }

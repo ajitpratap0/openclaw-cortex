@@ -472,7 +472,7 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	}
 
 	if useEmbedding && len(results) > 0 {
-		sortFactResults(results)
+		sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
 		if len(results) > limit {
 			results = results[:limit]
 		}
@@ -1097,11 +1097,4 @@ func getFloat32Slice(record *neo4j.Record, key string) []float32 {
 		}
 	}
 	return result
-}
-
-// sortFactResults sorts FactResult slice by Score descending in-place.
-func sortFactResults(results []graph.FactResult) {
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Score > results[j].Score
-	})
 }
