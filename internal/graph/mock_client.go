@@ -98,15 +98,23 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding
 			continue
 		}
 		// Text-CONTAINS filter: skip facts that don't contain the query string.
-		// Skipped when an embedding is provided — the real implementation fetches all
+		// Matches both f.Fact and f.RelationType, mirroring the real Cypher query.
+		// Skipped when an embedding is provided — real SearchFacts fetches all
 		// non-expired facts and re-ranks by cosine when embedding is present.
-		if query != "" && len(embedding) == 0 && !strings.Contains(strings.ToLower(f.Fact), strings.ToLower(query)) {
+		if query != "" && len(embedding) == 0 &&
+			!strings.Contains(strings.ToLower(f.Fact), strings.ToLower(query)) &&
+			!strings.Contains(strings.ToLower(f.RelationType), strings.ToLower(query)) {
 			continue
 		}
-		score := 1.0
-		// Cosine re-ranking: score by embedding similarity when both sides are present.
+		// Default score: 0.0 when an embedding is used but fact has no stored embedding,
+		// matching real SearchFacts which sets score=0 for unembedded facts.
+		// Score is 1.0 in the text-only path (uniform, no cosine ranking).
+		score := 0.0
 		if len(embedding) > 0 && len(f.FactEmbedding) > 0 {
+			// Cosine re-ranking: score by embedding similarity when both sides are present.
 			score = float64(vecmath.CosineSimilarity(embedding, f.FactEmbedding))
+		} else if len(embedding) == 0 {
+			score = 1.0
 		}
 		results = append(results, FactResult{
 			ID:              f.ID,

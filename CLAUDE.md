@@ -165,6 +165,7 @@ Required to merge:
 - **Tests live in `tests/`**: all test files are in the top-level `tests/` package (black-box testing), not co-located with the package under test. Use `MockMemgraphClient` from `internal/memgraph/mock_client.go` to avoid requiring live Memgraph.
 - **Prompt injection prevention**: user/assistant content is XML-escaped in `internal/capture/capture.go` before interpolation into the Claude prompt. Maintain this for any new LLM-calling code.
 - **Linter**: golangci-lint v2 with `linters.settings` (not top-level `settings`) and `linters.exclusions.rules` (not `issues.exclude-rules`). Test files are excluded from `errcheck` and `unparam`.
+- **`valid_from` must be UTC RFC3339**: Memgraph stores `valid_from` as a string and Cypher uses lexicographic comparison for `<=`/`>=` filters. This only works correctly when every stored value uses RFC3339 UTC format (`YYYY-MM-DDTHH:MM:SSZ`). All write paths must use `.UTC().Format(time.RFC3339)`. Non-UTC offsets (e.g. `+05:30`) or date-only strings will produce silently wrong filter results.
 
 ## External Service Dependencies
 
