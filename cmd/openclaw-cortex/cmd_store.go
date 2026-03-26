@@ -133,6 +133,7 @@ func storeCmd() *cobra.Command {
 			if extractEntities && !skipExtract {
 				llmClient := llm.NewClient(cfg.Claude)
 				gc := memgraph.NewGraphAdapter(st)
+				gc.SetEmbedder(emb)
 				res := extract.Run(ctx, extract.Deps{
 					LLMClient:   llmClient,
 					Model:       cfg.Claude.Model,
