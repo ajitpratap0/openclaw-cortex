@@ -137,7 +137,8 @@ type ClaudeConfig struct {
 	GatewayURL   string `mapstructure:"gateway_url"`
 	GatewayToken string `mapstructure:"gateway_token"`
 
-	GatewayTimeoutSeconds int `mapstructure:"gateway_timeout_seconds"` // 0 = no timeout
+	GatewayTimeoutSeconds    int `mapstructure:"gateway_timeout_seconds"`     // 0 = no timeout
+	HealthCheckTimeoutSeconds int `mapstructure:"health_check_timeout_seconds"` // default: 15
 
 	// LLM resilience settings
 	MaxConcurrentLLMCalls int `mapstructure:"max_concurrent_llm_calls"` // default: 4
@@ -203,6 +204,7 @@ func Load() (*Config, error) {
 	v.SetDefault("embedder.lmstudio.url", "http://localhost:1234")
 
 	v.SetDefault("claude.model", "claude-haiku-4-5-20251001")
+	v.SetDefault("claude.health_check_timeout_seconds", 15)
 	v.SetDefault("claude.max_concurrent_llm_calls", 4)
 	v.SetDefault("claude.cb_failure_threshold", 5)
 	v.SetDefault("claude.cb_recovery_seconds", 30)
