@@ -26,6 +26,7 @@ func storeCmd() *cobra.Command {
 		supersedesID    string
 		validUntil      string
 		extractEntities bool
+		skipExtract     bool
 		skipDedup       bool
 	)
 
@@ -129,7 +130,7 @@ func storeCmd() *cobra.Command {
 
 			fmt.Printf("Stored memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)
 
-			if extractEntities {
+			if extractEntities && !skipExtract {
 				llmClient := llm.NewClient(cfg.Claude)
 				gc := memgraph.NewGraphAdapter(st)
 				res := extract.Run(ctx, extract.Deps{
@@ -162,7 +163,8 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&ttlHours, "ttl", 0, "time-to-live in hours (0 = permanent)")
 	cmd.Flags().StringVar(&supersedesID, "supersedes", "", "ID of memory this one replaces")
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
-	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
+	cmd.Flags().BoolVar(&extractEntities, "extract-entities", true, "extract entities and facts from content (requires LLM; default: on)")
+	cmd.Flags().BoolVar(&skipExtract, "skip-extract", false, "skip entity and fact extraction (overrides --extract-entities)")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
 	return cmd
 }
