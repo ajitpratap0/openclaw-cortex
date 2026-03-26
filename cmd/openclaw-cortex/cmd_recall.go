@@ -12,6 +12,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/timeutil"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/tokenizer"
 )
 
@@ -80,14 +81,14 @@ func recallCmd() *cobra.Command {
 				filters.IncludeInvalidated = true
 			}
 			if validBeforeStr != "" {
-				t, parseErr := parseTimeFlag("recall", "--valid-before", validBeforeStr, true)
+				t, parseErr := timeutil.ParseTimeFlag("recall", "--valid-before", validBeforeStr, true)
 				if parseErr != nil {
 					return parseErr
 				}
 				filters.ValidBefore = &t
 			}
 			if validAfterStr != "" {
-				t, parseErr := parseTimeFlag("recall", "--valid-after", validAfterStr, false)
+				t, parseErr := timeutil.ParseTimeFlag("recall", "--valid-after", validAfterStr, false)
 				if parseErr != nil {
 					return parseErr
 				}

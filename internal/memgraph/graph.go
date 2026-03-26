@@ -39,6 +39,10 @@ func NewGraphAdapter(s *MemgraphStore) *GraphAdapter {
 
 // SetEmbedder attaches an embedder to the GraphAdapter. When set, UpsertFact will
 // automatically embed the fact text if the Fact.FactEmbedding field is empty.
+//
+// Must be called before the adapter is shared across goroutines. SetEmbedder and
+// UpsertFact (which reads g.embeddr) are not synchronized; concurrent use after
+// the adapter is already in use is a data race.
 func (g *GraphAdapter) SetEmbedder(e embedder.Embedder) {
 	g.embeddr = e
 }
