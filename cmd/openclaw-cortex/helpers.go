@@ -73,7 +73,7 @@ func buildSearchFilters(cmdName, memType, memScope, project, tagsFlag string) (*
 // (e.g. "2026-03-01" or "2026-03-01T15:00:00Z") or a relative duration
 // subtracted from now (e.g. "7d", "24h", "30m" — same syntax as --valid-until).
 // When endOfDay is true and the input is a date-only string (YYYY-MM-DD), the
-// returned time is 23:59:59.999999999 UTC of that day instead of midnight.
+// returned time is 23:59:59 UTC of that day instead of midnight.
 // Use endOfDay=true for upper-bound filters like --valid-before so that the
 // entire specified day is included in the result set.
 // Note: the endOfDay adjustment applies only to date-only inputs; RFC3339 and
