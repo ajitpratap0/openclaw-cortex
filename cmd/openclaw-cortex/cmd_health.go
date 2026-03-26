@@ -106,6 +106,10 @@ func healthCmd() *cobra.Command {
 				// not to RunE as a whole.
 				func() {
 					healthTimeoutSec := cfg.Claude.HealthCheckTimeoutSeconds
+					// Belt-and-suspenders guard: config.Load() sets a default of
+					// 15 s via viper, but code that constructs ClaudeConfig directly
+					// (e.g. tests) may leave this zero. Keep the guard here so the
+					// timeout is always valid regardless of how cfg is populated.
 					if healthTimeoutSec <= 0 {
 						healthTimeoutSec = 15
 					}
