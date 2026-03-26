@@ -3,6 +3,7 @@ package memgraph
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,9 +22,10 @@ import (
 //
 // NOTE: Memgraph does not support vector indexes on relationships (RELATES_TO edges).
 // Fact embeddings are stored as edge properties and cosine similarity is computed in
-// Go after fetching candidate facts. This means SearchFacts with an embedding does a
-// full scan of non-expired facts and ranks them by cosine similarity — acceptable for
-// typical fact counts but not suitable for very large graphs.
+// Go after fetching candidate facts. SearchFacts fetches non-expired facts with their
+// embeddings for cosine ranking.
+// NOTE: capped at fetchLimit rows in arbitrary storage order — not a true full scan.
+// Increase fetchLimit (or remove LIMIT) if the graph has many facts and recall quality degrades.
 type GraphAdapter struct {
 	store   *MemgraphStore
 	embeddr embedder.Embedder // optional; enables semantic fact embedding
@@ -726,12 +728,7 @@ func (g *GraphAdapter) RecallByGraphWithDepth(ctx context.Context, query string,
 	for id, score := range seen {
 		ranked = append(ranked, scoredID{id: id, score: score})
 	}
-	// Simple insertion sort (result set is small — typically < 100).
-	for i := 1; i < len(ranked); i++ {
-		for j := i; j > 0 && ranked[j].score > ranked[j-1].score; j-- {
-			ranked[j], ranked[j-1] = ranked[j-1], ranked[j]
-		}
-	}
+	sort.Slice(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
 
 	result := make([]string, 0, len(ranked))
 	for _, s := range ranked {

@@ -71,7 +71,7 @@ func buildSearchFilters(cmdName, memType, memScope, project, tagsFlag string) (*
 
 // parseTimeFlag parses a time flag value that can be an ISO 8601 datetime
 // (e.g. "2026-03-01" or "2026-03-01T15:00:00Z") or a relative duration
-// subtracted from now (e.g. "7d", "1m", "2h" — same syntax as --valid-until).
+// subtracted from now (e.g. "7d", "24h", "30m" — same syntax as --valid-until).
 // Returns an error prefixed with cmdName and flagName for clear CLI error messages.
 func parseTimeFlag(cmdName, flagName, s string) (time.Time, error) {
 	// Try ISO 8601 date-only first (YYYY-MM-DD).
@@ -85,7 +85,7 @@ func parseTimeFlag(cmdName, flagName, s string) (time.Time, error) {
 	// Try relative duration (subtract from now).
 	dur, err := parseDuration(s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%s: invalid %s %q: must be ISO 8601 date (2006-01-02), RFC3339, or relative duration (7d, 1m, 2h)", cmdName, flagName, s)
+		return time.Time{}, fmt.Errorf("%s: invalid %s %q: must be ISO 8601 date (2006-01-02), RFC3339, or relative duration (7d, 24h, 30m)", cmdName, flagName, s)
 	}
 	return time.Now().UTC().Add(-dur), nil
 }
