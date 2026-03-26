@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
@@ -66,6 +67,27 @@ func buildSearchFilters(cmdName, memType, memScope, project, tagsFlag string) (*
 		filters.Tags = parseTags(tagsFlag)
 	}
 	return filters, nil
+}
+
+// parseTimeFlag parses a time flag value that can be an ISO 8601 datetime
+// (e.g. "2026-03-01" or "2026-03-01T15:00:00Z") or a relative duration
+// subtracted from now (e.g. "7d", "1m", "2h" — same syntax as --valid-until).
+// Returns an error prefixed with cmdName and flagName for clear CLI error messages.
+func parseTimeFlag(cmdName, flagName, s string) (time.Time, error) {
+	// Try ISO 8601 date-only first (YYYY-MM-DD).
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t.UTC(), nil
+	}
+	// Try full RFC3339.
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.UTC(), nil
+	}
+	// Try relative duration (subtract from now).
+	dur, err := parseDuration(s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%s: invalid %s %q: must be ISO 8601 date (2006-01-02), RFC3339, or relative duration (7d, 1m, 2h)", cmdName, flagName, s)
+	}
+	return time.Now().UTC().Add(-dur), nil
 }
 
 // parseTags splits a comma-separated tags string into trimmed individual tags.

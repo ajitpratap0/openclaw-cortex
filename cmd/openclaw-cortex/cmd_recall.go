@@ -30,6 +30,8 @@ func recallCmd() *cobra.Command {
 		graphDepth       int
 		includeHistory   bool
 		noAccessUpdate   bool
+		validBeforeStr   string
+		validAfterStr    string
 	)
 
 	cmd := &cobra.Command{
@@ -74,6 +76,26 @@ func recallCmd() *cobra.Command {
 					filters = &store.SearchFilters{}
 				}
 				filters.IncludeInvalidated = true
+			}
+			if validBeforeStr != "" {
+				t, parseErr := parseTimeFlag("recall", "--valid-before", validBeforeStr)
+				if parseErr != nil {
+					return parseErr
+				}
+				if filters == nil {
+					filters = &store.SearchFilters{}
+				}
+				filters.ValidBefore = &t
+			}
+			if validAfterStr != "" {
+				t, parseErr := parseTimeFlag("recall", "--valid-after", validAfterStr)
+				if parseErr != nil {
+					return parseErr
+				}
+				if filters == nil {
+					filters = &store.SearchFilters{}
+				}
+				filters.ValidAfter = &t
 			}
 
 			// Fetch more results than needed for re-ranking. When --limit is
@@ -193,5 +215,7 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&graphDepth, "graph-depth", 2, "graph traversal depth for graph-aware recall (1=direct entity facts only, 2=also traverse neighbor entities)")
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
 	cmd.Flags().BoolVar(&noAccessUpdate, "no-access-update", false, "skip updating access metadata (prevents automated pipelines from inflating access counts)")
+	cmd.Flags().StringVar(&validBeforeStr, "valid-before", "", "return memories whose valid_from is at or before this time (ISO 8601 or relative: 7d, 1m, 2h)")
+	cmd.Flags().StringVar(&validAfterStr, "valid-after", "", "return memories whose valid_from is at or after this time (ISO 8601 or relative: 7d, 1m, 2h)")
 	return cmd
 }

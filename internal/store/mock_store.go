@@ -655,5 +655,14 @@ func matchesFilters(mem models.Memory, f *SearchFilters) bool {
 		}
 	}
 
+	// ValidBefore: memory's valid_from must be at or before this time.
+	if f.ValidBefore != nil && !mem.ValidFrom.IsZero() && mem.ValidFrom.After(*f.ValidBefore) {
+		return false
+	}
+	// ValidAfter: memory's valid_from must be at or after this time.
+	if f.ValidAfter != nil && (mem.ValidFrom.IsZero() || mem.ValidFrom.Before(*f.ValidAfter)) {
+		return false
+	}
+
 	return true
 }
