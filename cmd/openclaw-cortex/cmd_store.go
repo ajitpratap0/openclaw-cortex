@@ -169,7 +169,6 @@ func storeCmd() *cobra.Command {
 	return cmd
 }
 
-
 func validTypesString() string {
 	types := make([]string, len(models.ValidMemoryTypes))
 	for i, t := range models.ValidMemoryTypes {
