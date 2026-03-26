@@ -25,7 +25,4 @@ type FactResult struct {
 	TargetEntityID  string   `json:"target_entity_id"`
 	SourceMemoryIDs []string `json:"source_memory_ids"`
 	Score           float64  `json:"score"`
-	// FactEmbedding holds the stored embedding for cosine re-ranking.
-	// Only populated when SearchFacts is called with a non-nil query embedding.
-	FactEmbedding []float32 `json:"fact_embedding,omitempty"`
 }

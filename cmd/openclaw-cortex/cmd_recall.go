@@ -71,10 +71,12 @@ func recallCmd() *cobra.Command {
 			if filterErr != nil {
 				return filterErr
 			}
+			// Ensure filters is non-nil so the flags below can be set unconditionally.
+			// buildSearchFilters returns nil when all four positional args are empty.
+			if filters == nil {
+				filters = &store.SearchFilters{}
+			}
 			if includeHistory {
-				if filters == nil {
-					filters = &store.SearchFilters{}
-				}
 				filters.IncludeInvalidated = true
 			}
 			if validBeforeStr != "" {
@@ -82,18 +84,12 @@ func recallCmd() *cobra.Command {
 				if parseErr != nil {
 					return parseErr
 				}
-				if filters == nil {
-					filters = &store.SearchFilters{}
-				}
 				filters.ValidBefore = &t
 			}
 			if validAfterStr != "" {
 				t, parseErr := parseTimeFlag("recall", "--valid-after", validAfterStr, false)
 				if parseErr != nil {
 					return parseErr
-				}
-				if filters == nil {
-					filters = &store.SearchFilters{}
 				}
 				filters.ValidAfter = &t
 			}

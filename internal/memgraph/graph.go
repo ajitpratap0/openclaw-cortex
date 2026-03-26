@@ -354,6 +354,13 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	if useEmbedding {
 		// Fetch up to 10× the requested limit as candidates for cosine re-ranking.
 		// Cap at math.MaxInt64 to guard against integer overflow on pathological inputs.
+		//
+		// Important: this is NOT a correct top-K algorithm for graphs with more facts
+		// than fetchLimit. Cosine scores are computed only over the facts returned by
+		// Memgraph in storage order; facts beyond fetchLimit are never scored and can
+		// never appear in results regardless of their relevance. The saturation warning
+		// below fires when this limit is reached. For large graphs, increase
+		// candidateFactor or add a native vector index that supports exact top-K.
 		const candidateFactor = 10
 		if fetchLimit <= math.MaxInt64/candidateFactor {
 			fetchLimit *= candidateFactor
@@ -407,7 +414,20 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 			targetID, _, _ := neo4j.GetRecordValue[string](record, "target_entity_id")
 
 			memoryIDs := getStringSlice(record, "source_memory_ids")
-			factEmb := getFloat32Slice(record, "fact_embedding")
+
+			// Compute cosine similarity here, inside the closure, so the stored
+			// embedding is not carried in the public FactResult type.
+			// Facts without a stored embedding receive score 0 and sort to the bottom;
+			// they remain discoverable — run a backfill via UpsertFact to fix them.
+			score := 1.0
+			if useEmbedding {
+				factEmb := getFloat32Slice(record, "fact_embedding")
+				if len(factEmb) > 0 {
+					score = float64(vecmath.CosineSimilarity(embedding, factEmb))
+				} else {
+					score = 0
+				}
+			}
 
 			results = append(results, graph.FactResult{
 				ID:              id,
@@ -415,8 +435,7 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 				SourceEntityID:  sourceID,
 				TargetEntityID:  targetID,
 				SourceMemoryIDs: memoryIDs,
-				Score:           1.0, // overwritten below when embedding is used
-				FactEmbedding:   factEmb,
+				Score:           score,
 			})
 		}
 		if collectErr := records.Err(); collectErr != nil {
@@ -439,19 +458,6 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	}
 
 	if useEmbedding && len(results) > 0 {
-		// Compute cosine similarity for facts that have stored embeddings.
-		// Facts without a stored embedding (written before this feature, or when the
-		// embedder was unavailable) receive score 0 and sort to the bottom of results.
-		// They are intentionally retained so they remain discoverable; run a backfill
-		// via UpsertFact (with an embedder configured) to populate missing embeddings.
-		for i := range results {
-			if len(results[i].FactEmbedding) > 0 {
-				results[i].Score = float64(vecmath.CosineSimilarity(embedding, results[i].FactEmbedding))
-			} else {
-				results[i].Score = 0
-			}
-		}
-		// Sort descending by cosine score.
 		sortFactResults(results)
 		if len(results) > limit {
 			results = results[:limit]

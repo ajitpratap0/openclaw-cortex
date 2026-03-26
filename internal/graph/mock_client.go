@@ -122,7 +122,6 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding
 			SourceEntityID:  f.SourceEntityID,
 			TargetEntityID:  f.TargetEntityID,
 			SourceMemoryIDs: f.SourceMemoryIDs,
-			FactEmbedding:   f.FactEmbedding,
 			Score:           score,
 		})
 	}

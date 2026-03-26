@@ -83,8 +83,10 @@ func parseTimeFlag(cmdName, flagName, s string, endOfDay bool) (time.Time, error
 	// Try ISO 8601 date-only first (YYYY-MM-DD).
 	if t, err := time.Parse("2006-01-02", s); err == nil {
 		if endOfDay {
-			// Advance to the last nanosecond of the day so the entire day is included.
-			return t.AddDate(0, 0, 1).Add(-time.Nanosecond).UTC(), nil
+			// Advance to the last second of the day so the entire day is included.
+			// RFC3339 has second precision; finer granularity would be silently
+			// truncated when the value is stored or compared as a string.
+			return t.Add(24*time.Hour - time.Second).UTC(), nil
 		}
 		return t.UTC(), nil
 	}
