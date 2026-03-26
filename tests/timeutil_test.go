@@ -107,6 +107,16 @@ func TestParseTimeFlag(t *testing.T) {
 			input:   "-1h",
 			wantErr: true,
 		},
+		{
+			name:    "zero relative duration returns error",
+			input:   "0h",
+			wantErr: true,
+		},
+		{
+			name:    "zero day relative duration returns error",
+			input:   "0d",
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range cases {
