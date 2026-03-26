@@ -37,6 +37,12 @@ func TestParseTimeFlag(t *testing.T) {
 			wantExact: time.Date(2026, 3, 1, 12, 30, 0, 0, time.UTC),
 		},
 		{
+			name:      "RFC3339 non-UTC offset normalised to UTC",
+			input:     "2026-03-01T18:00:00+05:30",
+			endOfDay:  false,
+			wantExact: time.Date(2026, 3, 1, 12, 30, 0, 0, time.UTC),
+		},
+		{
 			name:       "relative duration 24h",
 			input:      "24h",
 			endOfDay:   false,

@@ -347,7 +347,7 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	// When embedding is provided, fetch a broader candidate set and re-rank by cosine.
 	// When nil, fall back to text CONTAINS matching.
 	if limit <= 0 {
-		return nil, nil
+		return nil, fmt.Errorf("SearchFacts: limit must be > 0, got %d", limit)
 	}
 	useEmbedding := len(embedding) > 0
 	fetchLimit := int64(limit)
@@ -452,7 +452,11 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	// Warn when the candidate window is saturated — results may exclude highly-relevant
 	// facts that appear later in storage order. Increase the multiplier or implement a
 	// full scan to improve recall quality when this fires frequently.
-	if useEmbedding && int64(len(results)) >= fetchLimit {
+	// Note: LIMIT prevents Memgraph from returning more than fetchLimit rows, so
+	// len(results) > fetchLimit is impossible; == is the only saturation condition.
+	// When fetchLimit reached math.MaxInt64 (overflow-guard branch above), this
+	// warning is effectively disabled since len() can never reach MaxInt64.
+	if useEmbedding && int64(len(results)) == fetchLimit {
 		g.store.logger.Warn("search facts: candidate window saturated; results may be incomplete",
 			"limit", limit, "fetch_limit", fetchLimit, "candidates_fetched", len(results))
 	}

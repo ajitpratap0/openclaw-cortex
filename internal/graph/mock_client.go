@@ -88,7 +88,7 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding
 	defer m.mu.RUnlock()
 
 	if limit <= 0 {
-		return nil, nil
+		return nil, fmt.Errorf("SearchFacts: limit must be > 0, got %d", limit)
 	}
 
 	var results []FactResult
