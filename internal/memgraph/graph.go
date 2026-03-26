@@ -3,6 +3,7 @@ package memgraph
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -345,14 +346,20 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 
 	// When embedding is provided, fetch a broader candidate set and re-rank by cosine.
 	// When nil, fall back to text CONTAINS matching.
-	if limit == 0 {
+	if limit <= 0 {
 		return nil, nil
 	}
 	useEmbedding := len(embedding) > 0
 	fetchLimit := int64(limit)
 	if useEmbedding {
 		// Fetch up to 10× the requested limit as candidates for cosine re-ranking.
-		fetchLimit = int64(limit) * 10
+		// Cap at math.MaxInt64 to guard against integer overflow on pathological inputs.
+		const candidateFactor = 10
+		if fetchLimit <= math.MaxInt64/candidateFactor {
+			fetchLimit *= candidateFactor
+		} else {
+			fetchLimit = math.MaxInt64
+		}
 		if fetchLimit < 200 {
 			fetchLimit = 200
 		}
@@ -422,6 +429,14 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 	}
 
 	results, _ := result.([]graph.FactResult)
+
+	// Warn when the candidate window is saturated — results may exclude highly-relevant
+	// facts that appear later in storage order. Increase the multiplier or implement a
+	// full scan to improve recall quality when this fires frequently.
+	if useEmbedding && int64(len(results)) >= fetchLimit {
+		g.store.logger.Warn("search facts: candidate window saturated; results may be incomplete",
+			"limit", limit, "fetch_limit", fetchLimit, "candidates_fetched", len(results))
+	}
 
 	if useEmbedding && len(results) > 0 {
 		// Compute cosine similarity for facts that have stored embeddings.
