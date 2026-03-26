@@ -33,14 +33,14 @@ func TestSearchFacts_TextContainsFilter(t *testing.T) {
 		t.Fatalf("SearchFacts: %v", err)
 	}
 
-	ids := factIDs(results)
-	if !containsFact(ids, "f1") {
+	ids := factResultIDs(results)
+	if !containsFactID(ids, "f1") {
 		t.Errorf("expected f1 (contains 'Alice') in results, got %v", ids)
 	}
-	if !containsFact(ids, "f3") {
+	if !containsFactID(ids, "f3") {
 		t.Errorf("expected f3 (contains 'Alice') in results, got %v", ids)
 	}
-	if containsFact(ids, "f2") {
+	if containsFactID(ids, "f2") {
 		t.Errorf("expected f2 (no 'Alice') excluded from results, got %v", ids)
 	}
 }
@@ -121,7 +121,7 @@ func TestSearchFacts_LimitRespected(t *testing.T) {
 
 // --- helpers ---
 
-func factIDs(results []graph.FactResult) []string {
+func factResultIDs(results []graph.FactResult) []string {
 	ids := make([]string, len(results))
 	for i, r := range results {
 		ids[i] = r.ID
@@ -129,7 +129,7 @@ func factIDs(results []graph.FactResult) []string {
 	return ids
 }
 
-func containsFact(ids []string, id string) bool {
+func containsFactID(ids []string, id string) bool {
 	for _, v := range ids {
 		if v == id {
 			return true
