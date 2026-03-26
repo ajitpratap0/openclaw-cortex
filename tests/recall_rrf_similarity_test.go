@@ -14,14 +14,18 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
+// floatPtr returns a pointer to the given float64 value, for use in struct
+// literals that require *float64 fields.
+func floatPtr(v float64) *float64 { return &v }
+
 // TestRank_UsesOriginalSimilarity verifies that Rank() uses OriginalSimilarity
-// instead of Score when OriginalSimilarity is non-zero.
+// instead of Score when OriginalSimilarity is non-nil.
 func TestRank_UsesOriginalSimilarity(t *testing.T) {
 	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 	now := time.Now().UTC()
 
-	// mem-A: Score is tiny (RRF-like) but OriginalSimilarity is high
-	// mem-B: Score is high but OriginalSimilarity is 0 (falls back to Score)
+	// mem-A: Score is tiny (RRF-like) but OriginalSimilarity is set
+	// mem-B: Score is high but OriginalSimilarity is nil (falls back to Score)
 	results := []models.SearchResult{
 		{
 			Memory: models.Memory{
@@ -33,8 +37,8 @@ func TestRank_UsesOriginalSimilarity(t *testing.T) {
 				LastAccessed: now,
 				AccessCount:  1,
 			},
-			Score:              0.009, // RRF score (blended)
-			OriginalSimilarity: 0.72,  // real vector similarity
+			Score:              0.009,          // RRF score (blended)
+			OriginalSimilarity: floatPtr(0.72), // real vector similarity
 		},
 		{
 			Memory: models.Memory{
@@ -47,7 +51,7 @@ func TestRank_UsesOriginalSimilarity(t *testing.T) {
 				AccessCount:  1,
 			},
 			Score:              0.009, // same RRF score
-			OriginalSimilarity: 0.0,   // not set — falls back to Score
+			OriginalSimilarity: nil,   // not set — falls back to Score
 		},
 	}
 
@@ -63,11 +67,11 @@ func TestRank_UsesOriginalSimilarity(t *testing.T) {
 	assert.InDelta(t, 0.72, ranked[0].SimilarityScore, 0.001,
 		"SimilarityScore should be OriginalSimilarity (0.72), not RRF score (0.009)")
 	assert.InDelta(t, 0.009, ranked[1].SimilarityScore, 0.001,
-		"fallback: SimilarityScore should equal Score when OriginalSimilarity is 0")
+		"fallback: SimilarityScore should equal Score when OriginalSimilarity is nil")
 }
 
 // TestRank_FallbackToScoreWhenOriginalSimilarityZero verifies backward
-// compatibility: if OriginalSimilarity is 0, Score is used as before.
+// compatibility: if OriginalSimilarity is nil, Score is used as before.
 func TestRank_FallbackToScoreWhenOriginalSimilarityZero(t *testing.T) {
 	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
 	now := time.Now().UTC()
@@ -83,7 +87,7 @@ func TestRank_FallbackToScoreWhenOriginalSimilarityZero(t *testing.T) {
 				AccessCount:  1,
 			},
 			Score:              0.90,
-			OriginalSimilarity: 0, // not set
+			OriginalSimilarity: nil, // not set
 		},
 		{
 			Memory: models.Memory{
@@ -95,7 +99,7 @@ func TestRank_FallbackToScoreWhenOriginalSimilarityZero(t *testing.T) {
 				AccessCount:  1,
 			},
 			Score:              0.30,
-			OriginalSimilarity: 0, // not set
+			OriginalSimilarity: nil, // not set
 		},
 	}
 
@@ -181,7 +185,7 @@ func TestRecallWithGraph_PreservesOriginalSimilarity(t *testing.T) {
 
 // TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity verifies that
 // memories fetched only from the graph traversal (not in the original vector
-// results) get OriginalSimilarity=0, which causes Rank() to fall back to Score.
+// results) get OriginalSimilarity=nil, which causes Rank() to fall back to Score.
 func TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity(t *testing.T) {
 	logger := newTestLoggerRecall()
 	r := recall.NewRecaller(recall.DefaultWeights(), logger)

@@ -155,15 +155,10 @@ type SearchResult struct {
 	Score  float64 `json:"score"`
 
 	// OriginalSimilarity holds the raw vector similarity score before any RRF
-	// blend overwrites Score. When non-zero, Rank() uses this value for the
+	// blend overwrites Score. When non-nil, Rank() uses this value for the
 	// similarity component instead of Score. Graph-only memories (not in the
-	// vector result set) leave this at 0.
-	//
-	// Zero is a safe sentinel here because nomic-embed-text produces embeddings
-	// in the strictly positive orthant; cosine similarity between any two valid
-	// text embeddings is always > 0. A genuine 0.0 similarity can only arise
-	// from a zero-magnitude vector, which the embedder never returns.
-	OriginalSimilarity float64 `json:"original_similarity,omitempty"`
+	// vector result set) leave this nil, causing Rank() to fall back to Score.
+	OriginalSimilarity *float64 `json:"original_similarity,omitempty"`
 }
 
 // RecallResult wraps a Memory with multi-factor ranking details.

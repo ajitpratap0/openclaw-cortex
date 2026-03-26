@@ -225,8 +225,8 @@ func (r *Recaller) Rank(results []models.SearchResult, project string, query str
 		// Use OriginalSimilarity when available (set by RecallWithGraph to preserve
 		// the actual vector similarity before the RRF blend overwrites Score).
 		simScore := sr.Score
-		if sr.OriginalSimilarity != 0 {
-			simScore = sr.OriginalSimilarity
+		if sr.OriginalSimilarity != nil {
+			simScore = *sr.OriginalSimilarity
 		}
 		recScore := recencyScore(sr.Memory.LastAccessed, now)
 		freqScore := frequencyScore(sr.Memory.AccessCount)
@@ -345,8 +345,9 @@ func (r *Recaller) RecallWithGraph(
 		id := searchResults[i].Memory.ID
 		// Preserve the raw vector similarity before the RRF blend overwrites Score.
 		origSim := searchResults[i].OriginalSimilarity
-		if origSim == 0 {
-			origSim = searchResults[i].Score
+		if origSim == nil {
+			score := searchResults[i].Score
+			origSim = &score
 		}
 		merged = append(merged, models.SearchResult{
 			Memory:             searchResults[i].Memory,

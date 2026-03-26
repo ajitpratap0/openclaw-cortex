@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -45,9 +46,17 @@ func CheckAndHandleDuplicate(ctx context.Context, st Store, vec []float32, newCo
 		return DedupResult{}, nil
 	}
 
+	// Sort by descending similarity so dupes[0] is always the closest match.
+	sort.Slice(dupes, func(i, j int) bool { return dupes[i].Score > dupes[j].Score })
+
 	best := dupes[0]
 	existingID := best.Memory.ID
 
+	// NOTE: "longer in bytes" is a proxy for richness, not a semantic measure.
+	// It catches the common case (same fact with more detail appended) but will
+	// misfire when the new content is verbose but semantically thinner, or when
+	// the existing content is a dense summary. Callers may override via
+	// --skip-dedup when the heuristic is unsuitable.
 	if len(newContent) <= len(best.Memory.Content) {
 		// New content is not richer — skip the store.
 		return DedupResult{IsDuplicate: true, ExistingID: existingID}, nil
