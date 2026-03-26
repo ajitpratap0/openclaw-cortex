@@ -63,6 +63,12 @@ func CheckAndHandleDuplicate(ctx context.Context, st Store, vec []float32, newCo
 	}
 
 	// New content is longer — update the existing memory with the richer text.
+	// NOTE: only Content and UpdatedAt are changed; all other fields (Tags,
+	// Type, Scope, Confidence, Source, SupersedesID, etc.) are intentionally
+	// preserved from the existing record. This keeps the authoritative metadata
+	// that was set when the memory was originally created. Callers that need to
+	// update metadata alongside content should pass --skip-dedup and perform a
+	// full replace instead.
 	updated := best.Memory
 	updated.Content = newContent
 	updated.UpdatedAt = time.Now().UTC()

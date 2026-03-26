@@ -73,15 +73,18 @@ func storeCmd() *cobra.Command {
 			if !skipDedup {
 				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, cfg.Memory.DedupThreshold)
 				if dedupErr != nil {
-					return cmdErr("store: dedup check", dedupErr)
-				}
-				switch {
-				case dedupRes.IsDuplicate:
-					fmt.Printf("duplicate detected: memory %s already covers this content (skipped)\n", dedupRes.ExistingID)
-					return nil
-				case dedupRes.IsUpdated:
-					fmt.Printf("duplicate detected: updated existing memory %s with richer content\n", dedupRes.ExistingID)
-					return nil
+					// Dedup is an optimisation, not a correctness gate — fail open
+					// so a transient Memgraph hiccup does not block all stores.
+					logger.Warn("store: dedup check failed, proceeding without dedup", "error", dedupErr)
+				} else {
+					switch {
+					case dedupRes.IsDuplicate:
+						fmt.Printf("duplicate detected: memory %s already covers this content (skipped)\n", dedupRes.ExistingID)
+						return nil
+					case dedupRes.IsUpdated:
+						fmt.Printf("duplicate detected: updated existing memory %s with richer content (note: --tags/--confidence/--scope flags were not applied; use --skip-dedup to replace fully)\n", dedupRes.ExistingID)
+						return nil
+					}
 				}
 			}
 

@@ -346,8 +346,8 @@ func (r *Recaller) RecallWithGraph(
 		// Preserve the raw vector similarity before the RRF blend overwrites Score.
 		origSim := searchResults[i].OriginalSimilarity
 		if origSim == nil {
-			score := searchResults[i].Score
-			origSim = &score
+			rawSim := searchResults[i].Score
+			origSim = &rawSim
 		}
 		merged = append(merged, models.SearchResult{
 			Memory:             searchResults[i].Memory,
