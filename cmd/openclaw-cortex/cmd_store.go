@@ -71,7 +71,7 @@ func storeCmd() *cobra.Command {
 			// Store-time dedup: check for near-identical memories (similarity > 0.92).
 			// Bypassed when --skip-dedup is set.
 			if !skipDedup {
-				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content)
+				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, cfg.Memory.DedupThreshold)
 				if dedupErr != nil {
 					return cmdErr("store: dedup check", dedupErr)
 				}

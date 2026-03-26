@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-// DedupThresholdStore is the cosine similarity threshold used by
-// CheckAndHandleDuplicate. Memories above this threshold are considered
-// near-identical for store-time deduplication purposes.
-const DedupThresholdStore = 0.92
-
 // DedupResult describes the outcome of a store-time deduplication check.
 type DedupResult struct {
 	// IsDuplicate is true when a near-identical memory was found and the new
@@ -26,8 +21,8 @@ type DedupResult struct {
 	ExistingID string
 }
 
-// CheckAndHandleDuplicate checks for near-duplicate memories above
-// DedupThresholdStore. It encapsulates the three-way store-time dedup logic:
+// CheckAndHandleDuplicate checks for near-duplicate memories above threshold.
+// It encapsulates the three-way store-time dedup logic:
 //
 //   - No match (similarity < threshold) → returns zero DedupResult; caller
 //     should proceed with a normal store.
@@ -37,11 +32,12 @@ type DedupResult struct {
 //     with the richer content (using vec as its new embedding) and returns
 //     DedupResult{IsUpdated: true, ExistingID: …}.
 //
+// threshold is typically cfg.Memory.DedupThreshold (default 0.92).
 // The vec parameter must be the embedding of newContent (already computed by
 // the caller); it is reused when updating the existing memory to avoid a
 // redundant embedding call.
-func CheckAndHandleDuplicate(ctx context.Context, st Store, vec []float32, newContent string) (DedupResult, error) {
-	dupes, err := st.FindDuplicates(ctx, vec, DedupThresholdStore)
+func CheckAndHandleDuplicate(ctx context.Context, st Store, vec []float32, newContent string, threshold float64) (DedupResult, error) {
+	dupes, err := st.FindDuplicates(ctx, vec, threshold)
 	if err != nil {
 		return DedupResult{}, fmt.Errorf("dedup: finding duplicates: %w", err)
 	}

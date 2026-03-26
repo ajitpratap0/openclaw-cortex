@@ -54,7 +54,7 @@ func TestDedupNearIdenticalContentSkipped(t *testing.T) {
 	newVec := makeDedupVec(1.0)
 	newContent := "Go uses goroutines for concurrency." // same length
 
-	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent)
+	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent, 0.92)
 	require.NoError(t, err)
 	assert.True(t, res.IsDuplicate, "same-length content should be flagged as duplicate")
 	assert.False(t, res.IsUpdated, "should not update when content is not richer")
@@ -73,7 +73,7 @@ func TestDedupShorterContentSkipped(t *testing.T) {
 	newVec := makeDedupVec(1.0)
 	newContent := "Go uses goroutines." // shorter
 
-	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent)
+	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent, 0.92)
 	require.NoError(t, err)
 	assert.True(t, res.IsDuplicate, "shorter content should be flagged as duplicate")
 	assert.False(t, res.IsUpdated)
@@ -94,7 +94,7 @@ func TestDedupRicherContentUpdatesExisting(t *testing.T) {
 	newVec := makeDedupVec(1.0)
 	richerContent := "Go uses goroutines for concurrency. Goroutines are multiplexed onto OS threads by the Go runtime scheduler."
 
-	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, richerContent)
+	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, richerContent, 0.92)
 	require.NoError(t, err)
 	assert.False(t, res.IsDuplicate, "richer content should not be reported as a skip")
 	assert.True(t, res.IsUpdated, "richer content should trigger an in-place update")
@@ -121,7 +121,7 @@ func TestDedupNoMatchProceedsNormally(t *testing.T) {
 	newVec := []float32{0, 1, 0, 0}
 	newContent := "Rust uses ownership for memory safety."
 
-	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent)
+	res, err := store.CheckAndHandleDuplicate(ctx, st, newVec, newContent, 0.92)
 	require.NoError(t, err)
 	assert.False(t, res.IsDuplicate, "orthogonal vector should not be flagged as duplicate")
 	assert.False(t, res.IsUpdated, "orthogonal vector should not trigger an update")

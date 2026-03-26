@@ -158,6 +158,11 @@ type SearchResult struct {
 	// blend overwrites Score. When non-zero, Rank() uses this value for the
 	// similarity component instead of Score. Graph-only memories (not in the
 	// vector result set) leave this at 0.
+	//
+	// Zero is a safe sentinel here because nomic-embed-text produces embeddings
+	// in the strictly positive orthant; cosine similarity between any two valid
+	// text embeddings is always > 0. A genuine 0.0 similarity can only arise
+	// from a zero-magnitude vector, which the embedder never returns.
 	OriginalSimilarity float64 `json:"original_similarity,omitempty"`
 }
 

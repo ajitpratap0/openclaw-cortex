@@ -150,8 +150,8 @@ func TestRecallWithGraph_PreservesOriginalSimilarity(t *testing.T) {
 
 	// The vector search returns both memories with realistic similarity scores.
 	searchResults := []models.SearchResult{
-		{Memory: workplaceFact, Score: 0.72},  // high semantic match
-		{Memory: unrelatedRule, Score: 0.30},  // low semantic match
+		{Memory: workplaceFact, Score: 0.72}, // high semantic match
+		{Memory: unrelatedRule, Score: 0.30}, // low semantic match
 	}
 
 	ranked := r.RecallWithGraph(ctx, "where does Ajit work", testVector(0.72), searchResults, "")

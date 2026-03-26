@@ -133,34 +133,34 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 				vec := vectors[i]
 
 				// Store-time dedup: check for near-identical memories.
-			// Bypassed per-entry when --skip-dedup is set.
-			if !skipDedup {
-				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content)
-				if dedupErr != nil {
-					results[i] = batchStoreResult{
-						ID:     "",
-						Status: "error",
-						Error:  dedupErr.Error(),
+				// Bypassed per-entry when --skip-dedup is set.
+				if !skipDedup {
+					dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content, cfg.Memory.DedupThreshold)
+					if dedupErr != nil {
+						results[i] = batchStoreResult{
+							ID:     "",
+							Status: "error",
+							Error:  dedupErr.Error(),
+						}
+						continue
 					}
-					continue
-				}
-				if dedupRes.IsDuplicate {
-					results[i] = batchStoreResult{
-						ID:      dedupRes.ExistingID,
-						Status:  "duplicate",
-						Content: truncate(inp.Content, 80),
+					if dedupRes.IsDuplicate {
+						results[i] = batchStoreResult{
+							ID:      dedupRes.ExistingID,
+							Status:  "duplicate",
+							Content: truncate(inp.Content, 80),
+						}
+						continue
 					}
-					continue
-				}
-				if dedupRes.IsUpdated {
-					results[i] = batchStoreResult{
-						ID:      dedupRes.ExistingID,
-						Status:  "updated",
-						Content: truncate(inp.Content, 80),
+					if dedupRes.IsUpdated {
+						results[i] = batchStoreResult{
+							ID:      dedupRes.ExistingID,
+							Status:  "updated",
+							Content: truncate(inp.Content, 80),
+						}
+						continue
 					}
-					continue
 				}
-			}
 
 				var tagList []string
 				if len(inp.Tags) > 0 {
