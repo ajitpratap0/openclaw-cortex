@@ -133,10 +133,11 @@ type SearchFilters struct {
 	AsOf *time.Time `json:"as_of,omitempty"`
 
 	// ValidBefore filters memories whose valid_from is at or before this time.
-	// Enables queries like "what was true before March 2026".
+	// Memories with no valid_from (null) are treated as "always existed" and pass this filter,
+	// but will be excluded if ValidAfter is also set (since null valid_from has no known start time).
 	ValidBefore *time.Time `json:"valid_before,omitempty"`
 
 	// ValidAfter filters memories whose valid_from is at or after this time.
-	// Enables queries like "what changed after January".
+	// Memories with no valid_from (null) are excluded by this filter.
 	ValidAfter *time.Time `json:"valid_after,omitempty"`
 }

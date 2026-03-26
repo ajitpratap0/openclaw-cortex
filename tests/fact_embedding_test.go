@@ -11,9 +11,6 @@ import (
 func TestFactResultHasEmbeddingField(t *testing.T) {
 	vec := []float32{0.1, 0.2, 0.3}
 	fr := graph.FactResult{
-		ID:            "f1",
-		Fact:          "A uses B for processing",
-		Score:         0.9,
 		FactEmbedding: vec,
 	}
 	if len(fr.FactEmbedding) != 3 {
@@ -27,10 +24,7 @@ func TestFactResultHasEmbeddingField(t *testing.T) {
 // TestFactResultEmbeddingOmittedWhenEmpty verifies that FactEmbedding with
 // omitempty is nil (not an empty slice) when unset, as expected by JSON callers.
 func TestFactResultEmbeddingOmittedWhenEmpty(t *testing.T) {
-	fr := graph.FactResult{
-		ID:   "f2",
-		Fact: "B depends on C",
-	}
+	fr := graph.FactResult{}
 	if fr.FactEmbedding != nil {
 		t.Errorf("expected nil FactEmbedding when not set, got %v", fr.FactEmbedding)
 	}

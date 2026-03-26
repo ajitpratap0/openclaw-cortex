@@ -176,8 +176,8 @@ func temporalDummyVec() []float32 {
 
 func temporalResultIDs(results []models.SearchResult) []string {
 	ids := make([]string, len(results))
-	for i, r := range results {
-		ids[i] = r.Memory.ID
+	for i := range results {
+		ids[i] = results[i].Memory.ID
 	}
 	return ids
 }
