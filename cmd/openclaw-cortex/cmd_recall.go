@@ -215,7 +215,7 @@ func recallCmd() *cobra.Command {
 	cmd.Flags().IntVar(&graphDepth, "graph-depth", 2, "graph traversal depth for graph-aware recall (1=direct entity facts only, 2=also traverse neighbor entities)")
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include invalidated/superseded memories in results")
 	cmd.Flags().BoolVar(&noAccessUpdate, "no-access-update", false, "skip updating access metadata (prevents automated pipelines from inflating access counts)")
-	cmd.Flags().StringVar(&validBeforeStr, "valid-before", "", "return memories whose valid_from is at or before this time (ISO 8601 or relative: 7d, 24h, 30m)")
-	cmd.Flags().StringVar(&validAfterStr, "valid-after", "", "return memories whose valid_from is at or after this time (ISO 8601 or relative: 7d, 24h, 30m)")
+	cmd.Flags().StringVar(&validBeforeStr, "valid-before", "", "return memories whose valid_from is at or before this time (ISO 8601 or relative: 7d, 24h, 30m); memories with no valid_from pass this filter")
+	cmd.Flags().StringVar(&validAfterStr, "valid-after", "", "return memories whose valid_from is at or after this time (ISO 8601 or relative: 7d, 24h, 30m); memories with no valid_from are excluded")
 	return cmd
 }

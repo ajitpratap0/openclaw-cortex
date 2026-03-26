@@ -87,6 +87,10 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if limit <= 0 {
+		return nil, nil
+	}
+
 	var results []FactResult
 	for id := range m.facts {
 		f := m.facts[id]
@@ -94,7 +98,9 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding
 			continue
 		}
 		// Text-CONTAINS filter: skip facts that don't contain the query string.
-		if query != "" && !strings.Contains(strings.ToLower(f.Fact), strings.ToLower(query)) {
+		// Skipped when an embedding is provided — the real implementation fetches all
+		// non-expired facts and re-ranks by cosine when embedding is present.
+		if query != "" && len(embedding) == 0 && !strings.Contains(strings.ToLower(f.Fact), strings.ToLower(query)) {
 			continue
 		}
 		score := 1.0

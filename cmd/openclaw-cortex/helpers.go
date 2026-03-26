@@ -76,6 +76,8 @@ func buildSearchFilters(cmdName, memType, memScope, project, tagsFlag string) (*
 // returned time is 23:59:59.999999999 UTC of that day instead of midnight.
 // Use endOfDay=true for upper-bound filters like --valid-before so that the
 // entire specified day is included in the result set.
+// Note: the endOfDay adjustment applies only to date-only inputs; RFC3339 and
+// relative-duration inputs (e.g. 7d) are returned as-is regardless of endOfDay.
 // Returns an error prefixed with cmdName and flagName for clear CLI error messages.
 func parseTimeFlag(cmdName, flagName, s string, endOfDay bool) (time.Time, error) {
 	// Try ISO 8601 date-only first (YYYY-MM-DD).
