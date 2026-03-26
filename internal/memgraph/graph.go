@@ -1060,9 +1060,7 @@ func getFloat32Slice(record *neo4j.Record, key string) []float32 {
 
 // sortFactResults sorts FactResult slice by Score descending in-place.
 func sortFactResults(results []graph.FactResult) {
-	for i := 1; i < len(results); i++ {
-		for j := i; j > 0 && results[j].Score > results[j-1].Score; j-- {
-			results[j], results[j-1] = results[j-1], results[j]
-		}
-	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
 }

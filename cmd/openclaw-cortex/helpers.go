@@ -72,10 +72,18 @@ func buildSearchFilters(cmdName, memType, memScope, project, tagsFlag string) (*
 // parseTimeFlag parses a time flag value that can be an ISO 8601 datetime
 // (e.g. "2026-03-01" or "2026-03-01T15:00:00Z") or a relative duration
 // subtracted from now (e.g. "7d", "24h", "30m" — same syntax as --valid-until).
+// When endOfDay is true and the input is a date-only string (YYYY-MM-DD), the
+// returned time is 23:59:59.999999999 UTC of that day instead of midnight.
+// Use endOfDay=true for upper-bound filters like --valid-before so that the
+// entire specified day is included in the result set.
 // Returns an error prefixed with cmdName and flagName for clear CLI error messages.
-func parseTimeFlag(cmdName, flagName, s string) (time.Time, error) {
+func parseTimeFlag(cmdName, flagName, s string, endOfDay bool) (time.Time, error) {
 	// Try ISO 8601 date-only first (YYYY-MM-DD).
 	if t, err := time.Parse("2006-01-02", s); err == nil {
+		if endOfDay {
+			// Advance to the last nanosecond of the day so the entire day is included.
+			return t.AddDate(0, 0, 1).Add(-time.Nanosecond).UTC(), nil
+		}
 		return t.UTC(), nil
 	}
 	// Try full RFC3339.

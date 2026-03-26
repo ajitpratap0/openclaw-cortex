@@ -132,23 +132,23 @@ func storeCmd() *cobra.Command {
 
 			if extractEntities && !skipExtract {
 				llmClient := llm.NewClient(cfg.Claude)
-				gc := memgraph.NewGraphAdapter(st)
-				gc.SetEmbedder(emb)
-				res := extract.Run(ctx, extract.Deps{
-					LLMClient:   llmClient,
-					Model:       cfg.Claude.Model,
-					Store:       st,
-					GraphClient: gc,
-					Logger:      logger,
-				}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
-				// The switch relies on extract.Run returning Result{} when LLMClient is nil.
-				switch {
-				case res.EntitiesExtracted > 0 || res.FactsExtracted > 0:
-					fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
-				case llmClient == nil:
+				if llmClient == nil {
 					fmt.Println("  Entity extraction skipped: no LLM configured (set ANTHROPIC_API_KEY or gateway)")
-				default:
-					fmt.Println("  No entities or facts extracted")
+				} else {
+					gc := memgraph.NewGraphAdapter(st)
+					gc.SetEmbedder(emb)
+					res := extract.Run(ctx, extract.Deps{
+						LLMClient:   llmClient,
+						Model:       cfg.Claude.Model,
+						Store:       st,
+						GraphClient: gc,
+						Logger:      logger,
+					}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
+					if res.EntitiesExtracted > 0 || res.FactsExtracted > 0 {
+						fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
+					} else {
+						fmt.Println("  No entities or facts extracted")
+					}
 				}
 			}
 
