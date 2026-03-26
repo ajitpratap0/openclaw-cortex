@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
@@ -28,11 +29,9 @@ import (
 // NOTE: capped at fetchLimit rows in arbitrary storage order — not a true full scan.
 // Increase fetchLimit (or remove LIMIT) if the graph has many facts and recall quality degrades.
 type GraphAdapter struct {
-	store *MemgraphStore
-	// embeddr is optional; enables semantic fact embedding in UpsertFact.
-	// Must be set before the adapter is used concurrently; SetEmbedder and
-	// UpsertFact are not synchronized — see SetEmbedder doc comment.
-	embeddr embedder.Embedder
+	store   *MemgraphStore
+	mu      sync.RWMutex      // protects embeddr
+	embeddr embedder.Embedder // optional; enables semantic fact embedding in UpsertFact
 }
 
 // NewGraphAdapter creates a GraphAdapter that delegates to the given MemgraphStore.
@@ -42,11 +41,10 @@ func NewGraphAdapter(s *MemgraphStore) *GraphAdapter {
 
 // SetEmbedder attaches an embedder to the GraphAdapter. When set, UpsertFact will
 // automatically embed the fact text if the Fact.FactEmbedding field is empty.
-//
-// Must be called before the adapter is shared across goroutines. SetEmbedder and
-// UpsertFact (which reads g.embeddr) are not synchronized; concurrent use after
-// the adapter is already in use is a data race.
+// Safe to call concurrently with other GraphAdapter methods.
 func (g *GraphAdapter) SetEmbedder(e embedder.Embedder) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.embeddr = e
 }
 
@@ -268,8 +266,11 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 // embedded before storage, enabling cosine similarity ranking in SearchFacts.
 func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
 	// Embed fact text when no embedding is present and an embedder is available.
-	if len(fact.FactEmbedding) == 0 && g.embeddr != nil {
-		vec, embedErr := g.embeddr.Embed(ctx, fact.Fact)
+	g.mu.RLock()
+	emb := g.embeddr
+	g.mu.RUnlock()
+	if len(fact.FactEmbedding) == 0 && emb != nil {
+		vec, embedErr := emb.Embed(ctx, fact.Fact)
 		if embedErr != nil {
 			// Non-fatal: log and proceed without embedding.
 			g.store.logger.Warn("upsert fact: embedding failed, storing without vector",
