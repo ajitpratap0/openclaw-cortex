@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 // batchStoreInput is the JSON schema for each element in the stdin array.
@@ -32,7 +33,10 @@ type batchStoreResult struct {
 }
 
 func storeBatchCmd() *cobra.Command {
-	var project string
+	var (
+		project   string
+		skipDedup bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "store-batch",
@@ -128,16 +132,35 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 				inp := &inputs[i]
 				vec := vectors[i]
 
-				// Check for duplicates.
-				dupes, dupErr := st.FindDuplicates(ctx, vec, cfg.Memory.DedupThreshold)
-				if dupErr == nil && len(dupes) > 0 {
+				// Store-time dedup: check for near-identical memories.
+			// Bypassed per-entry when --skip-dedup is set.
+			if !skipDedup {
+				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content)
+				if dedupErr != nil {
 					results[i] = batchStoreResult{
-						ID:      dupes[0].Memory.ID,
+						ID:     "",
+						Status: "error",
+						Error:  dedupErr.Error(),
+					}
+					continue
+				}
+				if dedupRes.IsDuplicate {
+					results[i] = batchStoreResult{
+						ID:      dedupRes.ExistingID,
 						Status:  "duplicate",
 						Content: truncate(inp.Content, 80),
 					}
 					continue
 				}
+				if dedupRes.IsUpdated {
+					results[i] = batchStoreResult{
+						ID:      dedupRes.ExistingID,
+						Status:  "updated",
+						Content: truncate(inp.Content, 80),
+					}
+					continue
+				}
+			}
 
 				var tagList []string
 				if len(inp.Tags) > 0 {
@@ -188,5 +211,6 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 	}
 
 	cmd.Flags().StringVar(&project, "project", "", "project name for all memories in this batch")
+	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memories)")
 	return cmd
 }
