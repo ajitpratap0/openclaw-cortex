@@ -1368,6 +1368,21 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 		clauses = append(clauses, fmt.Sprintf("(%s.valid_to IS NULL OR %s.valid_to = \"\")", nodeAlias, nodeAlias))
 	}
 
+	// ValidBefore/ValidAfter filter on valid_from — enables range queries like
+	// "what was true before March 2026" or "what changed after January".
+	if f.ValidBefore != nil {
+		clauses = append(clauses,
+			fmt.Sprintf("(%s.valid_from IS NULL OR %s.valid_from <= $filter_valid_before)", nodeAlias, nodeAlias),
+		)
+		params["filter_valid_before"] = f.ValidBefore.UTC().Format(time.RFC3339)
+	}
+	if f.ValidAfter != nil {
+		clauses = append(clauses,
+			fmt.Sprintf("(%s.valid_from IS NOT NULL AND %s.valid_from >= $filter_valid_after)", nodeAlias, nodeAlias),
+		)
+		params["filter_valid_after"] = f.ValidAfter.UTC().Format(time.RFC3339)
+	}
+
 	return clauses, params
 }
 
