@@ -3,11 +3,13 @@ package graph
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
 // MockGraphClient implements Client with in-memory maps for testing.
@@ -81,7 +83,7 @@ func (m *MockGraphClient) UpsertFact(_ context.Context, fact models.Fact) error 
 	return nil
 }
 
-func (m *MockGraphClient) SearchFacts(_ context.Context, _ string, _ []float32, limit int) ([]FactResult, error) {
+func (m *MockGraphClient) SearchFacts(_ context.Context, query string, embedding []float32, limit int) ([]FactResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -91,17 +93,30 @@ func (m *MockGraphClient) SearchFacts(_ context.Context, _ string, _ []float32, 
 		if f.ExpiredAt != nil {
 			continue
 		}
+		// Text-CONTAINS filter: skip facts that don't contain the query string.
+		if query != "" && !strings.Contains(strings.ToLower(f.Fact), strings.ToLower(query)) {
+			continue
+		}
+		score := 1.0
+		// Cosine re-ranking: score by embedding similarity when both sides are present.
+		if len(embedding) > 0 && len(f.FactEmbedding) > 0 {
+			score = float64(vecmath.CosineSimilarity(embedding, f.FactEmbedding))
+		}
 		results = append(results, FactResult{
 			ID:              f.ID,
 			Fact:            f.Fact,
 			SourceEntityID:  f.SourceEntityID,
 			TargetEntityID:  f.TargetEntityID,
 			SourceMemoryIDs: f.SourceMemoryIDs,
-			Score:           1.0,
+			FactEmbedding:   f.FactEmbedding,
+			Score:           score,
 		})
-		if limit > 0 && len(results) >= limit {
-			break
-		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+	if limit > 0 && len(results) > limit {
+		results = results[:limit]
 	}
 	return results, nil
 }

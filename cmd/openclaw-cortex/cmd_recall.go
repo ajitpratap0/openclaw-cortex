@@ -78,7 +78,7 @@ func recallCmd() *cobra.Command {
 				filters.IncludeInvalidated = true
 			}
 			if validBeforeStr != "" {
-				t, parseErr := parseTimeFlag("recall", "--valid-before", validBeforeStr)
+				t, parseErr := parseTimeFlag("recall", "--valid-before", validBeforeStr, true)
 				if parseErr != nil {
 					return parseErr
 				}
@@ -88,7 +88,7 @@ func recallCmd() *cobra.Command {
 				filters.ValidBefore = &t
 			}
 			if validAfterStr != "" {
-				t, parseErr := parseTimeFlag("recall", "--valid-after", validAfterStr)
+				t, parseErr := parseTimeFlag("recall", "--valid-after", validAfterStr, false)
 				if parseErr != nil {
 					return parseErr
 				}
