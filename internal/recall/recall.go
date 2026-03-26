@@ -47,14 +47,17 @@ type Weights struct {
 }
 
 // DefaultWeights returns sensible default ranking weights.
+// Similarity is weighted heavily so that semantic relevance dominates;
+// recency, frequency, and confidence are reduced to prevent access-pattern
+// inflation from drowning out genuinely relevant but less-accessed memories.
 func DefaultWeights() Weights {
 	return Weights{
-		Similarity:    0.35,
-		Recency:       0.15,
-		Frequency:     0.10,
+		Similarity:    0.50,
+		Recency:       0.08,
+		Frequency:     0.05,
 		TypeBoost:     0.10,
 		ScopeBoost:    0.08,
-		Confidence:    0.10,
+		Confidence:    0.07,
 		Reinforcement: 0.07,
 		TagAffinity:   0.05,
 	}

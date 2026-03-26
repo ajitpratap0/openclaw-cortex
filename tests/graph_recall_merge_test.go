@@ -131,7 +131,7 @@ func TestRecallWithoutGraph(t *testing.T) {
 
 	qdrantResults := []models.SearchResult{
 		{Memory: mem1, Score: 0.75},
-		{Memory: mem2, Score: 0.85},
+		{Memory: mem2, Score: 0.80},
 	}
 
 	// No SetGraphClient call — graphClient remains nil.
@@ -140,7 +140,8 @@ func TestRecallWithoutGraph(t *testing.T) {
 	results := r.RecallWithGraph(context.Background(), "query", nil, qdrantResults, "")
 
 	require.Len(t, results, 2)
-	// Rule should rank higher due to type boost even though similarity is lower.
+	// Rule should rank higher due to type boost (1.5×) + higher confidence (0.9 vs 0.7)
+	// even though similarity is slightly lower (0.75 vs 0.80).
 	assert.Equal(t, "no-graph-1", results[0].Memory.ID, "rule should rank first")
 }
 
