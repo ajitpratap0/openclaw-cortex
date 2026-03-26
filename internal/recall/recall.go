@@ -47,14 +47,17 @@ type Weights struct {
 }
 
 // DefaultWeights returns sensible default ranking weights.
+// Similarity is weighted heavily so that semantic relevance dominates;
+// recency, frequency, and confidence are reduced to prevent access-pattern
+// inflation from drowning out genuinely relevant but less-accessed memories.
 func DefaultWeights() Weights {
 	return Weights{
-		Similarity:    0.35,
-		Recency:       0.15,
-		Frequency:     0.10,
+		Similarity:    0.50,
+		Recency:       0.08,
+		Frequency:     0.05,
 		TypeBoost:     0.10,
 		ScopeBoost:    0.08,
-		Confidence:    0.10,
+		Confidence:    0.07,
 		Reinforcement: 0.07,
 		TagAffinity:   0.05,
 	}
@@ -219,7 +222,12 @@ func (r *Recaller) Rank(results []models.SearchResult, project string, query str
 			conflictPen = ConflictPenaltyFactor
 		}
 
+		// Use OriginalSimilarity when available (set by RecallWithGraph to preserve
+		// the actual vector similarity before the RRF blend overwrites Score).
 		simScore := sr.Score
+		if sr.OriginalSimilarity != nil {
+			simScore = *sr.OriginalSimilarity
+		}
 		recScore := recencyScore(sr.Memory.LastAccessed, now)
 		freqScore := frequencyScore(sr.Memory.AccessCount)
 		tBoost := typeBoostScore(sr.Memory.Type)
@@ -335,10 +343,16 @@ func (r *Recaller) RecallWithGraph(
 
 	for i := range searchResults {
 		id := searchResults[i].Memory.ID
-		score := blended[id]
+		// Preserve the raw vector similarity before the RRF blend overwrites Score.
+		origSim := searchResults[i].OriginalSimilarity
+		if origSim == nil {
+			rawSim := searchResults[i].Score
+			origSim = &rawSim
+		}
 		merged = append(merged, models.SearchResult{
-			Memory: searchResults[i].Memory,
-			Score:  score,
+			Memory:             searchResults[i].Memory,
+			Score:              blended[id],
+			OriginalSimilarity: origSim,
 		})
 		existing[id] = struct{}{}
 	}

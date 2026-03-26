@@ -12,6 +12,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 func storeCmd() *cobra.Command {
@@ -25,6 +26,7 @@ func storeCmd() *cobra.Command {
 		supersedesID    string
 		validUntil      string
 		extractEntities bool
+		skipDedup       bool
 	)
 
 	cmd := &cobra.Command{
@@ -66,12 +68,24 @@ func storeCmd() *cobra.Command {
 				return cmdErr("store: embedding content", err)
 			}
 
-			// Check for duplicates
-			dupes, err := st.FindDuplicates(ctx, vec, cfg.Memory.DedupThreshold)
-			if err == nil && len(dupes) > 0 {
-				fmt.Printf("Similar memory already exists (%.2f%% match): %s\n", dupes[0].Score*100, truncate(dupes[0].Memory.Content, 100))
-				fmt.Println("Use 'openclaw-cortex forget' to remove it first, or the memory was skipped.")
-				return nil
+			// Store-time dedup: check for near-identical memories (similarity > 0.92).
+			// Bypassed when --skip-dedup is set.
+			if !skipDedup {
+				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, cfg.Memory.DedupThreshold)
+				if dedupErr != nil {
+					// Dedup is an optimisation, not a correctness gate — fail open
+					// so a transient Memgraph hiccup does not block all stores.
+					logger.Warn("store: dedup check failed, proceeding without dedup", "error", dedupErr)
+				} else {
+					switch {
+					case dedupRes.IsDuplicate:
+						fmt.Printf("duplicate detected: memory %s already covers this content (skipped)\n", dedupRes.ExistingID)
+						return nil
+					case dedupRes.IsUpdated:
+						fmt.Printf("duplicate detected: updated existing memory %s with richer content (note: --tags/--confidence/--scope flags were not applied; use --skip-dedup to replace fully)\n", dedupRes.ExistingID)
+						return nil
+					}
+				}
 			}
 
 			now := time.Now().UTC()
@@ -149,6 +163,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&supersedesID, "supersedes", "", "ID of memory this one replaces")
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
+	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
 	return cmd
 }
 

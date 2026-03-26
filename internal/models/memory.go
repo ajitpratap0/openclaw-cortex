@@ -153,6 +153,12 @@ type Memory struct {
 type SearchResult struct {
 	Memory Memory  `json:"memory"`
 	Score  float64 `json:"score"`
+
+	// OriginalSimilarity holds the raw vector similarity score before any RRF
+	// blend overwrites Score. When non-nil, Rank() uses this value for the
+	// similarity component instead of Score. Graph-only memories (not in the
+	// vector result set) leave this nil, causing Rank() to fall back to Score.
+	OriginalSimilarity *float64 `json:"original_similarity,omitempty"`
 }
 
 // RecallResult wraps a Memory with multi-factor ranking details.

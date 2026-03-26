@@ -128,7 +128,7 @@ New in v0.8.0 — methods added to `memgraph.Client`:
 
 Final score is a weighted sum of 8 factors:
 ```
-0.35 × similarity + 0.15 × recency + 0.10 × frequency + 0.10 × typeBoost + 0.08 × scopeBoost + 0.10 × confidence + 0.07 × reinforcement + 0.05 × tagAffinity
+0.50 × similarity + 0.08 × recency + 0.05 × frequency + 0.10 × typeBoost + 0.08 × scopeBoost + 0.07 × confidence + 0.07 × reinforcement + 0.05 × tagAffinity
 ```
 Multiplicative penalties are applied after the weighted sum: superseded memories ×0.3, active conflicts ×0.8.
 

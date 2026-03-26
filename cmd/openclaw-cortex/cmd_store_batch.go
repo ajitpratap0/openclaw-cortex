@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
 
 // batchStoreInput is the JSON schema for each element in the stdin array.
@@ -32,7 +33,10 @@ type batchStoreResult struct {
 }
 
 func storeBatchCmd() *cobra.Command {
-	var project string
+	var (
+		project   string
+		skipDedup bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "store-batch",
@@ -44,7 +48,7 @@ Each object must have a "content" field. Optional fields: type, scope, tags, con
 Example input:
   [{"content": "Go uses goroutines", "type": "fact", "scope": "permanent", "tags": ["go"]}]
 
-Output is a JSON array of results with id and status ("created" or "duplicate").`,
+Output is a JSON array of results with id and status ("created", "duplicate", "updated", or "error").`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger := newLogger()
 			ctx := cmd.Context()
@@ -128,15 +132,33 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 				inp := &inputs[i]
 				vec := vectors[i]
 
-				// Check for duplicates.
-				dupes, dupErr := st.FindDuplicates(ctx, vec, cfg.Memory.DedupThreshold)
-				if dupErr == nil && len(dupes) > 0 {
-					results[i] = batchStoreResult{
-						ID:      dupes[0].Memory.ID,
-						Status:  "duplicate",
-						Content: truncate(inp.Content, 80),
+				// Store-time dedup: check for near-identical memories.
+				// Bypassed per-entry when --skip-dedup is set.
+				if !skipDedup {
+					dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content, cfg.Memory.DedupThreshold)
+					if dedupErr != nil {
+						// Dedup is an optimisation, not a correctness gate — fail open
+						// so a transient Memgraph hiccup does not block all stores.
+						logger.Warn("store-batch: dedup check failed, proceeding without dedup",
+							"index", i, "error", dedupErr)
+					} else {
+						if dedupRes.IsDuplicate {
+							results[i] = batchStoreResult{
+								ID:      dedupRes.ExistingID,
+								Status:  "duplicate",
+								Content: truncate(inp.Content, 80),
+							}
+							continue
+						}
+						if dedupRes.IsUpdated {
+							results[i] = batchStoreResult{
+								ID:      dedupRes.ExistingID,
+								Status:  "updated",
+								Content: truncate(inp.Content, 80),
+							}
+							continue
+						}
 					}
-					continue
 				}
 
 				var tagList []string
@@ -188,5 +210,6 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 	}
 
 	cmd.Flags().StringVar(&project, "project", "", "project name for all memories in this batch")
+	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memories)")
 	return cmd
 }

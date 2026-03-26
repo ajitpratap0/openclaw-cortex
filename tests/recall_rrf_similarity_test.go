@@ -1,0 +1,268 @@
+package tests
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
+	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
+	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+)
+
+// floatPtr returns a pointer to the given float64 value, for use in struct
+// literals that require *float64 fields.
+func floatPtr(v float64) *float64 { return &v }
+
+// TestRank_UsesOriginalSimilarity verifies that Rank() uses OriginalSimilarity
+// instead of Score when OriginalSimilarity is non-nil.
+func TestRank_UsesOriginalSimilarity(t *testing.T) {
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
+	now := time.Now().UTC()
+
+	// mem-A: Score is tiny (RRF-like) but OriginalSimilarity is set
+	// mem-B: Score is high but OriginalSimilarity is nil (falls back to Score)
+	results := []models.SearchResult{
+		{
+			Memory: models.Memory{
+				ID:           "mem-a",
+				Type:         models.MemoryTypeFact,
+				Scope:        models.ScopePermanent,
+				Content:      "Ajit works at Booking.com",
+				Confidence:   0.9,
+				LastAccessed: now,
+				AccessCount:  1,
+			},
+			Score:              0.009,          // RRF score (blended)
+			OriginalSimilarity: floatPtr(0.72), // real vector similarity
+		},
+		{
+			Memory: models.Memory{
+				ID:           "mem-b",
+				Type:         models.MemoryTypeFact,
+				Scope:        models.ScopePermanent,
+				Content:      "Go is a compiled language",
+				Confidence:   0.9,
+				LastAccessed: now,
+				AccessCount:  1,
+			},
+			Score:              0.009, // same RRF score
+			OriginalSimilarity: nil,   // not set — falls back to Score
+		},
+	}
+
+	ranked := r.Rank(results, "", "where does Ajit work")
+	require.Len(t, ranked, 2)
+
+	// mem-a has OriginalSimilarity=0.72 which drives its similarity component.
+	// mem-b falls back to Score=0.009. mem-a should rank first.
+	assert.Equal(t, "mem-a", ranked[0].Memory.ID,
+		"memory with high OriginalSimilarity should rank first despite tiny RRF Score")
+
+	// The SimilarityScore in the result should reflect the original vector sim.
+	assert.InDelta(t, 0.72, ranked[0].SimilarityScore, 0.001,
+		"SimilarityScore should be OriginalSimilarity (0.72), not RRF score (0.009)")
+	assert.InDelta(t, 0.009, ranked[1].SimilarityScore, 0.001,
+		"fallback: SimilarityScore should equal Score when OriginalSimilarity is nil")
+}
+
+// TestRank_FallbackToScoreWhenOriginalSimilarityZero verifies backward
+// compatibility: if OriginalSimilarity is nil, Score is used as before.
+func TestRank_FallbackToScoreWhenOriginalSimilarityZero(t *testing.T) {
+	r := recall.NewRecaller(recall.DefaultWeights(), newTestLoggerRecall())
+	now := time.Now().UTC()
+
+	results := []models.SearchResult{
+		{
+			Memory: models.Memory{
+				ID:           "high-score",
+				Type:         models.MemoryTypeFact,
+				Scope:        models.ScopePermanent,
+				Confidence:   0.9,
+				LastAccessed: now,
+				AccessCount:  1,
+			},
+			Score:              0.90,
+			OriginalSimilarity: nil, // not set
+		},
+		{
+			Memory: models.Memory{
+				ID:           "low-score",
+				Type:         models.MemoryTypeFact,
+				Scope:        models.ScopePermanent,
+				Confidence:   0.9,
+				LastAccessed: now,
+				AccessCount:  1,
+			},
+			Score:              0.30,
+			OriginalSimilarity: nil, // not set
+		},
+	}
+
+	ranked := r.Rank(results, "", "")
+	require.Len(t, ranked, 2)
+
+	assert.Equal(t, "high-score", ranked[0].Memory.ID,
+		"without OriginalSimilarity, Score should drive similarity component")
+	assert.InDelta(t, 0.90, ranked[0].SimilarityScore, 0.001)
+	assert.InDelta(t, 0.30, ranked[1].SimilarityScore, 0.001)
+}
+
+// TestRecallWithGraph_PreservesOriginalSimilarity verifies that
+// RecallWithGraph() stores the original vector similarity in OriginalSimilarity
+// before the RRF blend overwrites Score, so that Rank() can use it.
+func TestRecallWithGraph_PreservesOriginalSimilarity(t *testing.T) {
+	logger := newTestLoggerRecall()
+	r := recall.NewRecaller(recall.DefaultWeights(), logger)
+
+	ctx := context.Background()
+	s := store.NewMockStore()
+	gc := graph.NewMockGraphClient()
+
+	r.SetGraphClient(gc, s, 500)
+
+	now := time.Now().UTC()
+
+	// A workplace fact — high semantic similarity to "where does Ajit work"
+	workplaceFact := models.Memory{
+		ID:           "workplace",
+		Type:         models.MemoryTypeFact,
+		Scope:        models.ScopePermanent,
+		Content:      "Ajit works at Booking.com",
+		Confidence:   0.9,
+		LastAccessed: now,
+		AccessCount:  1,
+	}
+	// An unrelated rule — low semantic similarity
+	unrelatedRule := models.Memory{
+		ID:           "unrelated",
+		Type:         models.MemoryTypeRule,
+		Scope:        models.ScopePermanent,
+		Content:      "Always write tests before implementation",
+		Confidence:   0.9,
+		LastAccessed: now,
+		AccessCount:  1,
+	}
+
+	// Pre-seed store so graph-triggered fetches work if needed.
+	require.NoError(t, s.Upsert(ctx, workplaceFact, testVector(0.72)))
+	require.NoError(t, s.Upsert(ctx, unrelatedRule, testVector(0.3)))
+
+	// The vector search returns both memories with realistic similarity scores.
+	searchResults := []models.SearchResult{
+		{Memory: workplaceFact, Score: 0.72}, // high semantic match
+		{Memory: unrelatedRule, Score: 0.30}, // low semantic match
+	}
+
+	ranked := r.RecallWithGraph(ctx, "where does Ajit work", testVector(0.72), searchResults, "")
+	require.NotEmpty(t, ranked)
+
+	// Find the workplace result.
+	var workplaceResult *models.RecallResult
+	for i := range ranked {
+		if ranked[i].Memory.ID == "workplace" {
+			workplaceResult = &ranked[i]
+			break
+		}
+	}
+	require.NotNil(t, workplaceResult, "workplace memory should be in results")
+
+	// The SimilarityScore should be the original vector similarity (0.72),
+	// NOT the tiny RRF score (~0.009).
+	assert.Greater(t, workplaceResult.SimilarityScore, 0.5,
+		"SimilarityScore should reflect real vector similarity (>0.5), not RRF score (~0.009)")
+
+	// The workplace fact should rank above the unrelated rule despite the rule
+	// type boost, because the semantic similarity difference (0.72 vs 0.30)
+	// outweighs the type boost delta.
+	assert.Equal(t, "workplace", ranked[0].Memory.ID,
+		"highly similar workplace fact should rank first over unrelated rule")
+}
+
+// TestRecallWithGraph_GraphOnlyMemoryUsesRRFScore verifies that a memory
+// returned exclusively via graph traversal (not present in the original vector
+// search results) receives a tiny RRF-blended SimilarityScore, while a memory
+// that did appear in the vector results retains its original similarity (>0.5).
+func TestRecallWithGraph_GraphOnlyMemoryUsesRRFScore(t *testing.T) {
+	logger := newTestLoggerRecall()
+	r := recall.NewRecaller(recall.DefaultWeights(), logger)
+
+	ctx := context.Background()
+	s := store.NewMockStore()
+	gc := graph.NewMockGraphClient()
+
+	r.SetGraphClient(gc, s, 500)
+
+	now := time.Now().UTC()
+
+	// vectorMem — in searchResults with a high vector similarity score.
+	vectorMem := models.Memory{
+		ID:           "vector-mem",
+		Type:         models.MemoryTypeFact,
+		Scope:        models.ScopePermanent,
+		Content:      "Ajit works at Booking.com",
+		Confidence:   0.9,
+		LastAccessed: now,
+		AccessCount:  1,
+	}
+	require.NoError(t, s.Upsert(ctx, vectorMem, testVector(0.8)))
+
+	// graphOnlyMem — upserted to the store but intentionally NOT in searchResults.
+	// It will only be discovered via the graph traversal through the fact below.
+	graphOnlyMem := models.Memory{
+		ID:           "graph-only-mem",
+		Type:         models.MemoryTypeFact,
+		Scope:        models.ScopePermanent,
+		Content:      "Booking.com is headquartered in Amsterdam",
+		Confidence:   0.9,
+		LastAccessed: now,
+		AccessCount:  1,
+	}
+	require.NoError(t, s.Upsert(ctx, graphOnlyMem, testVector(0.5)))
+
+	// Inject a fact whose SourceMemoryIDs includes "graph-only-mem" so that
+	// MockGraphClient.RecallByGraph returns it during the graph walk.
+	require.NoError(t, gc.UpsertFact(ctx, models.Fact{
+		ID:              "f1",
+		SourceEntityID:  "e1",
+		TargetEntityID:  "e2",
+		Fact:            "related",
+		SourceMemoryIDs: []string{"graph-only-mem"},
+	}))
+
+	// Only vectorMem is in the initial vector search results.
+	searchResults := []models.SearchResult{
+		{Memory: vectorMem, Score: 0.8},
+	}
+
+	ranked := r.RecallWithGraph(ctx, "workplace", testVector(0.8), searchResults, "")
+	require.NotEmpty(t, ranked)
+
+	// Find both memories in the ranked output.
+	var vectorResult, graphOnlyResult *models.RecallResult
+	for i := range ranked {
+		switch ranked[i].Memory.ID {
+		case "vector-mem":
+			vectorResult = &ranked[i]
+		case "graph-only-mem":
+			graphOnlyResult = &ranked[i]
+		}
+	}
+
+	require.NotNil(t, vectorResult, "vector-mem should be in results")
+	require.NotNil(t, graphOnlyResult, "graph-only-mem should be in results via graph traversal")
+
+	// vector-mem had OriginalSimilarity preserved from its vector score (0.8),
+	// so Rank() uses that — SimilarityScore should be high (> 0.5).
+	assert.Greater(t, vectorResult.SimilarityScore, 0.5,
+		"vector-originated memory should have SimilarityScore > 0.5 (original sim preserved)")
+
+	// graph-only-mem was never in the vector results so OriginalSimilarity is nil;
+	// Rank() falls back to its tiny RRF-blended Score — SimilarityScore should be < 0.1.
+	assert.Less(t, graphOnlyResult.SimilarityScore, 0.1,
+		"graph-only memory should have SimilarityScore < 0.1 (RRF score, not original sim)")
+}

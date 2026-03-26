@@ -231,12 +231,12 @@ func Load() (*Config, error) {
 	v.SetDefault("recall.graph_budget_ms", 50)
 	v.SetDefault("recall.graph_budget_cli_ms", 500)
 
-	v.SetDefault("recall.weights.similarity", 0.35)
-	v.SetDefault("recall.weights.recency", 0.15)
-	v.SetDefault("recall.weights.frequency", 0.10)
+	v.SetDefault("recall.weights.similarity", 0.50)
+	v.SetDefault("recall.weights.recency", 0.08)
+	v.SetDefault("recall.weights.frequency", 0.05)
 	v.SetDefault("recall.weights.type_boost", 0.10)
 	v.SetDefault("recall.weights.scope_boost", 0.08)
-	v.SetDefault("recall.weights.confidence", 0.10)
+	v.SetDefault("recall.weights.confidence", 0.07)
 	v.SetDefault("recall.weights.reinforcement", 0.07)
 	v.SetDefault("recall.weights.tag_affinity", 0.05)
 
