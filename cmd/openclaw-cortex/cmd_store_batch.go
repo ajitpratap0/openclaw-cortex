@@ -48,7 +48,7 @@ Each object must have a "content" field. Optional fields: type, scope, tags, con
 Example input:
   [{"content": "Go uses goroutines", "type": "fact", "scope": "permanent", "tags": ["go"]}]
 
-Output is a JSON array of results with id and status ("created" or "duplicate").`,
+Output is a JSON array of results with id and status ("created", "duplicate", "updated", or "error").`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger := newLogger()
 			ctx := cmd.Context()
@@ -137,28 +137,27 @@ Output is a JSON array of results with id and status ("created" or "duplicate").
 				if !skipDedup {
 					dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content, cfg.Memory.DedupThreshold)
 					if dedupErr != nil {
-						results[i] = batchStoreResult{
-							ID:     "",
-							Status: "error",
-							Error:  dedupErr.Error(),
+						// Dedup is an optimisation, not a correctness gate — fail open
+						// so a transient Memgraph hiccup does not block all stores.
+						logger.Warn("store-batch: dedup check failed, proceeding without dedup",
+							"index", i, "error", dedupErr)
+					} else {
+						if dedupRes.IsDuplicate {
+							results[i] = batchStoreResult{
+								ID:      dedupRes.ExistingID,
+								Status:  "duplicate",
+								Content: truncate(inp.Content, 80),
+							}
+							continue
 						}
-						continue
-					}
-					if dedupRes.IsDuplicate {
-						results[i] = batchStoreResult{
-							ID:      dedupRes.ExistingID,
-							Status:  "duplicate",
-							Content: truncate(inp.Content, 80),
+						if dedupRes.IsUpdated {
+							results[i] = batchStoreResult{
+								ID:      dedupRes.ExistingID,
+								Status:  "updated",
+								Content: truncate(inp.Content, 80),
+							}
+							continue
 						}
-						continue
-					}
-					if dedupRes.IsUpdated {
-						results[i] = batchStoreResult{
-							ID:      dedupRes.ExistingID,
-							Status:  "updated",
-							Content: truncate(inp.Content, 80),
-						}
-						continue
 					}
 				}
 

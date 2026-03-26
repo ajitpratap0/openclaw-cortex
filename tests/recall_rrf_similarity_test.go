@@ -183,10 +183,11 @@ func TestRecallWithGraph_PreservesOriginalSimilarity(t *testing.T) {
 		"highly similar workplace fact should rank first over unrelated rule")
 }
 
-// TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity verifies that
-// memories fetched only from the graph traversal (not in the original vector
-// results) get OriginalSimilarity=nil, which causes Rank() to fall back to Score.
-func TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity(t *testing.T) {
+// TestRecallWithGraph_GraphOnlyMemoryUsesRRFScore verifies that a memory
+// returned exclusively via graph traversal (not present in the original vector
+// search results) receives a tiny RRF-blended SimilarityScore, while a memory
+// that did appear in the vector results retains its original similarity (>0.5).
+func TestRecallWithGraph_GraphOnlyMemoryUsesRRFScore(t *testing.T) {
 	logger := newTestLoggerRecall()
 	r := recall.NewRecaller(recall.DefaultWeights(), logger)
 
@@ -198,7 +199,7 @@ func TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity(t *testing.T) 
 
 	now := time.Now().UTC()
 
-	// A vector result with high similarity.
+	// vectorMem — in searchResults with a high vector similarity score.
 	vectorMem := models.Memory{
 		ID:           "vector-mem",
 		Type:         models.MemoryTypeFact,
@@ -210,6 +211,30 @@ func TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity(t *testing.T) 
 	}
 	require.NoError(t, s.Upsert(ctx, vectorMem, testVector(0.8)))
 
+	// graphOnlyMem — upserted to the store but intentionally NOT in searchResults.
+	// It will only be discovered via the graph traversal through the fact below.
+	graphOnlyMem := models.Memory{
+		ID:           "graph-only-mem",
+		Type:         models.MemoryTypeFact,
+		Scope:        models.ScopePermanent,
+		Content:      "Booking.com is headquartered in Amsterdam",
+		Confidence:   0.9,
+		LastAccessed: now,
+		AccessCount:  1,
+	}
+	require.NoError(t, s.Upsert(ctx, graphOnlyMem, testVector(0.5)))
+
+	// Inject a fact whose SourceMemoryIDs includes "graph-only-mem" so that
+	// MockGraphClient.RecallByGraph returns it during the graph walk.
+	require.NoError(t, gc.UpsertFact(ctx, models.Fact{
+		ID:              "f1",
+		SourceEntityID:  "e1",
+		TargetEntityID:  "e2",
+		Fact:            "related",
+		SourceMemoryIDs: []string{"graph-only-mem"},
+	}))
+
+	// Only vectorMem is in the initial vector search results.
 	searchResults := []models.SearchResult{
 		{Memory: vectorMem, Score: 0.8},
 	}
@@ -217,7 +242,27 @@ func TestRecallWithGraph_GraphOnlyMemoryHasZeroOriginalSimilarity(t *testing.T) 
 	ranked := r.RecallWithGraph(ctx, "workplace", testVector(0.8), searchResults, "")
 	require.NotEmpty(t, ranked)
 
-	// The vector-originated memory should have its original similarity preserved.
-	assert.Greater(t, ranked[0].SimilarityScore, 0.5,
+	// Find both memories in the ranked output.
+	var vectorResult, graphOnlyResult *models.RecallResult
+	for i := range ranked {
+		switch ranked[i].Memory.ID {
+		case "vector-mem":
+			vectorResult = &ranked[i]
+		case "graph-only-mem":
+			graphOnlyResult = &ranked[i]
+		}
+	}
+
+	require.NotNil(t, vectorResult, "vector-mem should be in results")
+	require.NotNil(t, graphOnlyResult, "graph-only-mem should be in results via graph traversal")
+
+	// vector-mem had OriginalSimilarity preserved from its vector score (0.8),
+	// so Rank() uses that — SimilarityScore should be high (> 0.5).
+	assert.Greater(t, vectorResult.SimilarityScore, 0.5,
 		"vector-originated memory should have SimilarityScore > 0.5 (original sim preserved)")
+
+	// graph-only-mem was never in the vector results so OriginalSimilarity is nil;
+	// Rank() falls back to its tiny RRF-blended Score — SimilarityScore should be < 0.1.
+	assert.Less(t, graphOnlyResult.SimilarityScore, 0.1,
+		"graph-only memory should have SimilarityScore < 0.1 (RRF score, not original sim)")
 }
