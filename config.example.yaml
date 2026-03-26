@@ -1,0 +1,60 @@
+# config.example.yaml — copy to ~/.openclaw-cortex/config.yaml and adjust as needed.
+#
+# Config file search order (first match wins):
+#   1. ~/.openclaw-cortex/config.yaml
+#   2. ./config.yaml (current working directory)
+#
+# Every key can also be set via an environment variable with the
+# OPENCLAW_CORTEX_ prefix (e.g. OPENCLAW_CORTEX_MEMGRAPH_URI).
+
+# ---------------------------------------------------------------------------
+# Recall ranking weights
+# ---------------------------------------------------------------------------
+# All eight weights must sum to exactly 1.0 (± 0.01).
+# Raise a weight to make that factor more influential; lower it to reduce its
+# impact. The values below are the built-in defaults — tuned so that semantic
+# similarity dominates while type/scope signals still differentiate close results.
+recall:
+  weights:
+    similarity:    0.50   # cosine similarity to the query vector (dominant)
+    recency:       0.08   # exponential decay — half-life 7 days
+    frequency:     0.05   # log-scaled access count
+    type_boost:    0.10   # rule > procedure > fact > episode > preference
+    scope_boost:   0.08   # project-scoped memories boosted when --project matches
+    confidence:    0.07   # per-memory confidence score (0–1); 0 treated as 0.7
+    reinforcement: 0.07   # log-scaled reinforcement count
+    tag_affinity:  0.05   # fraction of tags overlapping with query words
+
+  # Claude re-ranking: trigger when the top-4 final scores are within this spread.
+  # Set to 0 to disable automatic re-ranking (--reason still forces it).
+  rerank_score_spread_threshold: 0.05
+
+  # Maximum time (ms) allowed for Claude re-ranking in the CLI.
+  rerank_latency_budget_cli_ms: 3000
+
+# ---------------------------------------------------------------------------
+# Store-time deduplication
+# ---------------------------------------------------------------------------
+# memory.dedup_threshold controls FindDuplicates used by store-time dedup
+# (CheckAndHandleDuplicate) and the capture pipeline.
+# Range: 0.0–1.0. Default: 0.92.
+memory:
+  dedup_threshold: 0.92
+
+# ---------------------------------------------------------------------------
+# Connection settings (uncomment and adjust as needed)
+# ---------------------------------------------------------------------------
+# memgraph:
+#   uri: bolt://localhost:7687
+#   username: ""
+#   password: ""
+
+# ollama:
+#   base_url: http://localhost:11434
+#   model: nomic-embed-text
+
+# claude:
+#   api_key: ""           # or set ANTHROPIC_API_KEY
+#   model: claude-haiku-4-5-20251001
+#   gateway_url: ""       # set for OpenClaw gateway (Max plan users)
+#   gateway_token: ""     # set for OpenClaw gateway
