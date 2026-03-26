@@ -218,7 +218,7 @@ Weights must sum to `1.0` (±0.01); invalid configs fall back to defaults with a
 |---------|-------------|
 | `store <text>` | Store a single memory with `--type` and `--scope` |
 | `store-batch` | Batch store a JSON array of memories from stdin |
-| `recall <query>` | Recall relevant memories within `--budget` tokens |
+| `recall <query>` | Recall relevant memories within `--budget` tokens; `--format json\|text`, `--limit N` |
 | `search <query>` | Raw vector similarity search (no re-ranking) |
 | `capture` | Extract memories from a `--user` / `--assistant` conversation turn |
 | `get <id>` | Fetch a memory by ID |

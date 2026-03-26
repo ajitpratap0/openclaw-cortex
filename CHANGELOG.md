@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-03-26
+
+### Added
+
+- **`recall --format json|text`** — explicit output format flag; replaces the `--context _` JSON-mode sentinel with a first-class flag; backward-compatible (sentinel still works unless `--format text` is set) ([#101])
+- **`recall --limit N`** — hard cap on result count (max 10 000); applied before token-budget trimming for deterministic output ([#101])
+- **Post-store entity & fact extraction** (`internal/extract/`) — new `PostStoreExtractor` automatically extracts entities and relationships when storing memories via the `store` command, without requiring the full capture pipeline ([#100])
+
+### Fixed
+
+- **Lucene text search sanitization** (`internal/memgraph/`) — `SanitizeTextSearchQuery` strips Lucene special characters (`+ - & | ! ( ) { } [ ] ^ " ~ * ? : \ /`) before calling `text_search.search_all`, preventing `Unknown exception!` on natural-language queries containing colons, question marks, and parentheses ([#101])
+- **`LinkMemoryToEntity` cursor drain** (`internal/memgraph/`) — result cursor is now consumed in the not-found path, preventing a resource leak in the Bolt driver ([#99])
+- **LLM health check** (`internal/health/`) — health command now performs a real Claude API ping instead of checking config presence only; detects missing or invalid credentials at startup ([#98])
+
+### Changed
+
+- **Lucene lookup table** — `[128]bool` character set is now a package-level `var` initialized once at startup (was rebuilt on every `SanitizeTextSearchQuery` call) ([#101])
+- **Eval runner** — replaced `--context _` sentinel with `--format json --limit` flags in all eval harness invocations; cleaner error messages distinguish flag errors from connectivity failures ([#100])
+- **`PostStoreExtract` counters** — `Result.EntitiesExtracted` counts successful `UpsertEntity` calls regardless of subsequent link outcome; `Result.FactsExtracted` counts only fully-linked facts (upsert + link both succeeded) ([#100])
+
+### Tests
+
+- `tests/search_entities_cypher_test.go` — table-driven tests for `SanitizeTextSearchQuery` covering all special chars, `wantExact` assertions, backslash/slash, and plain-query passthrough
+- `tests/post_store_extract_test.go` — 8 cases covering entity extraction, fact extraction, cross-memory entity pool, context cancellation, and error paths
+- `tests/eval_runner_test.go` — new cases for `--format json`, `--limit` cap, flag precedence, and legacy sentinel compatibility
+
 ## [0.10.0] - 2026-03-23
 
 > Note: v0.9.0 was skipped; all post-v0.8.0 work is consolidated here.
