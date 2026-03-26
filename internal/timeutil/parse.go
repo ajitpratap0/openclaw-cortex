@@ -57,5 +57,8 @@ func ParseTimeFlag(cmdName, flagName, s string, endOfDay bool) (time.Time, error
 	if err != nil {
 		return time.Time{}, fmt.Errorf("%s: invalid %s %q: must be ISO 8601 date (2006-01-02), RFC3339, or relative duration (7d, 24h, 30m)", cmdName, flagName, s)
 	}
+	if dur <= 0 {
+		return time.Time{}, fmt.Errorf("%s: invalid %s %q: relative duration must be positive (negative values produce a future timestamp)", cmdName, flagName, s)
+	}
 	return time.Now().UTC().Add(-dur), nil
 }

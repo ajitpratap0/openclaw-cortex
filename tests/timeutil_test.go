@@ -102,6 +102,11 @@ func TestParseTimeFlag(t *testing.T) {
 			input:   "notadate",
 			wantErr: true,
 		},
+		{
+			name:    "negative relative duration returns error",
+			input:   "-1h",
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range cases {

@@ -1371,8 +1371,12 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 	// ValidBefore/ValidAfter filter on valid_from — enables range queries like
 	// "what was true before March 2026" or "what changed after January".
 	if f.ValidBefore != nil {
+		// Legacy memories may have valid_from="" (non-null empty string) rather
+		// than NULL. "" < any date string lexicographically, so they would pass
+		// the <= comparison — but that's implicit. Make it explicit and symmetric
+		// with the ValidAfter <> "" guard so the behavior is clear to readers.
 		clauses = append(clauses,
-			fmt.Sprintf("(%s.valid_from IS NULL OR %s.valid_from <= $filter_valid_before)", nodeAlias, nodeAlias),
+			fmt.Sprintf("(%s.valid_from IS NULL OR %s.valid_from = \"\" OR %s.valid_from <= $filter_valid_before)", nodeAlias, nodeAlias, nodeAlias),
 		)
 		// RFC3339 is zero-padded and big-endian (YYYY-MM-DDTHH:MM:SSZ), so
 		// lexicographic string comparison is equivalent to chronological ordering.
