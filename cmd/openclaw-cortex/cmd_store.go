@@ -13,6 +13,7 @@ import (
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/internal/timeutil"
 )
 
 func storeCmd() *cobra.Command {
@@ -116,7 +117,7 @@ func storeCmd() *cobra.Command {
 			}
 
 			if validUntil != "" {
-				dur, parseErr := parseDuration(validUntil)
+				dur, parseErr := timeutil.ParseDuration(validUntil)
 				if parseErr != nil {
 					return fmt.Errorf("store: invalid --valid-until %q: %w", validUntil, parseErr)
 				}
@@ -168,23 +169,6 @@ func storeCmd() *cobra.Command {
 	return cmd
 }
 
-// parseDuration extends time.ParseDuration to support a "d" suffix for days.
-func parseDuration(s string) (time.Duration, error) {
-	if strings.HasSuffix(s, "d") {
-		// Parse "Xd" by treating the number as hours and multiplying by 24.
-		daysStr := strings.TrimSuffix(s, "d")
-		days, err := time.ParseDuration(daysStr + "h")
-		if err != nil {
-			return 0, fmt.Errorf("invalid duration %q: %w", s, err)
-		}
-		return days * 24, nil
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return 0, fmt.Errorf("invalid duration %q: %w", s, err)
-	}
-	return d, nil
-}
 
 func validTypesString() string {
 	types := make([]string, len(models.ValidMemoryTypes))
