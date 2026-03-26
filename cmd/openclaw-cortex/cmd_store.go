@@ -26,7 +26,6 @@ func storeCmd() *cobra.Command {
 		supersedesID    string
 		validUntil      string
 		extractEntities bool
-		skipExtract     bool
 		skipDedup       bool
 	)
 
@@ -130,7 +129,7 @@ func storeCmd() *cobra.Command {
 
 			fmt.Printf("Stored memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)
 
-			if extractEntities && !skipExtract {
+			if extractEntities {
 				llmClient := llm.NewClient(cfg.Claude)
 				if llmClient == nil {
 					fmt.Println("  Entity extraction skipped: no LLM configured (set ANTHROPIC_API_KEY or gateway)")
@@ -165,7 +164,6 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&supersedesID, "supersedes", "", "ID of memory this one replaces")
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
-	cmd.Flags().BoolVar(&skipExtract, "skip-extract", false, "skip entity and fact extraction (overrides --extract-entities)")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
 	return cmd
 }
