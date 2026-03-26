@@ -18,6 +18,7 @@ func TestParseDuration(t *testing.T) {
 		{"1d", false, 24 * time.Hour},
 		{"7d", false, 7 * 24 * time.Hour},
 		{"0d", false, 0},
+		{"d", true, 0},
 		{"invalid", true, 0},
 		{"", true, 0},
 	}

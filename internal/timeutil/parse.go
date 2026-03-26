@@ -11,6 +11,9 @@ import (
 func ParseDuration(s string) (time.Duration, error) {
 	if strings.HasSuffix(s, "d") {
 		daysStr := strings.TrimSuffix(s, "d")
+		if daysStr == "" {
+			return 0, fmt.Errorf("invalid duration %q: missing numeric value before 'd'", s)
+		}
 		days, err := time.ParseDuration(daysStr + "h")
 		if err != nil {
 			return 0, fmt.Errorf("invalid duration %q: %w", s, err)

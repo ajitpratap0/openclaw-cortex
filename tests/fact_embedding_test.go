@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"testing"
 
@@ -118,6 +119,120 @@ func TestSearchFacts_LimitRespected(t *testing.T) {
 		t.Errorf("expected at most 3 results, got %d", len(results))
 	}
 }
+
+// TestUpsertFact_AutoEmbedding verifies that when an embedder is configured via
+// SetEmbedder, UpsertFact automatically computes and stores the embedding when
+// the Fact.FactEmbedding field is empty, enabling cosine ranking in SearchFacts.
+func TestUpsertFact_AutoEmbedding(t *testing.T) {
+	ctx := context.Background()
+	gc := graph.NewMockGraphClient()
+
+	// Stub embedder: returns a fixed vector and counts calls.
+	stubEmb := &stubEmbedder{vec: []float32{1, 0, 0}}
+	gc.SetEmbedder(stubEmb)
+
+	// Upsert a fact with NO pre-computed embedding.
+	f := models.Fact{ID: "f1", Fact: "Alice works at ACME Corp", SourceEntityID: "e1", TargetEntityID: "e2"}
+	if err := gc.UpsertFact(ctx, f); err != nil {
+		t.Fatalf("UpsertFact: %v", err)
+	}
+
+	// Embedder must have been called exactly once.
+	if stubEmb.calls != 1 {
+		t.Errorf("expected embedder called 1 time, got %d", stubEmb.calls)
+	}
+
+	// SearchFacts with the same vector should find the fact (non-zero score).
+	results, err := gc.SearchFacts(ctx, "", []float32{1, 0, 0}, 10)
+	if err != nil {
+		t.Fatalf("SearchFacts: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least 1 result after auto-embedding, got 0")
+	}
+	if results[0].ID != "f1" {
+		t.Errorf("expected f1 as top result, got %q", results[0].ID)
+	}
+	if results[0].Score <= 0 {
+		t.Errorf("expected positive cosine score, got %f", results[0].Score)
+	}
+}
+
+// TestUpsertFact_SkipsEmbeddingWhenPresent verifies that SetEmbedder does not
+// overwrite a fact embedding that was already set by the caller.
+func TestUpsertFact_SkipsEmbeddingWhenPresent(t *testing.T) {
+	ctx := context.Background()
+	gc := graph.NewMockGraphClient()
+
+	stubEmb := &stubEmbedder{vec: []float32{0, 1, 0}}
+	gc.SetEmbedder(stubEmb)
+
+	// Fact with a pre-computed embedding — embedder must NOT be called.
+	f := models.Fact{
+		ID: "f2", Fact: "Bob lives in New York",
+		SourceEntityID: "e1", TargetEntityID: "e2",
+		FactEmbedding: []float32{0, 0, 1},
+	}
+	if err := gc.UpsertFact(ctx, f); err != nil {
+		t.Fatalf("UpsertFact: %v", err)
+	}
+	if stubEmb.calls != 0 {
+		t.Errorf("embedder should not be called when FactEmbedding is already set, got %d calls", stubEmb.calls)
+	}
+}
+
+// TestUpsertFact_EmbedderErrorIgnored verifies that an embedder error is non-fatal:
+// the fact is stored without an embedding rather than returning an error.
+func TestUpsertFact_EmbedderErrorIgnored(t *testing.T) {
+	ctx := context.Background()
+	gc := graph.NewMockGraphClient()
+
+	gc.SetEmbedder(&failEmbedder{})
+
+	f := models.Fact{ID: "f3", Fact: "some fact", SourceEntityID: "e1", TargetEntityID: "e2"}
+	if err := gc.UpsertFact(ctx, f); err != nil {
+		t.Errorf("UpsertFact should not fail when embedder errors, got: %v", err)
+	}
+	// Fact should still be retrievable via text search.
+	results, err := gc.SearchFacts(ctx, "some fact", nil, 10)
+	if err != nil {
+		t.Fatalf("SearchFacts: %v", err)
+	}
+	if !containsFactID(factResultIDs(results), "f3") {
+		t.Errorf("expected f3 in text search results after failed embedding, got %v", factResultIDs(results))
+	}
+}
+
+// --- stub embedders ---
+
+type stubEmbedder struct {
+	vec   []float32
+	calls int
+}
+
+func (s *stubEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	s.calls++
+	return s.vec, nil
+}
+func (s *stubEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = s.vec
+		s.calls++
+	}
+	return out, nil
+}
+func (s *stubEmbedder) Dimension() int { return len(s.vec) }
+
+type failEmbedder struct{}
+
+func (f *failEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	return nil, errors.New("embed: intentional test error")
+}
+func (f *failEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
+	return nil, errors.New("embed: intentional test error")
+}
+func (f *failEmbedder) Dimension() int { return 3 }
 
 // --- helpers ---
 

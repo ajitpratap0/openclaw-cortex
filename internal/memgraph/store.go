@@ -1383,7 +1383,9 @@ func buildWhereClause(f *store.SearchFilters, nodeAlias string) ([]string, map[s
 	}
 	if f.ValidAfter != nil {
 		clauses = append(clauses,
-			fmt.Sprintf("(%s.valid_from IS NOT NULL AND %s.valid_from >= $filter_valid_after)", nodeAlias, nodeAlias),
+			// Exclude legacy memories with valid_from="" (non-null empty string) to match
+			// the semantics of ValidAfter: "only memories that have a meaningful valid_from".
+			fmt.Sprintf("(%s.valid_from IS NOT NULL AND %s.valid_from <> \"\" AND %s.valid_from >= $filter_valid_after)", nodeAlias, nodeAlias, nodeAlias),
 		)
 		// Same RFC3339 zero-padded format required here — see comment above.
 		params["filter_valid_after"] = f.ValidAfter.UTC().Format(time.RFC3339)

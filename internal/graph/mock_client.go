@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
@@ -18,6 +19,7 @@ type MockGraphClient struct {
 	entities map[string]models.Entity
 	facts    map[string]models.Fact
 	episodes map[string]models.Episode
+	embeddr  embedder.Embedder // optional; mirrors GraphAdapter.SetEmbedder behavior
 }
 
 // Compile-time interface assertion.
@@ -76,9 +78,23 @@ func (m *MockGraphClient) GetEntity(_ context.Context, id string) (*models.Entit
 	return &e, nil
 }
 
-func (m *MockGraphClient) UpsertFact(_ context.Context, fact models.Fact) error {
+// SetEmbedder configures an embedder that is called in UpsertFact when the fact
+// has no FactEmbedding, mirroring GraphAdapter.SetEmbedder behavior for tests.
+func (m *MockGraphClient) SetEmbedder(e embedder.Embedder) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.embeddr = e
+}
+
+func (m *MockGraphClient) UpsertFact(ctx context.Context, fact models.Fact) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(fact.FactEmbedding) == 0 && m.embeddr != nil {
+		vec, err := m.embeddr.Embed(ctx, fact.Fact)
+		if err == nil {
+			fact.FactEmbedding = vec
+		}
+	}
 	m.facts[fact.ID] = fact
 	return nil
 }
