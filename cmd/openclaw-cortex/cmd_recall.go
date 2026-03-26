@@ -115,6 +115,7 @@ func recallCmd() *cobra.Command {
 
 			// Wire graph client for graph-augmented recall — MemgraphStore implements graph.Client.
 			gc := memgraph.NewGraphAdapter(st)
+			gc.SetEmbedder(emb)
 			recaller.SetGraphClient(gc, st, cfg.Recall.GraphBudgetCLIMs)
 			recaller.SetGraphDepth(graphDepth)
 

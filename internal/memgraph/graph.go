@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/graph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 	neo4j "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
@@ -16,13 +18,26 @@ import (
 // store.Store.SearchEntities — Go does not allow two methods with the same name but
 // different signatures on the same struct, so we use this thin adapter for the graph
 // interface. All other methods delegate directly to the underlying MemgraphStore.
+//
+// NOTE: Memgraph does not support vector indexes on relationships (RELATES_TO edges).
+// Fact embeddings are stored as edge properties and cosine similarity is computed in
+// Go after fetching candidate facts. This means SearchFacts with an embedding does a
+// full scan of non-expired facts and ranks them by cosine similarity — acceptable for
+// typical fact counts but not suitable for very large graphs.
 type GraphAdapter struct {
-	store *MemgraphStore
+	store   *MemgraphStore
+	embeddr embedder.Embedder // optional; enables semantic fact embedding
 }
 
 // NewGraphAdapter creates a GraphAdapter that delegates to the given MemgraphStore.
 func NewGraphAdapter(s *MemgraphStore) *GraphAdapter {
 	return &GraphAdapter{store: s}
+}
+
+// SetEmbedder attaches an embedder to the GraphAdapter. When set, UpsertFact will
+// automatically embed the fact text if the Fact.FactEmbedding field is empty.
+func (g *GraphAdapter) SetEmbedder(e embedder.Embedder) {
+	g.embeddr = e
 }
 
 // Compile-time assertion: GraphAdapter must satisfy graph.Client.
@@ -239,7 +254,21 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 }
 
 // UpsertFact creates or updates a RELATES_TO relationship between two entities.
+// If the fact has no embedding and an embedder is configured, the fact text is
+// embedded before storage, enabling cosine similarity ranking in SearchFacts.
 func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
+	// Embed fact text when no embedding is present and an embedder is available.
+	if len(fact.FactEmbedding) == 0 && g.embeddr != nil {
+		vec, embedErr := g.embeddr.Embed(ctx, fact.Fact)
+		if embedErr != nil {
+			// Non-fatal: log and proceed without embedding.
+			g.store.logger.Warn("upsert fact: embedding failed, storing without vector",
+				"fact_id", fact.ID, "error", embedErr)
+		} else {
+			fact.FactEmbedding = vec
+		}
+	}
+
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
@@ -299,26 +328,56 @@ func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
 	return nil
 }
 
-// SearchFacts performs a text search over RELATES_TO relationships using
-// property-level CONTAINS matching (Memgraph does not support text indexes on edges).
-func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, _ []float32, limit int) ([]graph.FactResult, error) {
+// SearchFacts performs a search over RELATES_TO relationships.
+//
+// When embedding is non-nil, facts are fetched (with a larger candidate window),
+// their stored fact_embedding is compared against the query embedding via cosine
+// similarity, results are ranked by that score, and the top `limit` are returned.
+// This is a property-based cosine fallback because Memgraph does not support vector
+// indexes on relationships.
+//
+// When embedding is nil, a text-search fallback using CONTAINS matching is used.
+func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding []float32, limit int) ([]graph.FactResult, error) {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
-	cypher := `
-		MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
-		WHERE r.expired_at IS NULL
-		  AND (toLower(r.fact) CONTAINS toLower($query)
-		       OR toLower(r.relation_type) CONTAINS toLower($query))
-		RETURN r.uuid AS uuid, r.fact AS fact, s.uuid AS source_entity_id,
-		       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids,
-		       1.0 AS score
-		LIMIT $limit
-	`
+	// When embedding is provided, fetch a broader candidate set and re-rank by cosine.
+	// When nil, fall back to text CONTAINS matching.
+	useEmbedding := len(embedding) > 0
+	fetchLimit := int64(limit)
+	if useEmbedding {
+		// Fetch up to 10× the requested limit as candidates for cosine re-ranking.
+		fetchLimit = int64(limit) * 10
+		if fetchLimit < 200 {
+			fetchLimit = 200
+		}
+	}
 
-	params := map[string]any{
-		"query": query,
-		"limit": int64(limit),
+	var cypher string
+	params := map[string]any{"limit": fetchLimit}
+
+	if useEmbedding {
+		// Fetch all non-expired facts with their embeddings for cosine ranking.
+		cypher = `
+			MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+			WHERE r.expired_at IS NULL
+			RETURN r.uuid AS uuid, r.fact AS fact, s.uuid AS source_entity_id,
+			       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids,
+			       r.fact_embedding AS fact_embedding
+			LIMIT $limit
+		`
+	} else {
+		cypher = `
+			MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+			WHERE r.expired_at IS NULL
+			  AND (toLower(r.fact) CONTAINS toLower($query)
+			       OR toLower(r.relation_type) CONTAINS toLower($query))
+			RETURN r.uuid AS uuid, r.fact AS fact, s.uuid AS source_entity_id,
+			       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids,
+			       null AS fact_embedding
+			LIMIT $limit
+		`
+		params["query"] = query
 	}
 
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
@@ -334,9 +393,9 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, _ []float3
 			factText, _, _ := neo4j.GetRecordValue[string](record, "fact")
 			sourceID, _, _ := neo4j.GetRecordValue[string](record, "source_entity_id")
 			targetID, _, _ := neo4j.GetRecordValue[string](record, "target_entity_id")
-			score, _, _ := neo4j.GetRecordValue[float64](record, "score")
 
 			memoryIDs := getStringSlice(record, "source_memory_ids")
+			factEmb := getFloat32Slice(record, "fact_embedding")
 
 			results = append(results, graph.FactResult{
 				ID:              id,
@@ -344,7 +403,8 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, _ []float3
 				SourceEntityID:  sourceID,
 				TargetEntityID:  targetID,
 				SourceMemoryIDs: memoryIDs,
-				Score:           score,
+				Score:           1.0, // overwritten below when embedding is used
+				FactEmbedding:   factEmb,
 			})
 		}
 		if collectErr := records.Err(); collectErr != nil {
@@ -357,6 +417,24 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, _ []float3
 	}
 
 	results, _ := result.([]graph.FactResult)
+
+	if useEmbedding && len(results) > 0 {
+		// Compute cosine similarity for facts that have stored embeddings.
+		// Facts without embeddings receive a score of 0.
+		for i := range results {
+			if len(results[i].FactEmbedding) > 0 {
+				results[i].Score = float64(vecmath.CosineSimilarity(embedding, results[i].FactEmbedding))
+			} else {
+				results[i].Score = 0
+			}
+		}
+		// Sort descending by cosine score.
+		sortFactResults(results)
+		if len(results) > limit {
+			results = results[:limit]
+		}
+	}
+
 	return results, nil
 }
 
@@ -981,4 +1059,13 @@ func getFloat32Slice(record *neo4j.Record, key string) []float32 {
 		}
 	}
 	return result
+}
+
+// sortFactResults sorts FactResult slice by Score descending in-place.
+func sortFactResults(results []graph.FactResult) {
+	for i := 1; i < len(results); i++ {
+		for j := i; j > 0 && results[j].Score > results[j-1].Score; j-- {
+			results[j], results[j-1] = results[j-1], results[j]
+		}
+	}
 }
