@@ -105,7 +105,11 @@ func healthCmd() *cobra.Command {
 				// Wrap in a closure so defer llmCancel() is scoped to the LLM block,
 				// not to RunE as a whole.
 				func() {
-					llmCtx, llmCancel := context.WithTimeout(ctx, 5*time.Second)
+					healthTimeoutSec := cfg.Claude.HealthCheckTimeoutSeconds
+					if healthTimeoutSec <= 0 {
+						healthTimeoutSec = 15
+					}
+					llmCtx, llmCancel := context.WithTimeout(ctx, time.Duration(healthTimeoutSec)*time.Second)
 					defer llmCancel()
 					model := cfg.Claude.Model
 					if model == "" {
