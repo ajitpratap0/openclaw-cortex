@@ -28,8 +28,11 @@ import (
 // NOTE: capped at fetchLimit rows in arbitrary storage order — not a true full scan.
 // Increase fetchLimit (or remove LIMIT) if the graph has many facts and recall quality degrades.
 type GraphAdapter struct {
-	store   *MemgraphStore
-	embeddr embedder.Embedder // optional; enables semantic fact embedding
+	store *MemgraphStore
+	// embeddr is optional; enables semantic fact embedding in UpsertFact.
+	// Must be set before the adapter is used concurrently; SetEmbedder and
+	// UpsertFact are not synchronized — see SetEmbedder doc comment.
+	embeddr embedder.Embedder
 }
 
 // NewGraphAdapter creates a GraphAdapter that delegates to the given MemgraphStore.
@@ -373,9 +376,7 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 		} else {
 			fetchLimit = math.MaxInt64
 		}
-		if fetchLimit < 200 {
-			fetchLimit = 200
-		}
+		fetchLimit = max(fetchLimit, 200)
 	}
 
 	var cypher string

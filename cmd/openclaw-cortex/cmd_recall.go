@@ -83,14 +83,14 @@ func recallCmd() *cobra.Command {
 			if validBeforeStr != "" {
 				t, parseErr := timeutil.ParseTimeFlag("recall", "--valid-before", validBeforeStr, true)
 				if parseErr != nil {
-					return parseErr
+					return fmt.Errorf("%w", parseErr)
 				}
 				filters.ValidBefore = &t
 			}
 			if validAfterStr != "" {
 				t, parseErr := timeutil.ParseTimeFlag("recall", "--valid-after", validAfterStr, false)
 				if parseErr != nil {
-					return parseErr
+					return fmt.Errorf("%w", parseErr)
 				}
 				filters.ValidAfter = &t
 			}
