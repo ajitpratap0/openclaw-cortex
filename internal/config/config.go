@@ -137,7 +137,7 @@ type ClaudeConfig struct {
 	GatewayURL   string `mapstructure:"gateway_url"`
 	GatewayToken string `mapstructure:"gateway_token"`
 
-	GatewayTimeoutSeconds    int `mapstructure:"gateway_timeout_seconds"`     // 0 = no timeout
+	GatewayTimeoutSeconds     int `mapstructure:"gateway_timeout_seconds"`      // 0 = no timeout
 	HealthCheckTimeoutSeconds int `mapstructure:"health_check_timeout_seconds"` // default: 15
 
 	// LLM resilience settings

@@ -345,6 +345,9 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 
 	// When embedding is provided, fetch a broader candidate set and re-rank by cosine.
 	// When nil, fall back to text CONTAINS matching.
+	if limit == 0 {
+		return nil, nil
+	}
 	useEmbedding := len(embedding) > 0
 	fetchLimit := int64(limit)
 	if useEmbedding {
@@ -422,7 +425,10 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 
 	if useEmbedding && len(results) > 0 {
 		// Compute cosine similarity for facts that have stored embeddings.
-		// Facts without embeddings receive a score of 0.
+		// Facts without a stored embedding (written before this feature, or when the
+		// embedder was unavailable) receive score 0 and sort to the bottom of results.
+		// They are intentionally retained so they remain discoverable; run a backfill
+		// via UpsertFact (with an embedder configured) to populate missing embeddings.
 		for i := range results {
 			if len(results[i].FactEmbedding) > 0 {
 				results[i].Score = float64(vecmath.CosineSimilarity(embedding, results[i].FactEmbedding))
