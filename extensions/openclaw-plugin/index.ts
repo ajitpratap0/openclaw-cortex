@@ -87,11 +87,15 @@ class CortexClient {
   private defaultProject: string;
   private env: Record<string, string | undefined>;
 
-  constructor(binaryPath?: string, project?: string, anthropicApiKey?: string) {
+  constructor(binaryPath?: string, project?: string, anthropicApiKey?: string, gatewayUrl?: string, gatewayToken?: string) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
     this.env = { ...process.env };
-    if (anthropicApiKey) {
+    if (gatewayUrl && gatewayToken) {
+      // Prefer gateway mode — routes through OpenClaw's auth (Max plan OAuth, etc.)
+      this.env.OPENCLAW_GATEWAY_URL = gatewayUrl;
+      this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+    } else if (anthropicApiKey) {
       this.env.ANTHROPIC_API_KEY = anthropicApiKey;
     }
   }
@@ -310,13 +314,25 @@ const memoryCortexPlugin = {
 
   register(api: OpenClawPluginApi) {
     const cfg: PluginConfig = api.pluginConfig ?? {};
-    const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey);
+
+    // Resolve LLM credentials: prefer OpenClaw gateway (uses Max plan OAuth token),
+    // fall back to explicit anthropicApiKey in plugin config.
+    const gwCfg = (api.config as Record<string, unknown>)?.gateway as Record<string, unknown> | undefined;
+    const gwAuth = gwCfg?.auth as Record<string, unknown> | undefined;
+    const gwPort = gwCfg?.port as number | undefined;
+    const gwBind = (gwCfg?.bind as string) || "loopback";
+    const gwHost = gwBind === "loopback" ? "127.0.0.1" : "0.0.0.0";
+    const gatewayUrl = gwPort ? `http://${gwHost}:${gwPort}` : undefined;
+    const gatewayToken = (gwAuth?.token as string) || (gwAuth?.password as string) || undefined;
+
+    const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
 
+    const llmMode = gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` : cfg.anthropicApiKey ? "direct API key" : "none";
     api.logger.info(
-      `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"})`,
+      `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"}, llm: ${llmMode})`,
     );
 
     // ========================================================================
