@@ -323,7 +323,7 @@ const memoryCortexPlugin = {
     const gwBind = (gwCfg?.bind as string) || "loopback";
     const gwHost = gwBind === "loopback" ? "127.0.0.1" : "0.0.0.0";
     const gatewayUrl = gwPort ? `http://${gwHost}:${gwPort}` : undefined;
-    const gatewayToken = (gwAuth?.token as string) || (gwAuth?.password as string) || undefined;
+    const gatewayToken = (gwAuth?.token as string) || undefined;
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;
@@ -331,6 +331,9 @@ const memoryCortexPlugin = {
     const tokenBudget = cfg.tokenBudget ?? 2000;
 
     const llmMode = gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` : cfg.anthropicApiKey ? "direct API key" : "none";
+    if (gatewayUrl && !gatewayToken) {
+      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — falling back");
+    }
     api.logger.info(
       `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"}, llm: ${llmMode})`,
     );
