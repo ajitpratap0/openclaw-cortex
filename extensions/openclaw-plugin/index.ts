@@ -97,6 +97,9 @@ interface PluginConfig {
  *   the user has already set in their shell.
  * - An explicit `anthropicApiKey` from plugin config always wins over the
  *   ambient `ANTHROPIC_API_KEY`, because it was intentionally provided.
+ * - Gateway and API key can coexist: both are written when provided. The binary
+ *   prefers gateway at runtime, so `anthropicApiKey` serves as a fallback if
+ *   the gateway becomes unavailable.
  */
 export function resolveEnv(
   base: Record<string, string | undefined>,
@@ -108,7 +111,10 @@ export function resolveEnv(
   if (gatewayUrl && gatewayToken) {
     if (!env.OPENCLAW_GATEWAY_URL) env.OPENCLAW_GATEWAY_URL = gatewayUrl;
     if (!env.OPENCLAW_GATEWAY_TOKEN) env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
-  } else if (anthropicApiKey) {
+  }
+  // Always write explicit anthropicApiKey — the binary prefers gateway at runtime,
+  // but having ANTHROPIC_API_KEY in env provides a fallback credential.
+  if (anthropicApiKey) {
     env.ANTHROPIC_API_KEY = anthropicApiKey;
   }
   return env;
@@ -357,7 +363,7 @@ const memoryCortexPlugin = {
     // GatewayClient.Complete() in gateway.go appends that path itself.
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
-    const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token ? gwAuth.token : undefined;
+    const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token.trim() ? gwAuth.token.trim() : undefined;
     // Group both gateway misconfiguration warnings together, before construction.
     if (!gatewayUrl && gatewayToken) {
       api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");

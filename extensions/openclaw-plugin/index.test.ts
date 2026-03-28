@@ -55,11 +55,22 @@ describe("resolveEnv", () => {
     expect(env).toEqual(base);
   });
 
-  it("gateway wins over anthropicApiKey when both are provided", () => {
+  it("sets both gateway vars and anthropicApiKey when both provided (gateway wins at binary runtime)", () => {
     const env = resolveEnv(empty, "http://127.0.0.1:18789", "tok", "sk-ant-test");
     expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:18789");
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("tok");
-    // anthropicApiKey must NOT be set — gateway takes full priority
-    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    // anthropicApiKey is also written — provides a fallback if gateway becomes unavailable
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-test");
+  });
+
+  it("documents partial-gateway state when OPENCLAW_GATEWAY_URL is in base but params incomplete", () => {
+    const base = { OPENCLAW_GATEWAY_URL: "http://127.0.0.1:9999" };
+    const env = resolveEnv(base, undefined, undefined, "sk-ant-fallback");
+    // Gateway URL from base is preserved (not stripped — user's shell choice)
+    expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:9999");
+    // No token from params (gateway incomplete) → not written
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
+    // anthropicApiKey provides the active LLM path
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-fallback");
   });
 });
