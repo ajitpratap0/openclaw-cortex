@@ -320,10 +320,9 @@ const memoryCortexPlugin = {
     const gwCfg = (api.config as Record<string, unknown>)?.gateway as Record<string, unknown> | undefined;
     const gwAuth = gwCfg?.auth as Record<string, unknown> | undefined;
     const gwPort = gwCfg?.port as number | undefined;
-    const gwBind = (gwCfg?.bind as string) || "loopback";
-    const gwHost = gwBind === "loopback" ? "127.0.0.1" : "0.0.0.0";
-    const gatewayUrl = gwPort ? `http://${gwHost}:${gwPort}` : undefined;
-    const gatewayToken = (gwAuth?.token as string) || undefined;
+    // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
+    const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
+    const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token ? gwAuth.token : undefined;
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;
@@ -332,7 +331,7 @@ const memoryCortexPlugin = {
 
     const llmMode = gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` : cfg.anthropicApiKey ? "direct API key" : "none";
     if (gatewayUrl && !gatewayToken) {
-      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — falling back");
+      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
     }
     api.logger.info(
       `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"}, llm: ${llmMode})`,
