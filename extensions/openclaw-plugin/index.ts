@@ -75,7 +75,46 @@ interface PluginConfig {
   minUserMessageLength?: number;
   minAssistantMessageLength?: number;
   blocklistPatterns?: string[];
+  /**
+   * Optional Anthropic API key for direct LLM calls.
+   * NOTE: An explicit value here **always** overrides the ambient `ANTHROPIC_API_KEY`
+   * shell variable — plugin config is authoritative when it is explicitly set.
+   * (Gateway vars follow the inverse rule: they only fill gaps, deferring to any
+   * pre-existing env var so that manually configured gateways are never clobbered.)
+   */
   anthropicApiKey?: string;
+}
+
+// ============================================================================
+// Env-resolution helper (exported for unit tests)
+// ============================================================================
+
+/**
+ * Resolves the subprocess environment for the given LLM credentials.
+ *
+ * Rules:
+ * - Auto-wired gateway vars only fill gaps — they never overwrite an env var
+ *   the user has already set in their shell.
+ * - An explicit `anthropicApiKey` from plugin config always wins over the
+ *   ambient `ANTHROPIC_API_KEY`, because it was intentionally provided.
+ *
+ * The `register()` function mirrors this logic when computing `llmMode` for
+ * the startup log. If these rules change, update both places.
+ */
+export function resolveEnv(
+  base: Record<string, string | undefined>,
+  gatewayUrl: string | undefined,
+  gatewayToken: string | undefined,
+  anthropicApiKey: string | undefined,
+): Record<string, string | undefined> {
+  const env = { ...base };
+  if (gatewayUrl && gatewayToken) {
+    if (!env.OPENCLAW_GATEWAY_URL) env.OPENCLAW_GATEWAY_URL = gatewayUrl;
+    if (!env.OPENCLAW_GATEWAY_TOKEN) env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+  } else if (anthropicApiKey) {
+    env.ANTHROPIC_API_KEY = anthropicApiKey;
+  }
+  return env;
 }
 
 // ============================================================================
@@ -90,20 +129,7 @@ class CortexClient {
   constructor(binaryPath?: string, project?: string, anthropicApiKey?: string, gatewayUrl?: string, gatewayToken?: string) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
-    this.env = { ...process.env };
-    if (gatewayUrl && gatewayToken) {
-      // Prefer gateway mode — routes through OpenClaw's auth (Max plan OAuth, etc.)
-      // Only auto-wire if the user hasn't already set these env vars explicitly.
-      if (!this.env.OPENCLAW_GATEWAY_URL) {
-        this.env.OPENCLAW_GATEWAY_URL = gatewayUrl;
-      }
-      if (!this.env.OPENCLAW_GATEWAY_TOKEN) {
-        this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
-      }
-    } else if (anthropicApiKey) {
-      // Explicit config always wins over ambient env for API key (unlike auto-wired gateway vars).
-      this.env.ANTHROPIC_API_KEY = anthropicApiKey;
-    }
+    this.env = resolveEnv(process.env as Record<string, string | undefined>, gatewayUrl, gatewayToken, anthropicApiKey);
   }
 
   private async run(args: string[], timeoutMs = 10_000): Promise<string> {
@@ -343,8 +369,8 @@ const memoryCortexPlugin = {
       api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
     }
 
-    // Compute effective LLM mode: mirrors CortexClient constructor logic so the log
-    // reflects what the binary will actually use (env vars take precedence over auto-wired config).
+    // Compute effective LLM mode — mirrors resolveEnv() logic exactly so the log
+    // reflects what the binary will actually use. If resolveEnv() changes, update here too.
     const effectiveGwUrl = (gatewayUrl && gatewayToken)
       ? (process.env.OPENCLAW_GATEWAY_URL || gatewayUrl)
       : process.env.OPENCLAW_GATEWAY_URL;
