@@ -369,19 +369,19 @@ const memoryCortexPlugin = {
       api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
     }
 
-    // Compute effective LLM mode — mirrors resolveEnv() logic exactly so the log
-    // reflects what the binary will actually use. If resolveEnv() changes, update here too.
-    const effectiveGwUrl = (gatewayUrl && gatewayToken)
-      ? (process.env.OPENCLAW_GATEWAY_URL || gatewayUrl)
-      : process.env.OPENCLAW_GATEWAY_URL;
-    const effectiveGwToken = (gatewayUrl && gatewayToken)
-      ? (process.env.OPENCLAW_GATEWAY_TOKEN || gatewayToken)
-      : process.env.OPENCLAW_GATEWAY_TOKEN;
-    const llmMode = effectiveGwUrl && effectiveGwToken
-      ? `gateway (${effectiveGwUrl})`
-      : cfg.anthropicApiKey || process.env.ANTHROPIC_API_KEY
-        ? "direct API key"
-        : "none";
+    // Derive llmMode from resolveEnv() — single source of truth, no duplicated logic.
+    const resolvedEnv = resolveEnv(
+      process.env as Record<string, string | undefined>,
+      gatewayUrl,
+      gatewayToken,
+      cfg.anthropicApiKey,
+    );
+    const llmMode =
+      resolvedEnv.OPENCLAW_GATEWAY_URL && resolvedEnv.OPENCLAW_GATEWAY_TOKEN
+        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL})`
+        : resolvedEnv.ANTHROPIC_API_KEY
+          ? "direct API key"
+          : "none";
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;

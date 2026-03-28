@@ -38,4 +38,12 @@ describe("resolveEnv", () => {
     const env = resolveEnv(base, undefined, undefined, undefined);
     expect(env).toEqual(base);
   });
+
+  it("gateway wins over anthropicApiKey when both are provided", () => {
+    const env = resolveEnv(empty, "http://127.0.0.1:18789", "tok", "sk-ant-test");
+    expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:18789");
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("tok");
+    // anthropicApiKey must NOT be set — gateway takes full priority
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
 });
