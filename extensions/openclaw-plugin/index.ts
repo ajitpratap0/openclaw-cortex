@@ -109,8 +109,16 @@ export function resolveEnv(
 ): Record<string, string | undefined> {
   const env = { ...base };
   if (gatewayUrl && gatewayToken) {
-    if (!env.OPENCLAW_GATEWAY_URL) env.OPENCLAW_GATEWAY_URL = gatewayUrl;
-    if (!env.OPENCLAW_GATEWAY_TOKEN) env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+    const hasUrl = Boolean(env.OPENCLAW_GATEWAY_URL);
+    const hasToken = Boolean(env.OPENCLAW_GATEWAY_TOKEN);
+    if (!hasUrl && !hasToken) {
+      // Only fill both when neither is set — treat as an atomic pair to avoid
+      // mixing credentials from different gateway instances.
+      env.OPENCLAW_GATEWAY_URL = gatewayUrl;
+      env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+    }
+    // If only one is pre-set, leave both alone — partial pre-sets are the user's
+    // explicit shell configuration; we should not inject a mismatched counterpart.
   }
   // Always write explicit anthropicApiKey — the binary prefers gateway at runtime,
   // but having ANTHROPIC_API_KEY in env provides a fallback credential.
@@ -352,13 +360,20 @@ const memoryCortexPlugin = {
 
     // Resolve LLM credentials: prefer OpenClaw gateway (uses Max plan OAuth token),
     // fall back to explicit anthropicApiKey in plugin config.
-    const gwCfg = (api.config as Record<string, unknown>)?.gateway as Record<string, unknown> | undefined;
-    const gwAuth = gwCfg?.auth as Record<string, unknown> | undefined;
+    const rawGwCfg = (api.config as Record<string, unknown>)?.gateway;
+    const gwCfg = rawGwCfg != null && typeof rawGwCfg === "object" ? (rawGwCfg as Record<string, unknown>) : undefined;
+    const rawGwAuth = gwCfg?.auth;
+    const gwAuth = rawGwAuth != null && typeof rawGwAuth === "object" ? (rawGwAuth as Record<string, unknown>) : undefined;
     const gwPortRaw = gwCfg?.port;
+    // YAML may deserialise port as a string; accept both number and numeric string.
+    const gwPortNum = typeof gwPortRaw === "string" ? parseInt(gwPortRaw, 10) : gwPortRaw;
     const gwPort =
-      typeof gwPortRaw === "number" && Number.isInteger(gwPortRaw) && gwPortRaw > 0 && gwPortRaw <= 65535
-        ? gwPortRaw
+      typeof gwPortNum === "number" && Number.isInteger(gwPortNum) && gwPortNum > 0 && gwPortNum <= 65535
+        ? gwPortNum
         : undefined;
+    if (gwPortRaw !== undefined && gwPort === undefined) {
+      api.logger.warn(`memory-cortex: gateway.port value "${gwPortRaw}" is not a valid port number — ignored`);
+    }
     // NOTE: intentionally the base URL only (no /v1/chat/completions suffix).
     // GatewayClient.Complete() in gateway.go appends that path itself.
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.

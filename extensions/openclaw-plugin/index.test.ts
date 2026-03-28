@@ -21,13 +21,20 @@ describe("resolveEnv", () => {
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("existing-token");
   });
 
-  it("fills only the missing gateway var when one is already pre-set", () => {
+  it("leaves both gateway vars untouched when one is already pre-set (atomic pair guard)", () => {
     const base = { OPENCLAW_GATEWAY_TOKEN: "pre-set-token" };
     const env = resolveEnv(base, "http://127.0.0.1:18789", "new-token", undefined);
-    // URL is absent → filled from params
-    expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:18789");
-    // Token was already present → must not be overwritten
+    // One var pre-set → treat as user's deliberate partial config; inject nothing.
+    expect(env.OPENCLAW_GATEWAY_URL).toBeUndefined();
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("pre-set-token");
+  });
+
+  it("does not mix a pre-set URL with an auto-detected token from params", () => {
+    const base = { OPENCLAW_GATEWAY_URL: "http://127.0.0.1:9999" };
+    const env = resolveEnv(base, "http://127.0.0.1:18789", "new-token", undefined);
+    // URL pre-set, no token → inject nothing (don't pair shell URL with plugin token).
+    expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:9999");
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
   });
 
   it("falls through to anthropicApiKey when only gatewayUrl given (no token)", () => {
