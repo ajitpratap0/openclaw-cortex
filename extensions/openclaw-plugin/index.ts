@@ -100,7 +100,8 @@ class CortexClient {
       if (!this.env.OPENCLAW_GATEWAY_TOKEN) {
         this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
       }
-    } else if (anthropicApiKey && !this.env.ANTHROPIC_API_KEY) {
+    } else if (anthropicApiKey) {
+      // Explicit config always wins over ambient env for API key (unlike auto-wired gateway vars).
       this.env.ANTHROPIC_API_KEY = anthropicApiKey;
     }
   }
@@ -334,23 +335,32 @@ const memoryCortexPlugin = {
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
     const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token ? gwAuth.token : undefined;
+    // Group both gateway misconfiguration warnings together, before construction.
     if (!gatewayUrl && gatewayToken) {
       api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
     }
+    if (gatewayUrl && !gatewayToken) {
+      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
+    }
+
+    // Compute effective LLM mode: mirrors CortexClient constructor logic so the log
+    // reflects what the binary will actually use (env vars take precedence over auto-wired config).
+    const effectiveGwUrl = (gatewayUrl && gatewayToken)
+      ? (process.env.OPENCLAW_GATEWAY_URL || gatewayUrl)
+      : process.env.OPENCLAW_GATEWAY_URL;
+    const effectiveGwToken = (gatewayUrl && gatewayToken)
+      ? (process.env.OPENCLAW_GATEWAY_TOKEN || gatewayToken)
+      : process.env.OPENCLAW_GATEWAY_TOKEN;
+    const llmMode = effectiveGwUrl && effectiveGwToken
+      ? `gateway (${effectiveGwUrl})`
+      : cfg.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+        ? "direct API key"
+        : "none";
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
-
-    const llmMode =
-      gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` :
-      process.env.OPENCLAW_GATEWAY_URL && process.env.OPENCLAW_GATEWAY_TOKEN ? `gateway (env: ${process.env.OPENCLAW_GATEWAY_URL})` :
-      cfg.anthropicApiKey || process.env.ANTHROPIC_API_KEY ? "direct API key" :
-      "none";
-    if (gatewayUrl && !gatewayToken) {
-      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
-    }
     api.logger.info(
       `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"}, llm: ${llmMode})`,
     );
