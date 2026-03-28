@@ -100,7 +100,7 @@ class CortexClient {
       if (!this.env.OPENCLAW_GATEWAY_TOKEN) {
         this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
       }
-    } else if (anthropicApiKey) {
+    } else if (anthropicApiKey && !this.env.ANTHROPIC_API_KEY) {
       this.env.ANTHROPIC_API_KEY = anthropicApiKey;
     }
   }
@@ -324,7 +324,11 @@ const memoryCortexPlugin = {
     // fall back to explicit anthropicApiKey in plugin config.
     const gwCfg = (api.config as Record<string, unknown>)?.gateway as Record<string, unknown> | undefined;
     const gwAuth = gwCfg?.auth as Record<string, unknown> | undefined;
-    const gwPort = gwCfg?.port as number | undefined;
+    const gwPortRaw = gwCfg?.port;
+    const gwPort =
+      typeof gwPortRaw === "number" && Number.isInteger(gwPortRaw) && gwPortRaw > 0 && gwPortRaw <= 65535
+        ? gwPortRaw
+        : undefined;
     // NOTE: intentionally the base URL only (no /v1/chat/completions suffix).
     // GatewayClient.Complete() in gateway.go appends that path itself.
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
@@ -339,7 +343,11 @@ const memoryCortexPlugin = {
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
 
-    const llmMode = gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` : cfg.anthropicApiKey ? "direct API key" : "none";
+    const llmMode =
+      gatewayUrl && gatewayToken ? `gateway (${gatewayUrl})` :
+      process.env.OPENCLAW_GATEWAY_URL && process.env.OPENCLAW_GATEWAY_TOKEN ? `gateway (env: ${process.env.OPENCLAW_GATEWAY_URL})` :
+      cfg.anthropicApiKey || process.env.ANTHROPIC_API_KEY ? "direct API key" :
+      "none";
     if (gatewayUrl && !gatewayToken) {
       api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
     }
