@@ -21,6 +21,15 @@ describe("resolveEnv", () => {
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("existing-token");
   });
 
+  it("fills only the missing gateway var when one is already pre-set", () => {
+    const base = { OPENCLAW_GATEWAY_TOKEN: "pre-set-token" };
+    const env = resolveEnv(base, "http://127.0.0.1:18789", "new-token", undefined);
+    // URL is absent → filled from params
+    expect(env.OPENCLAW_GATEWAY_URL).toBe("http://127.0.0.1:18789");
+    // Token was already present → must not be overwritten
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("pre-set-token");
+  });
+
   it("falls through to anthropicApiKey when only gatewayUrl given (no token)", () => {
     const env = resolveEnv(empty, "http://127.0.0.1:18789", undefined, "sk-ant-test");
     expect(env.OPENCLAW_GATEWAY_URL).toBeUndefined();

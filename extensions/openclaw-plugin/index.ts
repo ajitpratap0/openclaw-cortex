@@ -126,7 +126,7 @@ class CortexClient {
   constructor(binaryPath: string | undefined, project: string | undefined, env: Record<string, string | undefined>) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
-    this.env = env;
+    this.env = { ...env };
   }
 
   private async run(args: string[], timeoutMs = 10_000): Promise<string> {
