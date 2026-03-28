@@ -93,8 +93,13 @@ class CortexClient {
     this.env = { ...process.env };
     if (gatewayUrl && gatewayToken) {
       // Prefer gateway mode — routes through OpenClaw's auth (Max plan OAuth, etc.)
-      this.env.OPENCLAW_GATEWAY_URL = gatewayUrl;
-      this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+      // Only auto-wire if the user hasn't already set these env vars explicitly.
+      if (!this.env.OPENCLAW_GATEWAY_URL) {
+        this.env.OPENCLAW_GATEWAY_URL = gatewayUrl;
+      }
+      if (!this.env.OPENCLAW_GATEWAY_TOKEN) {
+        this.env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+      }
     } else if (anthropicApiKey) {
       this.env.ANTHROPIC_API_KEY = anthropicApiKey;
     }
@@ -320,9 +325,14 @@ const memoryCortexPlugin = {
     const gwCfg = (api.config as Record<string, unknown>)?.gateway as Record<string, unknown> | undefined;
     const gwAuth = gwCfg?.auth as Record<string, unknown> | undefined;
     const gwPort = gwCfg?.port as number | undefined;
+    // NOTE: intentionally the base URL only (no /v1/chat/completions suffix).
+    // GatewayClient.Complete() in gateway.go appends that path itself.
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
     const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token ? gwAuth.token : undefined;
+    if (!gatewayUrl && gatewayToken) {
+      api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
+    }
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
     const autoRecall = cfg.autoRecall !== false;
