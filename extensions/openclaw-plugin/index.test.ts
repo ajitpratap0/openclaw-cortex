@@ -27,6 +27,13 @@ describe("resolveEnv", () => {
     expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-test");
   });
 
+  it("falls through to anthropicApiKey when only gatewayToken given (no url)", () => {
+    const env = resolveEnv(empty, undefined, "tok", "sk-ant-test");
+    expect(env.OPENCLAW_GATEWAY_URL).toBeUndefined();
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-test");
+  });
+
   it("sets ANTHROPIC_API_KEY and explicit plugin config overrides ambient env", () => {
     const base = { ANTHROPIC_API_KEY: "old-key" };
     const env = resolveEnv(base, undefined, undefined, "sk-ant-new");

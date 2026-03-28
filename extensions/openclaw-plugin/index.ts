@@ -97,9 +97,6 @@ interface PluginConfig {
  *   the user has already set in their shell.
  * - An explicit `anthropicApiKey` from plugin config always wins over the
  *   ambient `ANTHROPIC_API_KEY`, because it was intentionally provided.
- *
- * The `register()` function mirrors this logic when computing `llmMode` for
- * the startup log. If these rules change, update both places.
  */
 export function resolveEnv(
   base: Record<string, string | undefined>,
@@ -126,10 +123,10 @@ class CortexClient {
   private defaultProject: string;
   private env: Record<string, string | undefined>;
 
-  constructor(binaryPath?: string, project?: string, anthropicApiKey?: string, gatewayUrl?: string, gatewayToken?: string) {
+  constructor(binaryPath: string | undefined, project: string | undefined, env: Record<string, string | undefined>) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
-    this.env = resolveEnv(process.env as Record<string, string | undefined>, gatewayUrl, gatewayToken, anthropicApiKey);
+    this.env = env;
   }
 
   private async run(args: string[], timeoutMs = 10_000): Promise<string> {
@@ -369,7 +366,7 @@ const memoryCortexPlugin = {
       api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
     }
 
-    // Derive llmMode from resolveEnv() — single source of truth, no duplicated logic.
+    // Resolve env once — both llmMode logging and the subprocess use the same object.
     const resolvedEnv = resolveEnv(
       process.env as Record<string, string | undefined>,
       gatewayUrl,
@@ -383,7 +380,7 @@ const memoryCortexPlugin = {
           ? "direct API key"
           : "none";
 
-    const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey, gatewayUrl, gatewayToken);
+    const cortex = new CortexClient(cfg.binaryPath, cfg.project, resolvedEnv);
     const autoRecall = cfg.autoRecall !== false;
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
