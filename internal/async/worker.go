@@ -127,7 +127,18 @@ func (p *Pool) runWorker(ctx context.Context) {
 			item.Attempts++
 
 			metrics.AsyncInFlight.Add(1)
-			processErr := p.processor.Process(p.processCtx, item)
+			processErr := func() (err error) {
+				defer func() {
+					if r := recover(); r != nil {
+						err = fmt.Errorf("async.Pool: processor panicked: %v", r)
+						p.logger.Error("async: processor panicked",
+							"id", item.ID,
+							"memory_id", item.MemoryID,
+							"panic", r)
+					}
+				}()
+				return p.processor.Process(p.processCtx, item)
+			}()
 			metrics.AsyncInFlight.Add(-1)
 
 			if processErr == nil {

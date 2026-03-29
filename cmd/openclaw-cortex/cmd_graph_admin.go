@@ -28,6 +28,9 @@ func graphRebuildCmd() *cobra.Command {
 		Use:   "rebuild",
 		Short: "Re-enqueue all memories for async graph reprocessing",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if batchSz <= 0 {
+				return fmt.Errorf("graph rebuild: --batch-size must be a positive integer, got %d", batchSz)
+			}
 			logger := newLogger()
 			ctx := cmd.Context()
 

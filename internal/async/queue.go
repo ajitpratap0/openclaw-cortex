@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -432,5 +433,17 @@ func (q *Queue) Compact() error {
 	if renameErr := os.Rename(tmpPath, q.walPath); renameErr != nil {
 		return fmt.Errorf("compact rename: %w", renameErr)
 	}
+
+	// Fsync the parent directory so the rename is durable across crashes.
+	dir, dirErr := os.Open(filepath.Dir(q.walPath))
+	if dirErr != nil {
+		return fmt.Errorf("compact open dir for fsync: %w", dirErr)
+	}
+	if syncErr := dir.Sync(); syncErr != nil {
+		_ = dir.Close()
+		return fmt.Errorf("compact dir fsync: %w", syncErr)
+	}
+	_ = dir.Close()
+
 	return nil
 }

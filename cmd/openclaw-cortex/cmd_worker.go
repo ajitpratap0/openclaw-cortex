@@ -119,7 +119,9 @@ func workerDrainCmd() *cobra.Command {
 				return cmdErr("worker drain: shutdown", shutdownErr)
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Processed %d items.\n", pending)
+			afterStatus := q.Status()
+			processed := pending - afterStatus.TotalPending
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Processed %d items.\n", processed)
 			return nil
 		},
 	}
