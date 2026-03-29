@@ -41,11 +41,8 @@ func storeCmd() *cobra.Command {
 			content := args[0]
 
 			// Validate minimum content length.
-			trimmed := strings.TrimSpace(content)
-			if len(trimmed) < store.MinContentLen {
-				return fmt.Errorf("store: %w", &store.ErrContentTooShort{
-					Actual: len(trimmed), Minimum: store.MinContentLen,
-				})
+			if err := store.ValidateContentLength(content); err != nil {
+				return fmt.Errorf("store: %w", err)
 			}
 
 			// Validate memory type.
@@ -85,6 +82,8 @@ func storeCmd() *cobra.Command {
 					return fmt.Errorf("store: --dedup-threshold: %w", err)
 				}
 				effectiveThreshold = dedupThreshold
+			} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
+				return fmt.Errorf("store: config dedup_threshold: %w", err)
 			}
 
 			// Store-time dedup: check for near-identical memories (similarity > 0.92).

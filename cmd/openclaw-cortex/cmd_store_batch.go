@@ -77,11 +77,8 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 				if inp.Content == "" {
 					return fmt.Errorf("store-batch: entry %d: content is required", i)
 				}
-				trimmed := strings.TrimSpace(inp.Content)
-				if len(trimmed) < store.MinContentLen {
-					return fmt.Errorf("store-batch: entry %d: %w", i, &store.ErrContentTooShort{
-						Actual: len(trimmed), Minimum: store.MinContentLen,
-					})
+				if err := store.ValidateContentLength(inp.Content); err != nil {
+					return fmt.Errorf("store-batch: entry %d: %w", i, err)
 				}
 				if inp.Type == "" {
 					inp.Type = "fact"
@@ -138,6 +135,8 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 					return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
 				}
 				effectiveThreshold = dedupThreshold
+			} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
+				return fmt.Errorf("store-batch: config dedup_threshold: %w", err)
 			}
 
 			// Process each memory: dedup check then upsert.

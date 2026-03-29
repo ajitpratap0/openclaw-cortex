@@ -9,7 +9,6 @@ package tests
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -34,11 +33,11 @@ func validationTestVec(val float32) []float32 {
 }
 
 // nearSimilarVec returns a vector that is near-similar to base but not identical.
-// It mixes base (weight w) with an orthogonal-ish complement (weight 1-w) so that
-// the cosine similarity to base is approximately w / sqrt(w²+(1-w)²·r²), where r
-// is the relative magnitude of the complement. In practice the mix is constructed
-// so the cosine similarity falls in (0.92, 1.0), i.e. it will be flagged as a
-// duplicate at threshold 0.92 but NOT at threshold 1.0 (exact match only).
+// It mixes base (weight 0.98) with a reverse-indexed complement (weight 0.02).
+// With these weights the resulting cosine similarity to base is very high
+// (approximately 0.9998) — close enough to be flagged as a duplicate at
+// threshold 0.92, but strictly less than 1.0 so it is NOT flagged when
+// threshold is set to 1.0 (exact match only).
 func nearSimilarVec(base []float32) []float32 {
 	const dim = 768
 	out := make([]float32, dim)
@@ -70,17 +69,12 @@ func storeValidationMemory(t *testing.T, st *store.MockStore, id, content string
 	require.NoError(t, st.Upsert(context.Background(), mem, vec))
 }
 
-// validateContentLength uses the production constant and error type from
-// internal/store/validation.go — no local mirroring required.
+// validateContentLength delegates to the production function in
+// internal/store/validation.go — both the cmd layer and tests call the
+// same ValidateContentLength, so removing the guard from the cmd would
+// not silently pass these tests.
 func validateContentLength(content string) error {
-	trimmed := strings.TrimSpace(content)
-	if len(trimmed) < store.MinContentLen {
-		return &store.ErrContentTooShort{
-			Actual:  len(trimmed),
-			Minimum: store.MinContentLen,
-		}
-	}
-	return nil
+	return store.ValidateContentLength(content)
 }
 
 // --- Bug 3: minimum content length ---

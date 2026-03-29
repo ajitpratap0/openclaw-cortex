@@ -1,6 +1,9 @@
 package store
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // MinContentLen is the minimum number of non-whitespace characters required for
 // a memory's content. Exported so that both the cmd layer and tests reference a
@@ -27,6 +30,16 @@ type ErrDedupThresholdRange struct {
 
 func (e *ErrDedupThresholdRange) Error() string {
 	return fmt.Sprintf("dedup threshold %g out of range (0.0, 1.0]", e.Value)
+}
+
+// ValidateContentLength checks that content (after trimming whitespace) meets
+// the MinContentLen requirement. Returns ErrContentTooShort when it does not.
+func ValidateContentLength(content string) error {
+	trimmed := strings.TrimSpace(content)
+	if len(trimmed) < MinContentLen {
+		return &ErrContentTooShort{Actual: len(trimmed), Minimum: MinContentLen}
+	}
+	return nil
 }
 
 // ValidateDedupThreshold checks that v is in the half-open interval (0.0, 1.0].
