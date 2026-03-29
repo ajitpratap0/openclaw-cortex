@@ -33,8 +33,9 @@ const (
 	RelTypeRelatesTo        RelationshipType = "RELATES_TO" // fallback
 )
 
-// ValidRelationshipTypes is a set of all canonical relationship type strings for O(1) validation.
-var ValidRelationshipTypes = map[string]bool{
+// validRelationshipTypes is a set of all canonical relationship type strings for O(1) validation.
+// Callers outside this package must use NormalizeRelType as the only public entry point.
+var validRelationshipTypes = map[string]bool{
 	string(RelTypeWorksAt):          true,
 	string(RelTypeHasRole):          true,
 	string(RelTypeLocatedIn):        true,
@@ -61,7 +62,7 @@ var ValidRelationshipTypes = map[string]bool{
 // match after upper-casing), otherwise it returns "RELATES_TO" as a safe fallback.
 func NormalizeRelType(s string) string {
 	upper := strings.ToUpper(strings.TrimSpace(s))
-	if ValidRelationshipTypes[upper] {
+	if validRelationshipTypes[upper] {
 		return upper
 	}
 	return string(RelTypeRelatesTo)

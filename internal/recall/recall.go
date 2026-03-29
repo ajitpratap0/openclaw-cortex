@@ -437,7 +437,7 @@ func (r *Recaller) RecallWithGraph(
 		IsMageAvailable() bool
 	}
 	if mac, ok := r.graphClient.(mageAvailableChecker); ok && mac.IsMageAvailable() {
-		merged = r.communitySweep(ctx, query, merged, existing, blended)
+		merged = r.communitySweep(gCtx, query, merged, existing, blended)
 	}
 
 	return r.RankWithGraphProximity(merged, project, query, proximityMap)

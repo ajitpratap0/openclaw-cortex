@@ -2,6 +2,7 @@ package memgraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -19,7 +20,7 @@ import (
 // ErrMAGENotAvailable is returned by RunCommunityDetection and GetMemoriesForCommunity
 // when the Memgraph MAGE library is not installed or the community_detection module
 // is not loaded.
-var ErrMAGENotAvailable = fmt.Errorf("MAGE community_detection module not available")
+var ErrMAGENotAvailable = errors.New("MAGE community_detection module not available")
 
 // GraphAdapter wraps MemgraphStore and implements graph.Client.
 // It is needed because graph.Client.SearchEntities has a different signature than
@@ -300,7 +301,7 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 // validateAndNormalizeRelType sanitizes a relation type string before use as a Cypher label.
 // Only types in the canonical enum are accepted; all others fall back to "RELATES_TO".
 // This is critical for injection safety — the normalized value is concatenated into Cypher.
-// The output is ONLY from the ValidRelationshipTypes whitelist; user input is never interpolated directly.
+// The output is ONLY from the validRelationshipTypes whitelist (via models.NormalizeRelType); user input is never interpolated directly.
 func validateAndNormalizeRelType(relType string) string {
 	return models.NormalizeRelType(relType)
 }
@@ -1184,7 +1185,7 @@ func (g *GraphAdapter) GetSubgraph(ctx context.Context, entityID string, depth i
 	// [r] matches any relationship type in the path (facts may use typed labels).
 	cypher := fmt.Sprintf(`
 		MATCH path = (start:Entity {uuid: $seed_id})-[*1..%d]-(connected:Entity)
-		WHERE ALL(r IN relationships(path) WHERE r.expired_at IS NULL OR r.expired_at = "")
+		WHERE ALL(r IN relationships(path) WHERE r.expired_at IS NULL)
 		RETURN DISTINCT
 		    startNode(last(relationships(path))).uuid AS source_id,
 		    endNode(last(relationships(path))).uuid   AS target_id,
@@ -1540,6 +1541,9 @@ func (g *GraphAdapter) MigrateRelTypesToLabels(ctx context.Context) error {
 	migrated := 0
 	skipped := 0
 
+	// Group rows by their target label so each batch shares a single UNWIND query.
+	// Within each outer batch, collect rows that need migration (non-RELATES_TO labels),
+	// then sub-group by label and issue one ExecuteWrite per (batch × label) pair.
 	for start := 0; start < total; start += batchSize {
 		end := start + batchSize
 		if end > total {
@@ -1547,61 +1551,68 @@ func (g *GraphAdapter) MigrateRelTypesToLabels(ctx context.Context) error {
 		}
 		batch := rows[start:end]
 
+		// Partition by new label.
+		byLabel := make(map[string][]edgeRow)
 		for i := range batch {
-			row := batch[i]
-			newLabel := validateAndNormalizeRelType(row.relationType)
+			newLabel := validateAndNormalizeRelType(batch[i].relationType)
 			if newLabel == string(models.RelTypeRelatesTo) {
-				// Edge is already RELATES_TO (either a genuine fallback or already migrated).
 				skipped++
 				continue
 			}
+			byLabel[newLabel] = append(byLabel[newLabel], batch[i])
+		}
 
-			// Create a new typed edge and delete the old RELATES_TO edge in one write tx.
-			_, writeErr := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-				// Build typed-label MERGE Cypher — newLabel is from the whitelist only.
-				createCypher := fmt.Sprintf(`
-					MATCH (s:Entity {uuid: $source_id})
-					MATCH (t:Entity {uuid: $target_id})
-					MERGE (s)-[rNew:%s {uuid: $uuid}]->(t)
-					SET rNew.relation_type     = $relation_type,
-					    rNew.fact              = $fact,
-					    rNew.fact_embedding    = $fact_embedding,
-					    rNew.created_at        = $created_at,
-					    rNew.expired_at        = $expired_at,
-					    rNew.valid_at          = $valid_at,
-					    rNew.invalid_at        = $invalid_at,
-					    rNew.source_memory_ids = $source_memory_ids,
-					    rNew.episodes          = $episodes,
-					    rNew.confidence        = $confidence
-					WITH s, t
-					MATCH (s)-[rOld:RELATES_TO {uuid: $uuid}]->(t)
-					DELETE rOld
-				`, newLabel)
-
-				params := map[string]any{
-					"uuid":              row.uuid,
-					"source_id":         row.sourceID,
-					"target_id":         row.targetID,
-					"relation_type":     row.relationType,
-					"fact":              row.fact,
-					"fact_embedding":    row.factEmbedding,
-					"created_at":        row.createdAt,
-					"expired_at":        row.expiredAt,
-					"valid_at":          row.validAt,
-					"invalid_at":        row.invalidAt,
-					"source_memory_ids": row.sourceMemoryIDs,
-					"episodes":          row.episodes,
-					"confidence":        row.confidence,
+		for newLabel, labelRows := range byLabel {
+			// Build the parameter rows for UNWIND.
+			paramRows := make([]map[string]any, len(labelRows))
+			for i := range labelRows {
+				paramRows[i] = map[string]any{
+					"uuid":              labelRows[i].uuid,
+					"source_id":         labelRows[i].sourceID,
+					"target_id":         labelRows[i].targetID,
+					"relation_type":     labelRows[i].relationType,
+					"fact":              labelRows[i].fact,
+					"fact_embedding":    labelRows[i].factEmbedding,
+					"created_at":        labelRows[i].createdAt,
+					"expired_at":        labelRows[i].expiredAt,
+					"valid_at":          labelRows[i].validAt,
+					"invalid_at":        labelRows[i].invalidAt,
+					"source_memory_ids": labelRows[i].sourceMemoryIDs,
+					"episodes":          labelRows[i].episodes,
+					"confidence":        labelRows[i].confidence,
 				}
+			}
 
-				_, runErr := tx.Run(ctx, createCypher, params)
+			// newLabel is from the whitelist-only validateAndNormalizeRelType — safe to inline.
+			createCypher := fmt.Sprintf(`
+				UNWIND $rows AS row
+				MATCH (s:Entity {uuid: row.source_id})
+				MATCH (t:Entity {uuid: row.target_id})
+				MERGE (s)-[rNew:%s {uuid: row.uuid}]->(t)
+				SET rNew.relation_type     = row.relation_type,
+				    rNew.fact              = row.fact,
+				    rNew.fact_embedding    = row.fact_embedding,
+				    rNew.created_at        = row.created_at,
+				    rNew.expired_at        = row.expired_at,
+				    rNew.valid_at          = row.valid_at,
+				    rNew.invalid_at        = row.invalid_at,
+				    rNew.source_memory_ids = row.source_memory_ids,
+				    rNew.episodes          = row.episodes,
+				    rNew.confidence        = row.confidence
+				WITH s, t, row
+				MATCH (s)-[rOld:RELATES_TO {uuid: row.uuid}]->(t)
+				DELETE rOld
+			`, newLabel)
+
+			_, writeErr := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+				_, runErr := tx.Run(ctx, createCypher, map[string]any{"rows": paramRows})
 				return nil, runErr
 			})
 			if writeErr != nil {
-				return fmt.Errorf("migrate rel types: write edge %s (%s→%s): %w",
-					row.uuid, string(models.RelTypeRelatesTo), newLabel, writeErr)
+				return fmt.Errorf("migrate rel types: write batch label=%s start=%d end=%d: %w",
+					newLabel, start, end, writeErr)
 			}
-			migrated++
+			migrated += len(labelRows)
 		}
 
 		g.store.logger.Info("migrate rel types: batch complete",
