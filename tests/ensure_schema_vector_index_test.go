@@ -201,33 +201,62 @@ func TestIsAlreadyExistsErr_MatchesVectorIndexDuplicate(t *testing.T) {
 	}
 }
 
-// TestVerifyOrRebuildVectorIndex_ShowFailedReturnsError documents the expected
-// behavior when SHOW VECTOR INDEXES fails and the index already exists:
-// verifyOrRebuildVectorIndex should return an error (not nil) because the index
-// may be on the wrong property and property correctness cannot be verified.
-//
-// This test cannot call verifyOrRebuildVectorIndex directly (it is unexported and
-// requires a neo4j session), so it validates the preconditions that the function
-// relies on — specifically, that showFailed=true with an empty indexes map means
-// the index will not be found, triggering a CREATE attempt, and that a duplicate
-// error in that scenario must not be silently accepted.
-func TestVerifyOrRebuildVectorIndex_ShowFailedReturnsError(t *testing.T) {
-	// When SHOW VECTOR INDEXES fails, EnsureSchema passes an empty map and showFailed=true.
-	// The function will try to CREATE the index, which returns "already exists".
-	// The review feedback requires that this scenario returns an error, not nil.
-	//
-	// We validate the condition: when indexes map is empty, the index is treated
-	// as absent, meaning the CREATE path is taken.
-	indexes := memgraph.ParseVectorIndexRows(nil) // simulates empty SHOW result
-	_, exists := indexes["memory_embedding"]
-	if exists {
-		t.Fatal("empty indexes map should not contain memory_embedding — CREATE path would be skipped")
+// TestCheckCreateAlreadyExistsErr exercises the showFailed decision branch of
+// verifyOrRebuildVectorIndex via the exported CheckCreateAlreadyExistsErr helper.
+// When SHOW VECTOR INDEXES failed (showFailed=true) and the CREATE attempt returns
+// an "already exists" error, the function must return a non-empty error message
+// because the index may be on the wrong property. When showFailed=false the
+// duplicate is benign and the function must return "".
+func TestCheckCreateAlreadyExistsErr(t *testing.T) {
+	alreadyExistsErr := errors.New("vector index memory_embedding already defined")
+	unrelatedErr := errors.New("connection refused")
+
+	tests := []struct {
+		name          string
+		err           error
+		showFailed    bool
+		wantNonEmpty  bool
+		wantSubstring string
+	}{
+		{
+			name:          "showFailed=true with already-exists error returns error message",
+			err:           alreadyExistsErr,
+			showFailed:    true,
+			wantNonEmpty:  true,
+			wantSubstring: "could not be verified",
+		},
+		{
+			name:         "showFailed=false with already-exists error returns empty (benign)",
+			err:          alreadyExistsErr,
+			showFailed:   false,
+			wantNonEmpty: false,
+		},
+		{
+			name:         "showFailed=true with unrelated error returns empty",
+			err:          unrelatedErr,
+			showFailed:   true,
+			wantNonEmpty: false,
+		},
+		{
+			name:         "nil error returns empty",
+			err:          nil,
+			showFailed:   true,
+			wantNonEmpty: false,
+		},
 	}
 
-	// Also verify that "already defined" (vector-index specific) is matched,
-	// which is the error that triggers the showFailed error-return branch.
-	vectorDupErr := errors.New("vector index memory_embedding already defined")
-	if !memgraph.IsAlreadyExistsErr(vectorDupErr) {
-		t.Error("IsAlreadyExistsErr must match vector-index-specific 'already defined' error")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			msg := memgraph.CheckCreateAlreadyExistsErr(tt.err, tt.showFailed, "memory_embedding", "embedding")
+			if tt.wantNonEmpty && msg == "" {
+				t.Error("expected non-empty error message, got empty")
+			}
+			if !tt.wantNonEmpty && msg != "" {
+				t.Errorf("expected empty message, got %q", msg)
+			}
+			if tt.wantSubstring != "" && !strings.Contains(msg, tt.wantSubstring) {
+				t.Errorf("expected message to contain %q, got %q", tt.wantSubstring, msg)
+			}
+		})
 	}
 }
