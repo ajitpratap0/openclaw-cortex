@@ -3,16 +3,12 @@ package tests
 // store_validation_test.go covers Bug 3 (min content length guard) and
 // Bug 5 (per-call --dedup-threshold override) from issue #104.
 //
-// NOTE (Issue 4/5): validateContentLength and validateDedupThreshold below are
-// local mirrors of the validation logic in cmd_store.go and cmd_store_batch.go.
-// They exist because the tests live in package tests (black-box) and cannot
-// import unexported symbols from package main. The constant minContentLen is
-// duplicated here and in both cmd files (3 locations total); a follow-up will
-// lift it to a shared exported location (e.g. internal/store/validation.go).
-// TODO: move minContentLen to a shared exported location in a follow-up.
+// Validation constants and typed errors live in internal/store/validation.go
+// so that the cmd layer and tests reference a single source of truth.
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -26,8 +22,6 @@ import (
 )
 
 // --- helpers shared by these tests ---
-
-const minContentLen = 10
 
 // validationTestVec creates a deterministic 768-dim vector seeded by val.
 func validationTestVec(val float32) []float32 {
@@ -76,26 +70,17 @@ func storeValidationMemory(t *testing.T, st *store.MockStore, id, content string
 	require.NoError(t, st.Upsert(context.Background(), mem, vec))
 }
 
-// validateContentLength mirrors the guard added to cmd_store.go and
-// cmd_store_batch.go so we can test it directly without invoking the CLI.
-// NOTE: this mirrors the validation logic in cmd_store.go; keep in sync.
+// validateContentLength uses the production constant and error type from
+// internal/store/validation.go — no local mirroring required.
 func validateContentLength(content string) error {
-	if len(strings.TrimSpace(content)) < minContentLen {
-		return &contentTooShortError{
-			actual:  len(strings.TrimSpace(content)),
-			minimum: minContentLen,
+	trimmed := strings.TrimSpace(content)
+	if len(trimmed) < store.MinContentLen {
+		return &store.ErrContentTooShort{
+			Actual:  len(trimmed),
+			Minimum: store.MinContentLen,
 		}
 	}
 	return nil
-}
-
-type contentTooShortError struct {
-	actual  int
-	minimum int
-}
-
-func (e *contentTooShortError) Error() string {
-	return "content too short"
 }
 
 // --- Bug 3: minimum content length ---
@@ -123,10 +108,8 @@ func TestStoreCmd_MinContentLength(t *testing.T) {
 			err := validateContentLength(tc.content)
 			if tc.wantErr {
 				require.Error(t, err, "expected error for content %q", tc.content)
-				// NOTE (Issue 6): ErrorAs on the local mirror helper is omitted —
-				// it would always succeed by construction and verify nothing about
-				// production code. The structural type check belongs to an integration
-				// test that calls the real cmd layer.
+				var e *store.ErrContentTooShort
+				require.True(t, errors.As(err, &e), "error should be *store.ErrContentTooShort")
 			} else {
 				require.NoError(t, err, "unexpected error for content %q", tc.content)
 			}
@@ -250,31 +233,15 @@ func TestStoreCmd_DedupThresholdInvalidRange(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		err := validateDedupThreshold(tc.threshold)
+		err := store.ValidateDedupThreshold(tc.threshold)
 		if tc.wantErr {
 			require.Error(t, err, "threshold %g should be rejected", tc.threshold)
+			var e *store.ErrDedupThresholdRange
+			require.True(t, errors.As(err, &e), "error should be *store.ErrDedupThresholdRange")
 		} else {
 			require.NoError(t, err, "threshold %g should be accepted", tc.threshold)
 		}
 	}
-}
-
-// validateDedupThreshold mirrors the range check in cmd_store.go so we can
-// unit-test it without invoking the CLI binary.
-// NOTE: this mirrors the validation logic in cmd_store.go; keep in sync.
-func validateDedupThreshold(v float64) error {
-	if v <= 0 || v > 1 {
-		return &dedupThresholdRangeError{value: v}
-	}
-	return nil
-}
-
-type dedupThresholdRangeError struct {
-	value float64
-}
-
-func (e *dedupThresholdRangeError) Error() string {
-	return "dedup threshold out of range (0.0, 1.0]"
 }
 
 // TestStoreCmd_DedupThresholdEffective_DisablesDedupAtZero verifies that when

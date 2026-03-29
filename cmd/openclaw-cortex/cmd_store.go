@@ -41,11 +41,11 @@ func storeCmd() *cobra.Command {
 			content := args[0]
 
 			// Validate minimum content length.
-			const minContentLen = 10
 			trimmed := strings.TrimSpace(content)
-			if len(trimmed) < minContentLen {
-				return fmt.Errorf("store: content too short (%d chars, minimum %d); provide meaningful text",
-					len(trimmed), minContentLen)
+			if len(trimmed) < store.MinContentLen {
+				return fmt.Errorf("store: %w", &store.ErrContentTooShort{
+					Actual: len(trimmed), Minimum: store.MinContentLen,
+				})
 			}
 
 			// Validate memory type.
@@ -81,8 +81,8 @@ func storeCmd() *cobra.Command {
 			// Resolve effective dedup threshold: flag overrides config default.
 			effectiveThreshold := cfg.Memory.DedupThreshold
 			if cmd.Flags().Changed("dedup-threshold") {
-				if dedupThreshold <= 0 || dedupThreshold > 1 {
-					return fmt.Errorf("store: --dedup-threshold %g out of range (0.0, 1.0]", dedupThreshold)
+				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+					return fmt.Errorf("store: --dedup-threshold: %w", err)
 				}
 				effectiveThreshold = dedupThreshold
 			}

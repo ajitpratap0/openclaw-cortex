@@ -72,16 +72,16 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 			}
 
 			// Validate all entries before doing any work.
-			const minContentLen = 10
 			for i := range inputs {
 				inp := &inputs[i]
 				if inp.Content == "" {
 					return fmt.Errorf("store-batch: entry %d: content is required", i)
 				}
 				trimmed := strings.TrimSpace(inp.Content)
-				if len(trimmed) < minContentLen {
-					return fmt.Errorf("store-batch: entry %d: content too short (%d chars, minimum %d); provide meaningful text",
-						i, len(trimmed), minContentLen)
+				if len(trimmed) < store.MinContentLen {
+					return fmt.Errorf("store-batch: entry %d: %w", i, &store.ErrContentTooShort{
+						Actual: len(trimmed), Minimum: store.MinContentLen,
+					})
 				}
 				if inp.Type == "" {
 					inp.Type = "fact"
@@ -134,8 +134,8 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 			// Resolve effective dedup threshold: flag overrides config default.
 			effectiveThreshold := cfg.Memory.DedupThreshold
 			if cmd.Flags().Changed("dedup-threshold") {
-				if dedupThreshold <= 0 || dedupThreshold > 1 {
-					return fmt.Errorf("store-batch: --dedup-threshold %g out of range (0.0, 1.0]", dedupThreshold)
+				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+					return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
 				}
 				effectiveThreshold = dedupThreshold
 			}
