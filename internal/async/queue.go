@@ -32,11 +32,11 @@ const (
 
 // WorkItem is the unit of work passed through the channel to workers.
 type WorkItem struct {
-	ID        string    // uuid
-	MemoryID  string    // uuid of the stored memory
-	Content   string    // memory content for LLM processing
-	Project   string    // project scope
-	SessionID string    // originating session
+	ID         string // uuid
+	MemoryID   string // uuid of the stored memory
+	Content    string // memory content for LLM processing
+	Project    string // project scope
+	SessionID  string // originating session
 	EnqueuedAt time.Time
 }
 

@@ -32,7 +32,8 @@ type Pool struct {
 	workers    int
 	maxRetries int
 	wg         sync.WaitGroup
-	cancel     context.CancelFunc
+	cancel     context.CancelFunc // cancels the loop context (stops accepting new work)
+	processCtx context.Context    // context passed to Process; not cancelled by Shutdown
 	logger     *slog.Logger
 }
 
@@ -60,22 +61,29 @@ func NewPool(queue *Queue, processor Processor, workers int, maxRetries int, log
 // until it is closed or the context is canceled.  Start returns immediately;
 // use Shutdown to wait for all goroutines to finish.
 func (p *Pool) Start(ctx context.Context) {
-	workerCtx, cancel := context.WithCancel(ctx)
+	loopCtx, cancel := context.WithCancel(ctx)
 	p.cancel = cancel
+	p.processCtx = ctx // in-flight Process calls use the caller's context
 
 	for range p.workers {
 		p.wg.Add(1)
-		go p.runWorker(workerCtx)
+		go p.runWorker(loopCtx)
 	}
 }
 
-// Shutdown cancels the worker context and waits for all goroutines to exit.
-// If the provided ctx expires before all workers drain, the context error is
-// returned and any remaining in-flight work is abandoned (items remain durable
-// in the WAL for the next startup replay).
+// Shutdown signals workers to stop accepting new items and waits for all
+// in-flight goroutines to exit.  The loop context is cancelled so that idle
+// workers (blocked on the queue channel) wake up and return; however the
+// process context passed to each Process call is NOT cancelled here — callers
+// that want to abort in-flight work must cancel the context they passed to
+// Start themselves.
+//
+// If the provided ctx expires before all goroutines exit, the context error is
+// returned.  Items still in the WAL remain durable and will be replayed on the
+// next startup.
 func (p *Pool) Shutdown(ctx context.Context) error {
 	if p.cancel != nil {
-		p.cancel()
+		p.cancel() // stop the accept loop; does not cancel in-flight Process calls
 	}
 
 	done := make(chan struct{})
@@ -114,7 +122,7 @@ func (p *Pool) runWorker(ctx context.Context) {
 			currentAttempt := attempts[item.ID]
 
 			metrics.AsyncInFlight.Add(1)
-			processErr := p.processor.Process(ctx, item)
+			processErr := p.processor.Process(p.processCtx, item)
 			metrics.AsyncInFlight.Add(-1)
 
 			if processErr == nil {
