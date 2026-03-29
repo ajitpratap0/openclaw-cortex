@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -1233,12 +1232,15 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 	// HasEmbedding is derived from whether the embedding property is non-empty.
 	// This allows callers (e.g. cmd_reembed) to skip memories that already have a vector.
 	// The neo4j-go-driver may return list properties as []any, []float64, or
-	// []float32 depending on Bolt protocol version and driver internals, so we
-	// use reflect.Value.Len() to handle all slice types uniformly.
+	// []float32 depending on Bolt protocol version and driver internals.
 	if raw, exists := props["embedding"]; exists {
-		rv := reflect.ValueOf(raw)
-		if rv.Kind() == reflect.Slice && rv.Len() > 0 {
-			m.HasEmbedding = true
+		switch v := raw.(type) {
+		case []any:
+			m.HasEmbedding = len(v) > 0
+		case []float64:
+			m.HasEmbedding = len(v) > 0
+		case []float32:
+			m.HasEmbedding = len(v) > 0
 		}
 	}
 

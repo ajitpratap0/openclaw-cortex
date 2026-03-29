@@ -151,7 +151,9 @@ type Memory struct {
 	// HasEmbedding indicates whether this memory has a non-empty embedding vector stored.
 	// Populated by the store on List/Get; not written back to the DB.
 	// Used by the reembed command to skip memories that already have a valid vector.
-	HasEmbedding bool `json:"has_embedding,omitempty"`
+	// Excluded from JSON serialization — this is a transient, store-layer field
+	// that must not leak into MCP tool responses or capture --json output.
+	HasEmbedding bool `json:"-"`
 }
 
 // SearchResult wraps a Memory with its similarity score.

@@ -44,7 +44,7 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			}
 
 			if zeroCount == 0 {
-				fmt.Println("Re-embedded 0 memories (0 skipped as already embedded)")
+				fmt.Println("All memories have embeddings — nothing to do.")
 				return nil
 			}
 
@@ -75,6 +75,7 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				cursor  string
 				fixed   int64
 				skipped int64
+				errored int64
 			)
 
 			for {
@@ -103,11 +104,13 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 					vec, embedErr := emb.Embed(ctx, mem.Content)
 					if embedErr != nil {
 						logger.Warn("reembed: failed to embed memory", "id", mem.ID, "error", embedErr)
+						errored++
 						continue
 					}
 
 					if upsertErr := st.Upsert(ctx, mem, vec); upsertErr != nil {
 						logger.Warn("reembed: failed to upsert re-embedded memory", "id", mem.ID, "error", upsertErr)
+						errored++
 						continue
 					}
 					fixed++
@@ -117,12 +120,6 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 					break
 				}
 				cursor = nextCursor
-			}
-
-			// errored = memories that needed fixing but failed (embed or upsert error).
-			errored := zeroCount - fixed
-			if errored < 0 {
-				errored = 0
 			}
 
 			if dryRun {
