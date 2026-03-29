@@ -195,7 +195,20 @@ func NewRecaller(weights Weights, logger *slog.Logger) *Recaller {
 
 // Rank re-ranks search results using multi-factor scoring.
 // All component scores are normalized to [0,1] before weighting.
+// This is a thin wrapper around RankWithGraphProximity with a nil proximity map.
 func (r *Recaller) Rank(results []models.SearchResult, project string, query string) []models.RecallResult {
+	return r.RankWithGraphProximity(results, project, query, nil)
+}
+
+// RankWithGraphProximity ranks memories using all scoring factors including
+// a graph proximity bonus for memories whose entities are connected to query entities.
+// proximityMap maps memoryID → proximity score (1.0=1-hop, 0.5=2-hop, 0.25=3-hop, 0.0=none).
+// Pass nil proximityMap to disable graph proximity scoring (equivalent to Rank).
+func (r *Recaller) RankWithGraphProximity(
+	results []models.SearchResult,
+	project, query string,
+	proximityMap map[string]float64,
+) []models.RecallResult {
 	now := time.Now().UTC()
 	ranked := make([]models.RecallResult, 0, len(results))
 
@@ -213,6 +226,12 @@ func (r *Recaller) Rank(results []models.SearchResult, project string, query str
 		confScore := confidenceScore(&sr.Memory)
 		reinfScore := reinforcementScore(&sr.Memory)
 		tagScore := tagAffinityScore(&sr.Memory, query)
+
+		// Graph proximity score: 1.0 for 1-hop, 0.5 for 2-hop, 0.25 for 3-hop, 0.0 for none.
+		graphProximityScore := 0.0
+		if proximityMap != nil {
+			graphProximityScore = proximityMap[sr.Memory.ID]
+		}
 
 		// Multiplicative penalties
 		supersessionPen := 1.0
@@ -243,7 +262,8 @@ func (r *Recaller) Rank(results []models.SearchResult, project string, query str
 			r.weights.ScopeBoost*sBoost +
 			r.weights.Confidence*confScore +
 			r.weights.Reinforcement*reinfScore +
-			r.weights.TagAffinity*tagScore
+			r.weights.TagAffinity*tagScore +
+			r.weights.GraphProximity*graphProximityScore
 
 		finalScore := weightedSum * supersessionPen * conflictPen
 
@@ -257,6 +277,7 @@ func (r *Recaller) Rank(results []models.SearchResult, project string, query str
 			ConfidenceScore:     confScore,
 			ReinforcementScore:  reinfScore,
 			TagAffinityScore:    tagScore,
+			GraphProximityScore: graphProximityScore,
 			SupersessionPenalty: supersessionPen,
 			ConflictPenalty:     conflictPen,
 			FinalScore:          finalScore,
@@ -284,6 +305,20 @@ func (r *Recaller) ShouldRerank(results []models.RecallResult, threshold float64
 	}
 	spread := results[0].FinalScore - results[3].FinalScore
 	return spread <= threshold
+}
+
+// depthRecaller is the optional interface for graph clients that support
+// configurable traversal depth.
+type depthRecaller interface {
+	RecallByGraphWithDepth(ctx context.Context, query string, embedding []float32, limit int, depth int) ([]string, error)
+}
+
+// depthRecallerWithHops is the optional interface for graph clients that return
+// per-memory hop distances in addition to the sorted ID list. When a client
+// implements this interface, RecallWithGraph uses the hop distances to build a
+// proximityMap for RankWithGraphProximity.
+type depthRecallerWithHops interface {
+	RecallByGraphWithHops(ctx context.Context, query string, embedding []float32, limit int, depth int) ([]string, map[string]int, error)
 }
 
 // RecallWithGraph merges graph-traversal results with vector search results using
@@ -319,13 +354,14 @@ func (r *Recaller) RecallWithGraph(
 	gCtx, cancel := context.WithTimeout(ctx, time.Duration(budgetMs)*time.Millisecond)
 	defer cancel()
 
-	// Support configurable depth via type assertion to GraphAdapterWithDepth.
+	// Support configurable depth with optional hop-distance tracking.
+	// Prefer depthRecallerWithHops (returns hop distances) → depthRecaller → base interface.
 	var graphIDs []string
+	var graphMemoryHops map[string]int
 	var err error
-	type depthRecaller interface {
-		RecallByGraphWithDepth(ctx context.Context, query string, embedding []float32, limit int, depth int) ([]string, error)
-	}
-	if dr, ok := r.graphClient.(depthRecaller); ok {
+	if dh, ok := r.graphClient.(depthRecallerWithHops); ok {
+		graphIDs, graphMemoryHops, err = dh.RecallByGraphWithHops(gCtx, query, embedding, 50, r.graphDepthOrDefault())
+	} else if dr, ok := r.graphClient.(depthRecaller); ok {
 		graphIDs, err = dr.RecallByGraphWithDepth(gCtx, query, embedding, 50, r.graphDepthOrDefault())
 	} else {
 		graphIDs, err = r.graphClient.RecallByGraph(gCtx, query, embedding, 50)
@@ -333,6 +369,23 @@ func (r *Recaller) RecallWithGraph(
 	if err != nil {
 		r.logger.Warn("graph recall failed, falling back to vector-only results", "error", err)
 		return r.Rank(searchResults, project, query)
+	}
+
+	// Build a proximityMap from hop distances (when available).
+	// 1-hop → 1.0, 2-hop → 0.5, 3+-hop → 0.25.
+	var proximityMap map[string]float64
+	if graphMemoryHops != nil {
+		proximityMap = make(map[string]float64, len(graphMemoryHops))
+		for memID, hopDist := range graphMemoryHops {
+			switch hopDist {
+			case 1:
+				proximityMap[memID] = 1.0
+			case 2:
+				proximityMap[memID] = 0.5
+			default:
+				proximityMap[memID] = 0.25
+			}
+		}
 	}
 
 	// RRF merge: compute blended scores from vector rank + graph rank.
@@ -377,7 +430,76 @@ func (r *Recaller) RecallWithGraph(
 		existing[id] = struct{}{}
 	}
 
-	return r.Rank(merged, project, query)
+	// Community sweep: when the query is short and targets exactly one known entity,
+	// pull in memories from that entity's community (MAGE community detection).
+	// Gated by mageAvailableChecker interface to avoid errors when MAGE is absent.
+	type mageAvailableChecker interface {
+		IsMageAvailable() bool
+	}
+	if mac, ok := r.graphClient.(mageAvailableChecker); ok && mac.IsMageAvailable() {
+		merged = r.communitySweep(ctx, query, merged, existing, blended)
+	}
+
+	return r.RankWithGraphProximity(merged, project, query, proximityMap)
+}
+
+// communitySweep applies a broad entity query heuristic: when the query is short
+// (< 10 words) and exactly one known entity name is found in the query, it fetches
+// memories from that entity's community and merges them into the result set.
+//
+// Returns the (potentially extended) merged slice. existing and blended are
+// mutated in-place; the returned slice may be a new backing array if it grew.
+func (r *Recaller) communitySweep(
+	ctx context.Context,
+	query string,
+	merged []models.SearchResult,
+	existing map[string]struct{},
+	blended map[string]float64,
+) []models.SearchResult {
+	words := strings.Fields(query)
+	if len(words) >= 10 {
+		return merged
+	}
+
+	// Find entity candidates matching the query.
+	entityResults, err := r.graphClient.SearchEntities(ctx, query, nil, "", 5)
+	if err != nil || len(entityResults) != 1 {
+		// Only proceed when exactly one entity matches to avoid over-broad sweeps.
+		return merged
+	}
+
+	entityID := entityResults[0].ID
+	communities, err := r.graphClient.GetCommunitiesForEntity(ctx, entityID)
+	if err != nil || len(communities) == 0 {
+		return merged
+	}
+
+	// Use the first community ID for the sweep.
+	communityID := communities[0]
+	communityMemIDs, err := r.graphClient.GetMemoriesForCommunity(ctx, communityID)
+	if err != nil {
+		r.logger.Warn("community sweep: failed to get memories for community", "community_id", communityID, "error", err)
+		return merged
+	}
+
+	for _, memID := range communityMemIDs {
+		if _, ok := existing[memID]; ok {
+			continue
+		}
+		mem, fetchErr := r.store.Get(ctx, memID)
+		if fetchErr != nil {
+			r.logger.Warn("community sweep: failed to fetch memory", "id", memID, "error", fetchErr)
+			continue
+		}
+		// Assign a modest blended score (lower than graph-traversal results).
+		blended[memID] = 1.0 / float64(1+rrfK)
+		merged = append(merged, models.SearchResult{
+			Memory: *mem,
+			Score:  blended[memID],
+		})
+		existing[memID] = struct{}{}
+	}
+	return merged
 }
 
 // rrfBlend computes a blended Reciprocal Rank Fusion score for each memory ID
