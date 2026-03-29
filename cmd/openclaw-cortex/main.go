@@ -83,6 +83,8 @@ func run() error {
 		migrateCmd(),
 		resetCmd(),
 		reembedCmd(),
+		workerCmd(),
+		graphAdminCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
