@@ -194,6 +194,13 @@ func TestConfigValidationValid(t *testing.T) {
 			VectorDimension:    768,
 			DefaultTTLHours:    720,
 		},
+		Async: config.AsyncConfig{
+			WorkerCount:       2,
+			QueueCapacity:     512,
+			MaxRetries:        3,
+			RetryDelaySeconds: 5,
+			WALCompactEvery:   1000,
+		},
 	}
 	err := cfg.Validate()
 	assert.NoError(t, err)
@@ -233,6 +240,13 @@ func validBaseConfig() config.Config {
 			DedupThresholdHook: 0.95,
 			VectorDimension:    768,
 			DefaultTTLHours:    720,
+		},
+		Async: config.AsyncConfig{
+			WorkerCount:       2,
+			QueueCapacity:     512,
+			MaxRetries:        3,
+			RetryDelaySeconds: 5,
+			WALCompactEvery:   1000,
 		},
 	}
 }
