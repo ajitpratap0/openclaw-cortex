@@ -83,6 +83,11 @@ type Store interface {
 	// that do not yet have valid_from set. Idempotent.
 	MigrateTemporalFields(ctx context.Context) error
 
+	// CountZeroEmbeddingMemories returns the number of memories whose embedding
+	// field is NULL or has zero length. These memories are silently invisible to
+	// recall, search, and forget --query because vector search skips them.
+	CountZeroEmbeddingMemories(ctx context.Context) (int64, error)
+
 	// Close cleans up resources.
 	Close() error
 }

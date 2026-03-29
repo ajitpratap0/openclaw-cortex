@@ -1020,6 +1020,45 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 	return nil
 }
 
+// CountZeroEmbeddingMemories returns the number of Memory nodes whose embedding
+// property is NULL or has zero length. These nodes are silently invisible to
+// vector search (recall, search, forget --query).
+func (s *MemgraphStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, error) {
+	rctx, cancel := context.WithTimeout(ctx, memgraphReadTimeout)
+	defer cancel()
+
+	session := s.driver.NewSession(rctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	raw, err := session.ExecuteRead(rctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		res, txErr := tx.Run(rctx, `
+			MATCH (m:Memory) WHERE m.embedding IS NULL OR size(m.embedding) = 0 RETURN count(m) AS n
+		`, nil)
+		if txErr != nil {
+			return nil, txErr
+		}
+		rec, nextErr := res.Single(rctx)
+		if nextErr != nil {
+			return 0, fmt.Errorf("count zero-embedding memories: %w", nextErr)
+		}
+		n, ok := rec.Get("n")
+		if !ok {
+			return 0, fmt.Errorf("count zero-embedding memories: record missing key \"n\"")
+		}
+		return n, nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("memgraph count zero embedding memories: %w", err)
+	}
+
+	switch v := raw.(type) {
+	case int64:
+		return v, nil
+	default:
+		return 0, nil
+	}
+}
+
 // DeleteAllMemories removes all nodes and relationships from the graph.
 // This is intended for eval benchmark isolation only — it is destructive.
 //
@@ -1190,6 +1229,21 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 		var meta map[string]any
 		if unmarshalErr := json.Unmarshal([]byte(metaStr), &meta); unmarshalErr == nil {
 			m.Metadata = meta
+		}
+	}
+
+	// HasEmbedding is derived from whether the embedding property is non-empty.
+	// This allows callers (e.g. cmd_reembed) to skip memories that already have a vector.
+	// The neo4j-go-driver may return list properties as []any, []float64, or
+	// []float32 depending on Bolt protocol version and driver internals.
+	if raw, exists := props["embedding"]; exists {
+		switch v := raw.(type) {
+		case []any:
+			m.HasEmbedding = len(v) > 0
+		case []float64:
+			m.HasEmbedding = len(v) > 0
+		case []float32:
+			m.HasEmbedding = len(v) > 0
 		}
 	}
 

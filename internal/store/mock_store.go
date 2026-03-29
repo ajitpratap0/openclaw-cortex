@@ -174,6 +174,9 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 			continue
 		}
 		mem := sm.memory
+		// Derive HasEmbedding from the stored vector so callers can distinguish
+		// memories that need re-embedding from those that already have a valid vector.
+		mem.HasEmbedding = len(sm.vector) > 0
 		// Deep-copy mutable fields to prevent callers from mutating stored data.
 		if len(mem.Tags) > 0 {
 			tags := make([]string, len(mem.Tags))
@@ -578,6 +581,20 @@ func (m *MockStore) GetHistory(ctx context.Context, id string) ([]models.Memory,
 // MigrateTemporalFields is a no-op in the mock store.
 func (m *MockStore) MigrateTemporalFields(_ context.Context) error {
 	return nil
+}
+
+// CountZeroEmbeddingMemories returns the number of memories stored with a nil
+// or zero-length embedding vector.
+func (m *MockStore) CountZeroEmbeddingMemories(_ context.Context) (int64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var n int64
+	for _, sm := range m.memories {
+		if len(sm.vector) == 0 {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // DeleteAllMemories clears all in-memory data from the mock store.

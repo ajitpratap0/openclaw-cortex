@@ -96,6 +96,10 @@ func (f *failingUpsertStore) MigrateTemporalFields(ctx context.Context) error {
 	return f.inner.MigrateTemporalFields(ctx)
 }
 
+func (f *failingUpsertStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, error) {
+	return f.inner.CountZeroEmbeddingMemories(ctx)
+}
+
 func (f *failingUpsertStore) Close() error {
 	return f.inner.Close()
 }
