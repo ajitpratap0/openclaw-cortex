@@ -28,6 +28,7 @@ func storeCmd() *cobra.Command {
 		validUntil      string
 		extractEntities bool
 		skipDedup       bool
+		dedupThreshold  float64
 	)
 
 	cmd := &cobra.Command{
@@ -38,6 +39,14 @@ func storeCmd() *cobra.Command {
 			logger := newLogger()
 			ctx := cmd.Context()
 			content := args[0]
+
+			// Validate minimum content length.
+			trimmed := strings.TrimSpace(content)
+			if len(trimmed) < store.MinContentLen {
+				return fmt.Errorf("store: %w", &store.ErrContentTooShort{
+					Actual: len(trimmed), Minimum: store.MinContentLen,
+				})
+			}
 
 			// Validate memory type.
 			mt := models.MemoryType(memType)
@@ -69,10 +78,19 @@ func storeCmd() *cobra.Command {
 				return cmdErr("store: embedding content", err)
 			}
 
+			// Resolve effective dedup threshold: flag overrides config default.
+			effectiveThreshold := cfg.Memory.DedupThreshold
+			if cmd.Flags().Changed("dedup-threshold") {
+				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+					return fmt.Errorf("store: --dedup-threshold: %w", err)
+				}
+				effectiveThreshold = dedupThreshold
+			}
+
 			// Store-time dedup: check for near-identical memories (similarity > 0.92).
 			// Bypassed when --skip-dedup is set.
 			if !skipDedup {
-				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, cfg.Memory.DedupThreshold)
+				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, effectiveThreshold)
 				if dedupErr != nil {
 					// Dedup is an optimisation, not a correctness gate — fail open
 					// so a transient Memgraph hiccup does not block all stores.
@@ -166,6 +184,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
+	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range (0.0, 1.0]; omit to use config default)")
 	return cmd
 }
 

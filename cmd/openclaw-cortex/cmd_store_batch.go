@@ -34,8 +34,9 @@ type batchStoreResult struct {
 
 func storeBatchCmd() *cobra.Command {
 	var (
-		project   string
-		skipDedup bool
+		project        string
+		skipDedup      bool
+		dedupThreshold float64
 	)
 
 	cmd := &cobra.Command{
@@ -75,6 +76,12 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 				inp := &inputs[i]
 				if inp.Content == "" {
 					return fmt.Errorf("store-batch: entry %d: content is required", i)
+				}
+				trimmed := strings.TrimSpace(inp.Content)
+				if len(trimmed) < store.MinContentLen {
+					return fmt.Errorf("store-batch: entry %d: %w", i, &store.ErrContentTooShort{
+						Actual: len(trimmed), Minimum: store.MinContentLen,
+					})
 				}
 				if inp.Type == "" {
 					inp.Type = "fact"
@@ -124,6 +131,15 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 					len(vectors), len(inputs))
 			}
 
+			// Resolve effective dedup threshold: flag overrides config default.
+			effectiveThreshold := cfg.Memory.DedupThreshold
+			if cmd.Flags().Changed("dedup-threshold") {
+				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+					return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
+				}
+				effectiveThreshold = dedupThreshold
+			}
+
 			// Process each memory: dedup check then upsert.
 			results := make([]batchStoreResult, len(inputs))
 			now := time.Now().UTC()
@@ -135,7 +151,7 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 				// Store-time dedup: check for near-identical memories.
 				// Bypassed per-entry when --skip-dedup is set.
 				if !skipDedup {
-					dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content, cfg.Memory.DedupThreshold)
+					dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, inp.Content, effectiveThreshold)
 					if dedupErr != nil {
 						// Dedup is an optimisation, not a correctness gate — fail open
 						// so a transient Memgraph hiccup does not block all stores.
@@ -211,5 +227,6 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 
 	cmd.Flags().StringVar(&project, "project", "", "project name for all memories in this batch")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memories)")
+	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range (0.0, 1.0]; omit to use config default)")
 	return cmd
 }
