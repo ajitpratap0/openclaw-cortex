@@ -123,9 +123,33 @@ describe("parseStoreOutput", () => {
     expect(parseStoreOutput("stored memory abc123")).toBeNull(); // wrong case
   });
 
+  it("rejects non-UUID strings like '---' or short hex", () => {
+    expect(parseStoreOutput("Stored memory --- [fact/permanent]")).toBeNull();
+    expect(parseStoreOutput("Stored memory abc [fact/permanent]")).toBeNull();
+    expect(parseStoreOutput("Stored memory 1234 [fact/permanent]")).toBeNull();
+  });
+
   it("does not match 'Stored memory' mid-line (anchored to start)", () => {
     // A line that has 'Stored memory' but NOT at the start should not match
     const result = parseStoreOutput(`prefix Stored memory ${uuid} [fact/permanent]`);
     expect(result).toBeNull();
+  });
+
+  it("matches success line even when preceded by a warning line", () => {
+    const multiline = `WARN: config file not found, using defaults\nStored memory ${uuid} [fact/permanent]`;
+    const result = parseStoreOutput(multiline);
+    expect(result).toEqual({ id: uuid, action: "created" });
+  });
+
+  it("matches updated line after a warning prefix", () => {
+    const multiline = `WARN: something\nduplicate detected: updated existing memory ${uuid} with richer content`;
+    const result = parseStoreOutput(multiline);
+    expect(result).toEqual({ id: uuid, action: "updated" });
+  });
+
+  it("matches skipped line after a warning prefix", () => {
+    const multiline = `WARN: something\nduplicate detected: memory ${uuid} already covers this content (skipped)`;
+    const result = parseStoreOutput(multiline);
+    expect(result).toEqual({ id: uuid, action: "skipped" });
   });
 });

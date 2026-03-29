@@ -145,17 +145,18 @@ export function resolveEnv(
 export function parseStoreOutput(
   out: string,
 ): { id: string; action: "created" | "updated" | "skipped" } | null {
+  const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
   // "Stored memory <UUID> [type/scope]"
-  const createdMatch = out.match(/^Stored memory ([0-9a-f-]+)/);
+  const createdMatch = out.match(new RegExp(`^Stored memory (${UUID})`, "m"));
   if (createdMatch) return { id: createdMatch[1], action: "created" };
   // "duplicate detected: updated existing memory <UUID> with richer content ..."
   const updatedMatch = out.match(
-    /^duplicate detected: updated existing memory ([0-9a-f-]+) with richer content/,
+    new RegExp(`^duplicate detected: updated existing memory (${UUID}) with richer content`, "m"),
   );
   if (updatedMatch) return { id: updatedMatch[1], action: "updated" };
   // "duplicate detected: memory <UUID> already covers this content (skipped)"
   const skippedMatch = out.match(
-    /^duplicate detected: memory ([0-9a-f-]+) already covers this content/,
+    new RegExp(`^duplicate detected: memory (${UUID}) already covers this content`, "m"),
   );
   if (skippedMatch) return { id: skippedMatch[1], action: "skipped" };
   return null;
