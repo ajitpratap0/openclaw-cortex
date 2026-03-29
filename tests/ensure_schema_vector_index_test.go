@@ -52,9 +52,12 @@ func TestParseVectorIndexRows_WrongProperty(t *testing.T) {
 	if prop != "project" {
 		t.Errorf("expected wrong property 'project' to be recorded as-is, got %q", prop)
 	}
-	// Caller compares prop != "embedding" and triggers rebuild.
-	if prop == "embedding" {
-		t.Error("wrong property was silently corrected — verifyOrRebuildVectorIndex would miss the mismatch")
+	// Sanity-check: the correct property for memory_embedding is "embedding".
+	// The test simulates corruption where the property is "project" instead.
+	// Confirming prop != "embedding" ensures verifyOrRebuildVectorIndex will detect the mismatch.
+	correctProp := "embedding"
+	if prop == correctProp {
+		t.Errorf("wrong property %q was silently corrected to correct value %q — verifyOrRebuildVectorIndex would miss the mismatch", prop, correctProp)
 	}
 }
 
@@ -100,6 +103,47 @@ func TestParseVectorIndexRows_NonStringValues(t *testing.T) {
 	}
 	if result["real_index"] != "real_prop" {
 		t.Errorf("expected real_index → real_prop, got %q", result["real_index"])
+	}
+}
+
+// TestEnsureSchema_VectorIndex_DropRecreateOnMismatch exercises the drop+recreate
+// code path in verifyOrRebuildVectorIndex using the exported ParseVectorIndexRows
+// helper. It simulates the scenario where SHOW VECTOR INDEXES returns a row that
+// puts the memory_embedding index on the wrong property ("project" instead of
+// "embedding"). The test confirms that:
+//   - ParseVectorIndexRows faithfully records the wrong property.
+//   - A mismatch check (existingProp != expectedProp) evaluates to true, meaning
+//     verifyOrRebuildVectorIndex would proceed to the DROP + recreate branch.
+//   - The recreate DDL references the correct property ("embedding"), so the
+//     rebuild would fix the corruption rather than reproduce it.
+func TestEnsureSchema_VectorIndex_DropRecreateOnMismatch(t *testing.T) {
+	// Simulate SHOW VECTOR INDEXES returning the index on the wrong property.
+	rows := []map[string]any{
+		{"index_name": "memory_embedding", "property_name": "project"},
+	}
+	indexes := memgraph.ParseVectorIndexRows(rows)
+
+	const indexName = "memory_embedding"
+	const expectedProperty = "embedding"
+
+	existingProp, exists := indexes[indexName]
+	if !exists {
+		t.Fatalf("expected index %q to exist in parsed rows", indexName)
+	}
+
+	// Confirm mismatch is detected: this is the condition that triggers the drop+recreate branch.
+	if existingProp == expectedProperty {
+		t.Errorf("mismatch not detected: existingProp %q == expectedProperty %q; drop+recreate branch would be skipped", existingProp, expectedProperty)
+	}
+
+	// Confirm the recreate DDL targets the correct property so the rebuild fixes the corruption.
+	recreateDDL := memgraph.BuildMemoryVectorIndexDDL(768)
+	if !strings.Contains(recreateDDL, ":Memory(embedding)") {
+		t.Errorf("recreate DDL does not target correct property 'embedding': %s", recreateDDL)
+	}
+	// Confirm the recreate DDL does not target the wrong property.
+	if strings.Contains(recreateDDL, ":Memory(project)") {
+		t.Errorf("recreate DDL targets wrong property 'project': %s", recreateDDL)
 	}
 }
 

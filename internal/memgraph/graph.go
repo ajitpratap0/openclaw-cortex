@@ -184,6 +184,12 @@ func showVectorIndexes(ctx context.Context, session neo4j.SessionWithContext) (m
 //   - Index present with correct property: nothing to do, returns nil.
 //   - Index present with wrong property: logs a Warn, drops the index, then recreates it.
 func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithContext, logger *slog.Logger, indexName, expectedProperty, ddl string) error {
+	// Whitelist validation: only allow known index names to prevent DDL injection.
+	knownIndexNames := map[string]bool{"memory_embedding": true, "entity_name_embedding": true}
+	if !knownIndexNames[indexName] {
+		return fmt.Errorf("verifyOrRebuildVectorIndex: unknown index name %q", indexName)
+	}
+
 	indexes, err := showVectorIndexes(ctx, session)
 	if err != nil {
 		// Non-fatal for the "show" step — fall through and attempt creation.
