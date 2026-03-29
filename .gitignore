@@ -26,3 +26,6 @@ Thumbs.db
 qdrant_data/
 .claude/
 .worktrees/
+
+# Node
+node_modules/
