@@ -1,14 +1,16 @@
-package async
+package tests
 
 import (
 	"errors"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 )
 
-// walPath returns a unique WAL path inside t.TempDir().
-func walPath(t *testing.T) string {
+// asyncWALPath returns a unique WAL path inside t.TempDir().
+func asyncWALPath(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "test.wal")
 }
@@ -16,12 +18,12 @@ func walPath(t *testing.T) string {
 // TestQueue_EnqueueAndDrain verifies that enqueued items arrive on C().
 func TestQueue_EnqueueAndDrain(t *testing.T) {
 	t.Parallel()
-	q, err := NewQueue(walPath(t), 16, 0)
+	q, err := async.NewQueue(asyncWALPath(t), 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
 
-	items := []WorkItem{
+	items := []async.WorkItem{
 		{MemoryID: "m1", Content: "alpha"},
 		{MemoryID: "m2", Content: "beta"},
 		{MemoryID: "m3", Content: "gamma"},
@@ -53,14 +55,14 @@ func TestQueue_EnqueueAndDrain(t *testing.T) {
 // close + reopen from same WAL path).
 func TestQueue_WALPersistence(t *testing.T) {
 	t.Parallel()
-	path := walPath(t)
+	path := asyncWALPath(t)
 
-	q, err := NewQueue(path, 16, 0)
+	q, err := async.NewQueue(path, 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
 
-	items := []WorkItem{
+	items := []async.WorkItem{
 		{MemoryID: "p1", Content: "persist-a"},
 		{MemoryID: "p2", Content: "persist-b"},
 	}
@@ -80,7 +82,7 @@ func TestQueue_WALPersistence(t *testing.T) {
 	}
 
 	// Reopen from same WAL path; items should replay.
-	q2, err := NewQueue(path, 16, 0)
+	q2, err := async.NewQueue(path, 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue (reopen): %v", err)
 	}
@@ -105,15 +107,15 @@ func TestQueue_WALPersistence(t *testing.T) {
 // items, and asserts only 1 is in the channel while all 3 are durably in the WAL.
 func TestQueue_ChannelFullDropsToWAL(t *testing.T) {
 	t.Parallel()
-	path := walPath(t)
+	path := asyncWALPath(t)
 
-	q, err := NewQueue(path, 1, 0)
+	q, err := async.NewQueue(path, 1, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
 
 	for i := range 3 {
-		item := WorkItem{MemoryID: "drop-test", Content: "item"}
+		item := async.WorkItem{MemoryID: "drop-test", Content: "item"}
 		_ = i
 		if enqErr := q.Enqueue(item); enqErr != nil {
 			t.Fatalf("Enqueue: %v", enqErr)
@@ -137,16 +139,16 @@ func TestQueue_ChannelFullDropsToWAL(t *testing.T) {
 // and asserts only 2 items replay.
 func TestQueue_Compact(t *testing.T) {
 	t.Parallel()
-	path := walPath(t)
+	path := asyncWALPath(t)
 
-	q, err := NewQueue(path, 16, 0)
+	q, err := async.NewQueue(path, 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
 
 	ids := make([]string, 5)
 	for i := range ids {
-		item := WorkItem{MemoryID: "compact-test", Content: "item"}
+		item := async.WorkItem{MemoryID: "compact-test", Content: "item"}
 		if enqErr := q.Enqueue(item); enqErr != nil {
 			t.Fatalf("Enqueue[%d]: %v", i, enqErr)
 		}
@@ -165,7 +167,7 @@ func TestQueue_Compact(t *testing.T) {
 	}
 
 	// Reopen — only 2 pending items should replay.
-	q2, err := NewQueue(path, 16, 0)
+	q2, err := async.NewQueue(path, 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue (after compact): %v", err)
 	}
@@ -188,9 +190,9 @@ done:
 // TestQueue_Status asserts that Status() returns correct field values.
 func TestQueue_Status(t *testing.T) {
 	t.Parallel()
-	path := walPath(t)
+	path := asyncWALPath(t)
 
-	q, err := NewQueue(path, 16, 0)
+	q, err := async.NewQueue(path, 16, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
@@ -198,7 +200,7 @@ func TestQueue_Status(t *testing.T) {
 	// Enqueue 4 items.
 	ids := make([]string, 4)
 	for i := range ids {
-		item := WorkItem{MemoryID: "status-test", Content: "item"}
+		item := async.WorkItem{MemoryID: "status-test", Content: "item"}
 		if enqErr := q.Enqueue(item); enqErr != nil {
 			t.Fatalf("Enqueue: %v", enqErr)
 		}

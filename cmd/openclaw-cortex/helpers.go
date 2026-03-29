@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
@@ -90,11 +91,12 @@ func parseTags(tagsStr string) []string {
 }
 
 // initAsyncQueue creates and starts the async graph pipeline pool.
-// Returns (nil, nil) when cfg.Async.Disabled is true.
-// The caller is responsible for calling pool.Shutdown(ctx) when done.
-func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) (*async.Pool, error) {
+// Returns (nil, nil, nil) when cfg.Async.Disabled is true.
+// The caller is responsible for calling pool.Shutdown(ctx) when done, and then
+// calling the returned closer to release the underlying store connection.
+func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) (*async.Pool, func() error, error) {
 	if c.Async.Disabled {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Resolve WAL path: explicit config or default under ~/.openclaw/
@@ -102,19 +104,19 @@ func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) 
 	if walPath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("initAsyncQueue: resolve home dir: %w", err)
+			return nil, nil, fmt.Errorf("initAsyncQueue: resolve home dir: %w", err)
 		}
 		walPath = filepath.Join(homeDir, ".openclaw", "graph_wal.jsonl")
 	}
 
 	// Ensure the parent directory exists.
 	if err := os.MkdirAll(filepath.Dir(walPath), 0o700); err != nil {
-		return nil, fmt.Errorf("initAsyncQueue: create WAL dir: %w", err)
+		return nil, nil, fmt.Errorf("initAsyncQueue: create WAL dir: %w", err)
 	}
 
 	q, err := async.NewQueue(walPath, c.Async.QueueCapacity, c.Async.WALCompactEvery)
 	if err != nil {
-		return nil, fmt.Errorf("initAsyncQueue: new queue: %w", err)
+		return nil, nil, fmt.Errorf("initAsyncQueue: new queue: %w", err)
 	}
 
 	// Build the GraphProcessor dependencies from cfg.
@@ -122,16 +124,17 @@ func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) 
 
 	st, stErr := newMemgraphStore(ctx, logger)
 	if stErr != nil {
-		return nil, fmt.Errorf("initAsyncQueue: connecting to store: %w", stErr)
+		return nil, nil, fmt.Errorf("initAsyncQueue: connecting to store: %w", stErr)
 	}
 
 	gc := memgraph.NewGraphAdapter(st)
 	lc := llm.NewClient(c.Claude)
 
+	retryDelay := time.Duration(c.Async.RetryDelaySeconds) * time.Second
 	gp := async.NewGraphProcessor(st, gc, emb, lc, c.Claude.Model, logger)
-	pool := async.NewPool(q, gp, c.Async.WorkerCount, c.Async.MaxRetries, logger)
+	pool := async.NewPool(q, gp, c.Async.WorkerCount, c.Async.MaxRetries, retryDelay, logger)
 	pool.Start(ctx)
 
 	asyncQueue = q
-	return pool, nil
+	return pool, st.Close, nil
 }

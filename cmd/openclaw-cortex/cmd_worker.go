@@ -69,6 +69,7 @@ func workerDrainCmd() *cobra.Command {
 			if err != nil {
 				return cmdErr("worker drain: open queue", err)
 			}
+			defer q.Close()
 
 			// Count how many items were pending before we drain.
 			beforeStatus := q.Status()
@@ -86,12 +87,18 @@ func workerDrainCmd() *cobra.Command {
 			gc := memgraph.NewGraphAdapter(st)
 			lc := llm.NewClient(cfg.Claude)
 
+			retryDelay := time.Duration(cfg.Async.RetryDelaySeconds) * time.Second
 			gp := async.NewGraphProcessor(st, gc, emb, lc, cfg.Claude.Model, logger)
-			pool := async.NewPool(q, gp, 1, cfg.Async.MaxRetries, logger)
+			pool := async.NewPool(q, gp, 1, cfg.Async.MaxRetries, retryDelay, logger)
 			pool.Start(ctx)
 
-			// Poll until the channel is empty, then shut down.
-			for len(q.C()) > 0 {
+			// Poll until both the WAL pending count and the channel depth reach
+			// zero so that items that overflowed the channel are not missed.
+			for {
+				s := q.Status()
+				if s.TotalPending == 0 && s.ChannelDepth == 0 {
+					break
+				}
 				time.Sleep(100 * time.Millisecond)
 			}
 

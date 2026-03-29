@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,7 +23,12 @@ type WALState string
 const (
 	// WALStatePending indicates the item has been enqueued but not yet picked up.
 	WALStatePending WALState = "pending"
-	// WALStateProcessing indicates a worker has dequeued the item.
+	// WALStateProcessing is reserved for crash-recovery semantics: items remain
+	// in WALStatePending in the WAL until Complete or Fail is called.  If a
+	// process crashes while an item is in-flight, it will be replayed as pending
+	// on the next startup.  WALStateProcessing is never written by the current
+	// implementation; it is kept here so that WAL files from future versions that
+	// do write this state are replayed correctly (treated the same as pending).
 	WALStateProcessing WALState = "processing"
 	// WALStateDone indicates the item was processed successfully.
 	WALStateDone WALState = "done"
@@ -67,6 +73,7 @@ type QueueStatus struct {
 
 // Queue is the core work queue: append-only JSONL WAL + buffered Go channel.
 type Queue struct {
+	mu           sync.Mutex
 	walPath      string
 	ch           chan WorkItem
 	compactEvery int
@@ -201,7 +208,10 @@ func (q *Queue) Enqueue(item WorkItem) error {
 		UpdatedAt:  time.Now().UTC(),
 	}
 
-	if err := q.appendWALEntry(entry); err != nil {
+	q.mu.Lock()
+	err := q.appendWALEntry(entry)
+	q.mu.Unlock()
+	if err != nil {
 		return fmt.Errorf("async.Enqueue: %w", err)
 	}
 
@@ -227,6 +237,13 @@ func (q *Queue) C() <-chan WorkItem {
 	return q.ch
 }
 
+// Close closes the underlying work channel, signalling workers that no more
+// items will be sent.  Callers must ensure no concurrent Enqueue calls are
+// made after Close.
+func (q *Queue) Close() {
+	close(q.ch)
+}
+
 // Complete appends a done tombstone for the given item ID.
 func (q *Queue) Complete(id string) {
 	entry := WALEntry{
@@ -234,7 +251,10 @@ func (q *Queue) Complete(id string) {
 		State:     WALStateDone,
 		UpdatedAt: time.Now().UTC(),
 	}
-	if err := q.appendWALEntry(entry); err != nil {
+	q.mu.Lock()
+	err := q.appendWALEntry(entry)
+	q.mu.Unlock()
+	if err != nil {
 		q.logger.Warn("async: failed to write done tombstone", "id", id, "err", err)
 	}
 }
@@ -251,7 +271,10 @@ func (q *Queue) Fail(id string, failErr error) {
 		Error:     errStr,
 		UpdatedAt: time.Now().UTC(),
 	}
-	if err := q.appendWALEntry(entry); err != nil {
+	q.mu.Lock()
+	err := q.appendWALEntry(entry)
+	q.mu.Unlock()
+	if err != nil {
 		q.logger.Warn("async: failed to write failed tombstone", "id", id, "err", err)
 	}
 }
@@ -259,6 +282,9 @@ func (q *Queue) Fail(id string, failErr error) {
 // Status returns observable metrics about the queue.
 func (q *Queue) Status() QueueStatus {
 	var pending, failed int64
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
 	f, err := os.OpenFile(q.walPath, os.O_RDONLY|os.O_CREATE, 0o600)
 	if err != nil {
@@ -305,6 +331,9 @@ func (q *Queue) Status() QueueStatus {
 // pending (done and failed entries are discarded).  This keeps the WAL file
 // from growing unboundedly.
 func (q *Queue) Compact() error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	f, err := os.OpenFile(q.walPath, os.O_RDONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return fmt.Errorf("compact open wal: %w", err)

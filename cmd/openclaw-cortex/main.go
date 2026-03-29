@@ -35,6 +35,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	var asyncPool *async.Pool
+	var asyncStoreCloser func() error
 
 	rootCmd := &cobra.Command{
 		Use:     "openclaw-cortex",
@@ -50,7 +51,7 @@ func run() error {
 			sentry.Init(cfg.Sentry.DSN, cfg.Sentry.Environment, version)
 
 			logger := newLogger()
-			asyncPool, err = initAsyncQueue(cmd.Context(), cfg, logger)
+			asyncPool, asyncStoreCloser, err = initAsyncQueue(cmd.Context(), cfg, logger)
 			if err != nil {
 				// Non-fatal: log and continue without async queue.
 				logger.Warn("async queue init failed, falling back to synchronous extraction", "err", err)
@@ -98,6 +99,12 @@ func run() error {
 		defer shutdownCancel()
 		if shutdownErr := asyncPool.Shutdown(shutdownCtx); shutdownErr != nil {
 			slog.Default().Warn("async pool shutdown did not complete cleanly", "err", shutdownErr)
+		}
+		// Close the store connection opened by initAsyncQueue.
+		if asyncStoreCloser != nil {
+			if closeErr := asyncStoreCloser(); closeErr != nil {
+				slog.Default().Warn("async store close error", "err", closeErr)
+			}
 		}
 	}
 

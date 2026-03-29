@@ -1,4 +1,4 @@
-package async
+package tests
 
 import (
 	"context"
@@ -7,27 +7,29 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 )
 
 // ----------------------------------------------------------------------------
-// noopProcessor — always succeeds.
+// asyncNoopProcessor — always succeeds.
 // ----------------------------------------------------------------------------
 
-type noopProcessor struct{}
+type asyncNoopProcessor struct{}
 
-func (noopProcessor) Process(_ context.Context, _ WorkItem) error { return nil }
+func (asyncNoopProcessor) Process(_ context.Context, _ async.WorkItem) error { return nil }
 
 // ----------------------------------------------------------------------------
-// countingProcessor — succeeds after failN calls then always succeeds.
+// asyncCountingProcessor — succeeds after failN calls then always succeeds.
 // ----------------------------------------------------------------------------
 
-type countingProcessor struct {
+type asyncCountingProcessor struct {
 	callCount atomic.Int64
 	failN     int64 // fail the first failN calls
 	err       error // error to return while failing
 }
 
-func (p *countingProcessor) Process(_ context.Context, _ WorkItem) error {
+func (p *asyncCountingProcessor) Process(_ context.Context, _ async.WorkItem) error {
 	n := p.callCount.Add(1)
 	if n <= p.failN {
 		return p.err
@@ -36,14 +38,14 @@ func (p *countingProcessor) Process(_ context.Context, _ WorkItem) error {
 }
 
 // ----------------------------------------------------------------------------
-// alwaysFailProcessor — never succeeds.
+// asyncAlwaysFailProcessor — never succeeds.
 // ----------------------------------------------------------------------------
 
-type alwaysFailProcessor struct {
+type asyncAlwaysFailProcessor struct {
 	err error
 }
 
-func (p *alwaysFailProcessor) Process(_ context.Context, _ WorkItem) error {
+func (p *asyncAlwaysFailProcessor) Process(_ context.Context, _ async.WorkItem) error {
 	return p.err
 }
 
@@ -51,20 +53,20 @@ func (p *alwaysFailProcessor) Process(_ context.Context, _ WorkItem) error {
 // helpers
 // ----------------------------------------------------------------------------
 
-// newTestPool creates a Queue + Pool backed by a temp WAL.
-func newTestPool(t *testing.T, proc Processor, workers, maxRetries int) (*Queue, *Pool) {
+// asyncNewTestPool creates a Queue + Pool backed by a temp WAL.
+func asyncNewTestPool(t *testing.T, proc async.Processor, workers, maxRetries int) (*async.Queue, *async.Pool) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.wal")
-	q, err := NewQueue(path, 64, 0)
+	q, err := async.NewQueue(path, 64, 0)
 	if err != nil {
 		t.Fatalf("NewQueue: %v", err)
 	}
-	pool := NewPool(q, proc, workers, maxRetries, nil)
+	pool := async.NewPool(q, proc, workers, maxRetries, 0, nil)
 	return q, pool
 }
 
-// waitFor polls pred every 5 ms until it returns true or the deadline elapses.
-func waitFor(t *testing.T, timeout time.Duration, pred func() bool) {
+// asyncWaitFor polls pred every 5 ms until it returns true or the deadline elapses.
+func asyncWaitFor(t *testing.T, timeout time.Duration, pred func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -80,14 +82,14 @@ func waitFor(t *testing.T, timeout time.Duration, pred func() bool) {
 // TestPool_ProcessesItems
 // ----------------------------------------------------------------------------
 
-// TestPool_ProcessesItems verifies that a Pool with a noopProcessor drains all
+// TestPool_ProcessesItems verifies that a Pool with an asyncNoopProcessor drains all
 // enqueued items and marks them as WALStateDone.
 func TestPool_ProcessesItems(t *testing.T) {
 	t.Parallel()
 
-	q, pool := newTestPool(t, noopProcessor{}, 2, 1)
+	q, pool := asyncNewTestPool(t, asyncNoopProcessor{}, 2, 1)
 
-	items := []WorkItem{
+	items := []async.WorkItem{
 		{MemoryID: "m1", Content: "alpha"},
 		{MemoryID: "m2", Content: "beta"},
 		{MemoryID: "m3", Content: "gamma"},
@@ -104,7 +106,7 @@ func TestPool_ProcessesItems(t *testing.T) {
 	pool.Start(ctx)
 
 	// Wait until the queue has no pending items left.
-	waitFor(t, 3*time.Second, func() bool {
+	asyncWaitFor(t, 3*time.Second, func() bool {
 		s := q.Status()
 		return s.TotalPending == 0 && s.ChannelDepth == 0
 	})
@@ -130,15 +132,15 @@ func TestPool_ProcessesItems(t *testing.T) {
 func TestPool_RetriesOnError(t *testing.T) {
 	t.Parallel()
 
-	proc := &countingProcessor{
+	proc := &asyncCountingProcessor{
 		failN: 2,
 		err:   errors.New("transient error"),
 	}
 
 	// maxRetries=5 so the item gets enough attempts to succeed on the 3rd call.
-	q, pool := newTestPool(t, proc, 1, 5)
+	q, pool := asyncNewTestPool(t, proc, 1, 5)
 
-	if err := q.Enqueue(WorkItem{MemoryID: "retry-mem", Content: "retry-content"}); err != nil {
+	if err := q.Enqueue(async.WorkItem{MemoryID: "retry-mem", Content: "retry-content"}); err != nil {
 		t.Fatalf("Enqueue: %v", err)
 	}
 
@@ -148,7 +150,7 @@ func TestPool_RetriesOnError(t *testing.T) {
 	pool.Start(ctx)
 
 	// Wait until the pending count reaches zero (item completed) or failed.
-	waitFor(t, 8*time.Second, func() bool {
+	asyncWaitFor(t, 8*time.Second, func() bool {
 		s := q.Status()
 		return s.TotalPending == 0 && s.ChannelDepth == 0
 	})
@@ -178,12 +180,12 @@ func TestPool_RetriesOnError(t *testing.T) {
 func TestPool_MaxRetriesExceeded(t *testing.T) {
 	t.Parallel()
 
-	proc := &alwaysFailProcessor{err: errors.New("permanent error")}
+	proc := &asyncAlwaysFailProcessor{err: errors.New("permanent error")}
 
 	const maxRetries = 3
-	q, pool := newTestPool(t, proc, 1, maxRetries)
+	q, pool := asyncNewTestPool(t, proc, 1, maxRetries)
 
-	if err := q.Enqueue(WorkItem{MemoryID: "fail-mem", Content: "fail-content"}); err != nil {
+	if err := q.Enqueue(async.WorkItem{MemoryID: "fail-mem", Content: "fail-content"}); err != nil {
 		t.Fatalf("Enqueue: %v", err)
 	}
 
@@ -193,7 +195,7 @@ func TestPool_MaxRetriesExceeded(t *testing.T) {
 	pool.Start(ctx)
 
 	// Wait until the item is no longer pending (it should be failed).
-	waitFor(t, 8*time.Second, func() bool {
+	asyncWaitFor(t, 8*time.Second, func() bool {
 		s := q.Status()
 		return s.TotalPending == 0 && s.ChannelDepth == 0
 	})
@@ -218,11 +220,11 @@ func TestPool_MaxRetriesExceeded(t *testing.T) {
 func TestPool_Shutdown_DrainsInFlight(t *testing.T) {
 	t.Parallel()
 
-	q, pool := newTestPool(t, noopProcessor{}, 4, 1)
+	q, pool := asyncNewTestPool(t, asyncNoopProcessor{}, 4, 1)
 
 	// Enqueue several items before starting the pool.
 	for range 10 {
-		if err := q.Enqueue(WorkItem{MemoryID: "drain-mem", Content: "drain"}); err != nil {
+		if err := q.Enqueue(async.WorkItem{MemoryID: "drain-mem", Content: "drain"}); err != nil {
 			t.Fatalf("Enqueue: %v", err)
 		}
 	}
@@ -247,15 +249,15 @@ func TestPool_Shutdown_DrainsInFlight(t *testing.T) {
 func TestPool_Shutdown_TimesOut(t *testing.T) {
 	t.Parallel()
 
-	// blockingProcessor blocks indefinitely until context is canceled.
-	proc := processorFunc(func(ctx context.Context, _ WorkItem) error {
+	// asyncBlockingProcessor blocks indefinitely until context is canceled.
+	proc := asyncProcessorFunc(func(ctx context.Context, _ async.WorkItem) error {
 		<-ctx.Done()
 		return ctx.Err()
 	})
 
-	q, pool := newTestPool(t, proc, 1, 1)
+	q, pool := asyncNewTestPool(t, proc, 1, 1)
 
-	if err := q.Enqueue(WorkItem{MemoryID: "block-mem", Content: "block"}); err != nil {
+	if err := q.Enqueue(async.WorkItem{MemoryID: "block-mem", Content: "block"}); err != nil {
 		t.Fatalf("Enqueue: %v", err)
 	}
 
@@ -283,7 +285,9 @@ func TestPool_Shutdown_TimesOut(t *testing.T) {
 	workerCancel()
 }
 
-// processorFunc is an adapter that allows a plain function to satisfy Processor.
-type processorFunc func(ctx context.Context, item WorkItem) error
+// asyncProcessorFunc is an adapter that allows a plain function to satisfy async.Processor.
+type asyncProcessorFunc func(ctx context.Context, item async.WorkItem) error
 
-func (f processorFunc) Process(ctx context.Context, item WorkItem) error { return f(ctx, item) }
+func (f asyncProcessorFunc) Process(ctx context.Context, item async.WorkItem) error {
+	return f(ctx, item)
+}

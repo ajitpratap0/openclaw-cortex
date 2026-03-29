@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/extract"
@@ -31,6 +32,7 @@ type Pool struct {
 	processor  Processor
 	workers    int
 	maxRetries int
+	retryDelay time.Duration // delay between retry attempts
 	wg         sync.WaitGroup
 	cancel     context.CancelFunc // cancels the loop context (stops accepting new work)
 	processCtx context.Context    // context passed to Process; not cancelled by Shutdown
@@ -41,7 +43,9 @@ type Pool struct {
 // processor, and spawns workers goroutines when Start is called.
 // maxRetries controls how many times a failing item is re-enqueued before it
 // is permanently marked failed (pass 0 to use the package default of 3).
-func NewPool(queue *Queue, processor Processor, workers int, maxRetries int, logger *slog.Logger) *Pool {
+// retryDelay is the duration to wait between retry attempts; pass 0 to retry
+// immediately.
+func NewPool(queue *Queue, processor Processor, workers int, maxRetries int, retryDelay time.Duration, logger *slog.Logger) *Pool {
 	if maxRetries <= 0 {
 		maxRetries = defaultMaxRetries
 	}
@@ -53,6 +57,7 @@ func NewPool(queue *Queue, processor Processor, workers int, maxRetries int, log
 		processor:  processor,
 		workers:    workers,
 		maxRetries: maxRetries,
+		retryDelay: retryDelay,
 		logger:     logger,
 	}
 }
@@ -154,6 +159,15 @@ func (p *Pool) runWorker(ctx context.Context) {
 				"attempt", currentAttempt,
 				"max_retries", p.maxRetries,
 				"error", processErr)
+
+			// Honour the configured retry back-off before re-enqueuing.
+			if p.retryDelay > 0 {
+				select {
+				case <-time.After(p.retryDelay):
+				case <-ctx.Done():
+					return
+				}
+			}
 
 			if enqErr := p.queue.Enqueue(item); enqErr != nil {
 				p.logger.Warn("async: re-enqueue failed, item lost for this session",
