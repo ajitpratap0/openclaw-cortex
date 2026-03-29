@@ -194,3 +194,61 @@ func TestMockGraphClient_SearchEntities(t *testing.T) {
 		t.Errorf("expected Alice, got %q", results[0].Name)
 	}
 }
+
+// TestGraphAdapter_GetSubgraph_MockOnly verifies that MockGraphClient.GetSubgraph
+// satisfies the graph.Client interface and returns a well-formed SubgraphResult.
+// This test does not require a live Memgraph instance.
+func TestGraphAdapter_GetSubgraph_MockOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping graph adapter stub test in short mode")
+	}
+
+	c := graph.NewMockGraphClient()
+	ctx := context.Background()
+
+	// GetSubgraph on the mock should return an empty result without error.
+	result, err := c.GetSubgraph(ctx, "entity-1", 2)
+	if err != nil {
+		t.Fatalf("GetSubgraph: unexpected error: %v", err)
+	}
+	if result.SeedEntityID != "entity-1" {
+		t.Errorf("expected SeedEntityID=%q, got %q", "entity-1", result.SeedEntityID)
+	}
+	// Nodes and Edges should be nil/empty for an empty mock store.
+	if len(result.Nodes) != 0 {
+		t.Errorf("expected 0 nodes, got %d", len(result.Nodes))
+	}
+	if len(result.Edges) != 0 {
+		t.Errorf("expected 0 edges, got %d", len(result.Edges))
+	}
+}
+
+// TestMockGraphClient_GetCommunitiesForEntity verifies the stub returns an empty
+// slice without error (MAGE is not available in the mock).
+func TestMockGraphClient_GetCommunitiesForEntity(t *testing.T) {
+	c := graph.NewMockGraphClient()
+	ctx := context.Background()
+
+	communities, err := c.GetCommunitiesForEntity(ctx, "entity-1")
+	if err != nil {
+		t.Fatalf("GetCommunitiesForEntity: unexpected error: %v", err)
+	}
+	if len(communities) != 0 {
+		t.Errorf("expected 0 communities from mock, got %d", len(communities))
+	}
+}
+
+// TestMockGraphClient_GetMemoriesForCommunity verifies the stub returns an empty
+// slice without error.
+func TestMockGraphClient_GetMemoriesForCommunity(t *testing.T) {
+	c := graph.NewMockGraphClient()
+	ctx := context.Background()
+
+	memIDs, err := c.GetMemoriesForCommunity(ctx, 42)
+	if err != nil {
+		t.Fatalf("GetMemoriesForCommunity: unexpected error: %v", err)
+	}
+	if len(memIDs) != 0 {
+		t.Errorf("expected 0 memory IDs from mock, got %d", len(memIDs))
+	}
+}

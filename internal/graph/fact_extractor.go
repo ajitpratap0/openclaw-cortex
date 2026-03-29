@@ -22,10 +22,19 @@ const factExtractionPromptTemplate = `You are a fact extractor. Extract relation
 For each fact provide:
 - source_entity_name: must match one of the KNOWN ENTITIES exactly
 - target_entity_name: must match one of the KNOWN ENTITIES exactly
-- relation_type: SCREAMING_SNAKE_CASE (e.g., WORKS_AT, DEPENDS_ON, DECIDED_TO)
+- relation_type: must be one of the CANONICAL RELATION TYPES listed below; use RELATES_TO if none fits
 - fact: natural language description, paraphrased (not verbatim quotes)
 - valid_at: ISO 8601 if the text states when the fact became true, null if ongoing or unknown
 - invalid_at: ISO 8601 if the text states when the fact ended, null otherwise
+
+<canonical_relation_types>
+WORKS_AT, HAS_ROLE, LOCATED_IN, MARRIED_TO, REPORTS_TO, EMPLOYED_BY, LIVES_IN, BASED_IN,
+CEO_OF, LEADS, USES, DEPENDS_ON, DECIDED_TO, KNOWS, HAS_SKILL, PART_OF, COLLABORATES_WITH,
+IMPLEMENTS, MANAGES, RELATES_TO
+</canonical_relation_types>
+
+Direction matters: source_entity_name performs the action; target_entity_name is the recipient.
+Example: Alice WORKS_AT Acme Corp → source=Alice, target=Acme Corp.
 
 Rules:
 - Only extract facts between two DISTINCT known entities

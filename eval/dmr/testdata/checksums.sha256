@@ -1,0 +1,7 @@
+# Expected SHA256 checksums for DMR dataset files.
+# Update these values after downloading the real dataset with scripts/download_eval_datasets.sh.
+#
+# Reference: Zep paper "Deep Memory Retrieval" arXiv 2501.13956.
+#
+# TODO: populate when real dataset is downloaded.
+# dmr_dataset.json  <sha256-hash-here>

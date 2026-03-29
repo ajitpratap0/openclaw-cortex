@@ -75,7 +75,57 @@ interface PluginConfig {
   minUserMessageLength?: number;
   minAssistantMessageLength?: number;
   blocklistPatterns?: string[];
+  /**
+   * Optional Anthropic API key for direct LLM calls.
+   * NOTE: An explicit value here **always** overrides the ambient `ANTHROPIC_API_KEY`
+   * shell variable — plugin config is authoritative when it is explicitly set.
+   * (Gateway vars follow the inverse rule: they only fill gaps, deferring to any
+   * pre-existing env var so that manually configured gateways are never clobbered.)
+   */
   anthropicApiKey?: string;
+}
+
+// ============================================================================
+// Env-resolution helper (exported for unit tests)
+// ============================================================================
+
+/**
+ * Resolves the subprocess environment for the given LLM credentials.
+ *
+ * Rules:
+ * - Auto-wired gateway vars only fill gaps — they never overwrite an env var
+ *   the user has already set in their shell.
+ * - An explicit `anthropicApiKey` from plugin config always wins over the
+ *   ambient `ANTHROPIC_API_KEY`, because it was intentionally provided.
+ * - Gateway and API key can coexist: both are written when provided. The binary
+ *   prefers gateway at runtime, so `anthropicApiKey` serves as a fallback if
+ *   the gateway becomes unavailable.
+ */
+export function resolveEnv(
+  base: Record<string, string | undefined>,
+  gatewayUrl: string | undefined,
+  gatewayToken: string | undefined,
+  anthropicApiKey: string | undefined,
+): Record<string, string | undefined> {
+  const env = { ...base };
+  if (gatewayUrl && gatewayToken) {
+    const hasUrl = Boolean(env.OPENCLAW_GATEWAY_URL);
+    const hasToken = Boolean(env.OPENCLAW_GATEWAY_TOKEN);
+    if (!hasUrl && !hasToken) {
+      // Only fill both when neither is set — treat as an atomic pair to avoid
+      // mixing credentials from different gateway instances.
+      env.OPENCLAW_GATEWAY_URL = gatewayUrl;
+      env.OPENCLAW_GATEWAY_TOKEN = gatewayToken;
+    }
+    // If only one is pre-set, leave both alone — partial pre-sets are the user's
+    // explicit shell configuration; we should not inject a mismatched counterpart.
+  }
+  // Always write explicit anthropicApiKey — the binary prefers gateway at runtime,
+  // but having ANTHROPIC_API_KEY in env provides a fallback credential.
+  if (anthropicApiKey) {
+    env.ANTHROPIC_API_KEY = anthropicApiKey;
+  }
+  return env;
 }
 
 // ============================================================================
@@ -87,13 +137,10 @@ class CortexClient {
   private defaultProject: string;
   private env: Record<string, string | undefined>;
 
-  constructor(binaryPath?: string, project?: string, anthropicApiKey?: string) {
+  constructor(binaryPath: string | undefined, project: string | undefined, env: Record<string, string | undefined>) {
     this.bin = binaryPath || "openclaw-cortex";
     this.defaultProject = project || "";
-    this.env = { ...process.env };
-    if (anthropicApiKey) {
-      this.env.ANTHROPIC_API_KEY = anthropicApiKey;
-    }
+    this.env = { ...env };
   }
 
   private async run(args: string[], timeoutMs = 10_000): Promise<string> {
@@ -310,13 +357,66 @@ const memoryCortexPlugin = {
 
   register(api: OpenClawPluginApi) {
     const cfg: PluginConfig = api.pluginConfig ?? {};
-    const cortex = new CortexClient(cfg.binaryPath, cfg.project, cfg.anthropicApiKey);
+
+    // Resolve LLM credentials: prefer OpenClaw gateway (uses Max plan OAuth token),
+    // fall back to explicit anthropicApiKey in plugin config.
+    const rawGwCfg = (api.config as Record<string, unknown>)?.gateway;
+    const gwCfg = rawGwCfg != null && typeof rawGwCfg === "object" ? (rawGwCfg as Record<string, unknown>) : undefined;
+    const rawGwAuth = gwCfg?.auth;
+    const gwAuth = rawGwAuth != null && typeof rawGwAuth === "object" ? (rawGwAuth as Record<string, unknown>) : undefined;
+    const gwPortRaw = gwCfg?.port;
+    // YAML may deserialise port as a string; accept both number and numeric string.
+    // Use a strict decimal-only check to reject partial strings ("18789abc"),
+    // hex ("0x1F90"), binary ("0b10000"), and other non-decimal literals.
+    const gwPortNum = typeof gwPortRaw === "string" ? (/^\d+$/.test(gwPortRaw) ? Number(gwPortRaw) : NaN) : gwPortRaw;
+    const gwPort =
+      typeof gwPortNum === "number" && Number.isInteger(gwPortNum) && gwPortNum > 0 && gwPortNum <= 65535
+        ? gwPortNum
+        : undefined;
+    if (gwPortRaw !== undefined && gwPort === undefined) {
+      api.logger.warn(`memory-cortex: gateway.port value "${gwPortRaw}" is not a valid port number — ignored`);
+    }
+    // NOTE: intentionally the base URL only (no /v1/chat/completions suffix).
+    // GatewayClient.Complete() in gateway.go appends that path itself.
+    // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
+    const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
+    const rawToken = typeof gwAuth?.token === "string" ? gwAuth.token.trim() : undefined;
+    const gatewayToken = rawToken ? rawToken : undefined;
+    // Group both gateway misconfiguration warnings together, before construction.
+    if (!gatewayUrl && gatewayToken) {
+      api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
+    }
+    if (gatewayUrl && !gatewayToken) {
+      api.logger.warn("memory-cortex: gateway.port is set but no auth token found in gateway.auth.token — LLM features may be disabled if no anthropicApiKey is configured");
+    }
+
+    // Resolve env once — both llmMode logging and the subprocess use the same object.
+    const resolvedEnv = resolveEnv(
+      process.env as Record<string, string | undefined>,
+      gatewayUrl,
+      gatewayToken,
+      cfg.anthropicApiKey,
+    );
+    // Distinguish plugin-provided credentials from ambient env vars in the log.
+    // Compare resolved values to plugin values — resolveEnv may have kept env vars
+    // instead of plugin values due to the atomic-pair guard.
+    const gatewayFromPlugin =
+      resolvedEnv.OPENCLAW_GATEWAY_URL === gatewayUrl &&
+      resolvedEnv.OPENCLAW_GATEWAY_TOKEN === gatewayToken &&
+      Boolean(gatewayUrl && gatewayToken);
+    const llmMode =
+      resolvedEnv.OPENCLAW_GATEWAY_URL && resolvedEnv.OPENCLAW_GATEWAY_TOKEN
+        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL}${gatewayFromPlugin ? "" : ", from env"})`
+        : resolvedEnv.ANTHROPIC_API_KEY
+          ? `direct API key${cfg.anthropicApiKey ? "" : " (from env)"}`
+          : "none";
+
+    const cortex = new CortexClient(cfg.binaryPath, cfg.project, resolvedEnv);
     const autoRecall = cfg.autoRecall !== false;
     const autoCapture = cfg.autoCapture !== false;
     const tokenBudget = cfg.tokenBudget ?? 2000;
-
     api.logger.info(
-      `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"})`,
+      `memory-cortex v${PLUGIN_VERSION}: registered (binary: ${cfg.binaryPath || "openclaw-cortex"}, project: ${cfg.project || "(none)"}, llm: ${llmMode})`,
     );
 
     // ========================================================================

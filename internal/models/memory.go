@@ -179,6 +179,7 @@ type RecallResult struct {
 	ConfidenceScore     float64 `json:"confidence_score"`
 	ReinforcementScore  float64 `json:"reinforcement_score"`
 	TagAffinityScore    float64 `json:"tag_affinity_score"`
+	GraphProximityScore float64 `json:"graph_proximity_score"`
 	SupersessionPenalty float64 `json:"supersession_penalty"`
 	ConflictPenalty     float64 `json:"conflict_penalty"`
 	FinalScore          float64 `json:"final_score"`
