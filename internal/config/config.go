@@ -328,8 +328,8 @@ func (c *Config) Validate() error {
 	if c.Memory.DedupThreshold <= 0 || c.Memory.DedupThreshold > 1 {
 		return fmt.Errorf("memory.dedup_threshold must be in range (0, 1]")
 	}
-	if c.Memory.DedupThresholdHook < 0 || c.Memory.DedupThresholdHook > 1 {
-		return fmt.Errorf("memory.dedup_threshold_hook must be between 0 and 1")
+	if c.Memory.DedupThresholdHook <= 0 || c.Memory.DedupThresholdHook > 1 {
+		return fmt.Errorf("memory.dedup_threshold_hook must be in range (0, 1]")
 	}
 	if c.Memory.VectorDimension <= 0 {
 		return fmt.Errorf("memory.vector_dimension must be greater than 0")

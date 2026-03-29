@@ -141,8 +141,6 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 						return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
 					}
 					effectiveThreshold = dedupThreshold
-				} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
-					return fmt.Errorf("store-batch: config dedup_threshold: %w", err)
 				}
 			}
 

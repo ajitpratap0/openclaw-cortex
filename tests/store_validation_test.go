@@ -16,8 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
+	"github.com/ajitpratap0/openclaw-cortex/pkg/vecmath"
 )
 
 // --- helpers shared by these tests ---
@@ -193,6 +195,11 @@ func TestStoreCmd_DedupThresholdFlag(t *testing.T) {
 	// the new content is longer, which would cause the 1.0 call to see vecB vs
 	// vecB — cosine 1.0 — and be incorrectly flagged).
 	vecB := nearSimilarVec(vecA)
+	// Self-verify: the cosine similarity between vecA and vecB must be in the
+	// range (0.92, 1.0) for the sub-case assertions below to be meaningful.
+	sim := vecmath.CosineSimilarity(vecA, vecB)
+	require.Greater(t, sim, 0.92, "nearSimilarVec must produce sim > 0.92")
+	require.Less(t, sim, 1.0, "nearSimilarVec must produce sim < 1.0")
 	// nearContent must be shorter than existingContent so that the 0.92 call
 	// returns IsDuplicate (skip) rather than IsUpdated (mutates stored vector).
 	nearContent := "Go uses goroutines." // shorter than existingContent → IsDuplicate
@@ -262,4 +269,44 @@ func TestStoreCmd_DedupThresholdEffective_DisablesDedupAtZero(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, res.IsDuplicate || res.IsUpdated,
 		"config default 0.92 should still detect identical vector as duplicate")
+}
+
+// TestConfig_Validate_DedupThresholdZero verifies that config.Validate rejects
+// DedupThreshold=0 (tightened from [0,1] to (0,1]).
+func TestConfig_Validate_DedupThresholdZero(t *testing.T) {
+	cfg := config.Config{
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memory: config.MemoryConfig{
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0, // invalid: tightened to (0, 1]
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
+			DefaultTTLHours:    720,
+		},
+	}
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dedup_threshold")
+}
+
+// TestConfig_Validate_DedupThresholdHookZero verifies that config.Validate
+// rejects DedupThresholdHook=0 now that the boundary is (0, 1].
+func TestConfig_Validate_DedupThresholdHookZero(t *testing.T) {
+	cfg := config.Config{
+		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
+		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
+		Memory: config.MemoryConfig{
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.92,
+			DedupThresholdHook: 0, // invalid: tightened to (0, 1]
+			VectorDimension:    768,
+			DefaultTTLHours:    720,
+		},
+	}
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dedup_threshold_hook")
 }

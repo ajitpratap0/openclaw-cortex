@@ -85,8 +85,6 @@ func storeCmd() *cobra.Command {
 						return fmt.Errorf("store: --dedup-threshold: %w", err)
 					}
 					effectiveThreshold = dedupThreshold
-				} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
-					return fmt.Errorf("store: config dedup_threshold: %w", err)
 				}
 
 				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, effectiveThreshold)
