@@ -25,11 +25,11 @@ type BenchmarkResult struct {
 	QuestionID  string  `json:"question_id"`
 	Question    string  `json:"question"`
 	GroundTruth string  `json:"ground_truth"`
-	Retrieved   string  `json:"retrieved"`               // oracle-selected best candidate (highest token-F1 vs. ground truth)
-	ExactMatch  bool    `json:"exact_match"`             // Retrieved contains GroundTruth (case-insensitive); oracle-selected, not top-ranked
-	F1Score     float64 `json:"f1_score"`                // token-F1 of Retrieved vs. GroundTruth; oracle-selected, not top-ranked
-	RecalledAtK bool    `json:"recalled_at_k"`           // was ground truth in any of the top-k results?
-	Category    string  `json:"category,omitempty"`      // optional question category (e.g. "single-hop", "temporal")
+	Retrieved   string  `json:"retrieved"`          // oracle-selected best candidate (highest token-F1 vs. ground truth)
+	ExactMatch  bool    `json:"exact_match"`        // Retrieved contains GroundTruth (case-insensitive); oracle-selected, not top-ranked
+	F1Score     float64 `json:"f1_score"`           // token-F1 of Retrieved vs. GroundTruth; oracle-selected, not top-ranked
+	RecalledAtK bool    `json:"recalled_at_k"`      // was ground truth in any of the top-k results?
+	Category    string  `json:"category,omitempty"` // optional question category (e.g. "single-hop", "temporal")
 }
 
 // CategorySummary holds per-category aggregate metrics within a benchmark run.

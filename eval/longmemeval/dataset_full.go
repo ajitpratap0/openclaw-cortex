@@ -15,10 +15,10 @@ type lmeSessionTurn struct {
 
 // lmeRecord is one top-level record in the LongMemEval JSON array.
 type lmeRecord struct {
-	QuestionID   string            `json:"question_id"`
-	Question     string            `json:"question"`
-	Answer       string            `json:"answer"`
-	QuestionType string            `json:"question_type"`
+	QuestionID   string             `json:"question_id"`
+	Question     string             `json:"question"`
+	Answer       string             `json:"answer"`
+	QuestionType string             `json:"question_type"`
 	Sessions     [][]lmeSessionTurn `json:"sessions"`
 }
 

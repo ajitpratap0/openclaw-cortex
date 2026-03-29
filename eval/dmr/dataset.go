@@ -43,9 +43,9 @@ type dmrRecordRaw struct {
 	Answer       string       `json:"answer"`
 	HopCount     int          `json:"hop_count"`
 	// Alternative field names.
-	Turns   []dmrTurnRaw `json:"turns"`
-	Query   string       `json:"query"`
-	ExpectedAnswer string `json:"expected_answer"`
+	Turns          []dmrTurnRaw `json:"turns"`
+	Query          string       `json:"query"`
+	ExpectedAnswer string       `json:"expected_answer"`
 }
 
 // hopCategory converts a numeric hop count to the canonical category string.

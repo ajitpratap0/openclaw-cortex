@@ -277,8 +277,8 @@ func TestDMRLoadDataset_HopCategoryMapping(t *testing.T) {
 		{3, "3-hop"},
 		{4, "4-hop"},
 		{5, "5-hop"},
-		{0, "1-hop"},  // zero → 1-hop (floor)
-		{6, "6-hop"},  // > 5 → formatted string
+		{0, "1-hop"}, // zero → 1-hop (floor)
+		{6, "6-hop"}, // > 5 → formatted string
 	}
 
 	dir := t.TempDir()
