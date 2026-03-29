@@ -35,7 +35,7 @@ var ErrMAGENotAvailable = fmt.Errorf("MAGE community_detection module not availa
 // Increase fetchLimit (or remove LIMIT) if the graph has many facts and recall quality degrades.
 type GraphAdapter struct {
 	store         *MemgraphStore
-	mu            sync.RWMutex      // protects embeddr
+	mu            sync.RWMutex      // protects embeddr and mageAvailable
 	embeddr       embedder.Embedder // optional; enables semantic fact embedding in UpsertFact
 	mageAvailable bool              // true if MAGE community_detection module is loaded
 }
@@ -52,6 +52,14 @@ func (g *GraphAdapter) SetEmbedder(e embedder.Embedder) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.embeddr = e
+}
+
+// IsMageAvailable reports whether the MAGE community_detection module was detected
+// during EnsureSchema. Safe to call concurrently.
+func (g *GraphAdapter) IsMageAvailable() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.mageAvailable
 }
 
 // Compile-time assertion: GraphAdapter must satisfy graph.Client.
@@ -202,12 +210,16 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 	)
 	if mageProbeErr != nil {
 		g.store.logger.Debug("memgraph MAGE community_detection not available", "error", mageProbeErr)
+		g.mu.Lock()
 		g.mageAvailable = false
+		g.mu.Unlock()
 	} else {
 		if mageProbeResult != nil {
 			_, _ = mageProbeResult.Consume(ctx)
 		}
+		g.mu.Lock()
 		g.mageAvailable = true
+		g.mu.Unlock()
 		g.store.logger.Info("memgraph MAGE community_detection available")
 	}
 
@@ -290,11 +302,7 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 // This is critical for injection safety — the normalized value is concatenated into Cypher.
 // The output is ONLY from the ValidRelationshipTypes whitelist; user input is never interpolated directly.
 func validateAndNormalizeRelType(relType string) string {
-	normalized := strings.ToUpper(strings.TrimSpace(relType))
-	if models.ValidRelationshipTypes[normalized] {
-		return normalized
-	}
-	return string(models.RelTypeRelatesTo)
+	return models.NormalizeRelType(relType)
 }
 
 // UpsertFact creates or updates a RELATES_TO relationship between two entities.
@@ -1257,10 +1265,10 @@ func (g *GraphAdapter) GetSubgraph(ctx context.Context, entityID string, depth i
 	return res, nil
 }
 
-// GetCommunitiesForEntity returns the community IDs that the given entity belongs to.
+// GetCommunitiesForEntity returns the community IDs (int64) that the given entity belongs to.
 // The community_id property is written by RunCommunityDetection.
 // Returns an empty slice (not an error) when the entity has no community_id property.
-func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID string) ([]string, error) {
+func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID string) ([]int64, error) {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
@@ -1274,11 +1282,11 @@ func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID str
 		if runErr != nil {
 			return nil, runErr
 		}
-		var ids []string
+		var ids []int64
 		for records.Next(ctx) {
 			rec := records.Record()
 			cid, _, _ := neo4j.GetRecordValue[int64](rec, "community_id")
-			ids = append(ids, fmt.Sprintf("%d", cid))
+			ids = append(ids, cid)
 		}
 		if recErr := records.Err(); recErr != nil {
 			return nil, recErr
@@ -1288,7 +1296,7 @@ func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID str
 	if err != nil {
 		return nil, fmt.Errorf("memgraph get communities for entity %s: %w", entityID, err)
 	}
-	ids, _ := result.([]string)
+	ids, _ := result.([]int64)
 	return ids, nil
 }
 
@@ -1297,7 +1305,10 @@ func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID str
 // Returns ErrMAGENotAvailable when MAGE is not installed.
 // This method is intended for periodic offline use; it is not called automatically.
 func (g *GraphAdapter) RunCommunityDetection(ctx context.Context) error {
-	if !g.mageAvailable {
+	g.mu.RLock()
+	mageAvail := g.mageAvailable
+	g.mu.RUnlock()
+	if !mageAvail {
 		return ErrMAGENotAvailable
 	}
 
@@ -1384,10 +1395,13 @@ func (g *GraphAdapter) RunCommunityDetection(ctx context.Context) error {
 }
 
 // GetMemoriesForCommunity returns the memory IDs associated with all entities
-// in the given community (identified by community_id property).
+// in the given community (identified by its int64 community_id property).
 // Returns ErrMAGENotAvailable when MAGE is not installed.
-func (g *GraphAdapter) GetMemoriesForCommunity(ctx context.Context, communityID string) ([]string, error) {
-	if !g.mageAvailable {
+func (g *GraphAdapter) GetMemoriesForCommunity(ctx context.Context, communityID int64) ([]string, error) {
+	g.mu.RLock()
+	mageAvail := g.mageAvailable
+	g.mu.RUnlock()
+	if !mageAvail {
 		return nil, ErrMAGENotAvailable
 	}
 
@@ -1422,7 +1436,7 @@ func (g *GraphAdapter) GetMemoriesForCommunity(ctx context.Context, communityID 
 		return memIDs, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("memgraph get memories for community %s: %w", communityID, err)
+		return nil, fmt.Errorf("memgraph get memories for community %d: %w", communityID, err)
 	}
 	ids, _ := result.([]string)
 	return ids, nil
@@ -1585,7 +1599,7 @@ func (g *GraphAdapter) MigrateRelTypesToLabels(ctx context.Context) error {
 			})
 			if writeErr != nil {
 				return fmt.Errorf("migrate rel types: write edge %s (%s→%s): %w",
-					row.uuid, newLabel, string(models.RelTypeRelatesTo), writeErr)
+					row.uuid, string(models.RelTypeRelatesTo), newLabel, writeErr)
 			}
 			migrated++
 		}

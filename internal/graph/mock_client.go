@@ -284,12 +284,12 @@ func (m *MockGraphClient) GetSubgraph(_ context.Context, entityID string, _ int)
 }
 
 // GetCommunitiesForEntity returns an empty slice (stub for testing).
-func (m *MockGraphClient) GetCommunitiesForEntity(_ context.Context, _ string) ([]string, error) {
+func (m *MockGraphClient) GetCommunitiesForEntity(_ context.Context, _ string) ([]int64, error) {
 	return nil, nil
 }
 
 // GetMemoriesForCommunity returns an empty slice (stub for testing).
-func (m *MockGraphClient) GetMemoriesForCommunity(_ context.Context, _ string) ([]string, error) {
+func (m *MockGraphClient) GetMemoriesForCommunity(_ context.Context, _ int64) ([]string, error) {
 	return nil, nil
 }
 
