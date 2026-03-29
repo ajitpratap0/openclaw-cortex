@@ -25,10 +25,21 @@ type BenchmarkResult struct {
 	QuestionID  string  `json:"question_id"`
 	Question    string  `json:"question"`
 	GroundTruth string  `json:"ground_truth"`
-	Retrieved   string  `json:"retrieved"`     // oracle-selected best candidate (highest token-F1 vs. ground truth)
-	ExactMatch  bool    `json:"exact_match"`   // Retrieved contains GroundTruth (case-insensitive); oracle-selected, not top-ranked
-	F1Score     float64 `json:"f1_score"`      // token-F1 of Retrieved vs. GroundTruth; oracle-selected, not top-ranked
-	RecalledAtK bool    `json:"recalled_at_k"` // was ground truth in any of the top-k results?
+	Retrieved   string  `json:"retrieved"`          // oracle-selected best candidate (highest token-F1 vs. ground truth)
+	ExactMatch  bool    `json:"exact_match"`        // Retrieved contains GroundTruth (case-insensitive); oracle-selected, not top-ranked
+	F1Score     float64 `json:"f1_score"`           // token-F1 of Retrieved vs. GroundTruth; oracle-selected, not top-ranked
+	RecalledAtK bool    `json:"recalled_at_k"`      // was ground truth in any of the top-k results?
+	Category    string  `json:"category,omitempty"` // optional question category (e.g. "single-hop", "temporal")
+}
+
+// CategorySummary holds per-category aggregate metrics within a benchmark run.
+// It is populated by callers that classify each BenchmarkResult with a Category
+// and then call ComputeCategoryBreakdowns (or build the map manually).
+type CategorySummary struct {
+	TotalQuestions int     `json:"total_questions"`
+	ExactMatchAcc  float64 `json:"exact_match_accuracy"`
+	AvgF1          float64 `json:"avg_f1"`
+	RecallAtK      float64 `json:"recall_at_k"`
 }
 
 // BenchmarkSummary aggregates results from a single benchmark run.
@@ -45,6 +56,20 @@ type BenchmarkSummary struct {
 	// against baselines without qualification.
 	RecallFailures int               `json:"recall_failures,omitempty"`
 	Results        []BenchmarkResult `json:"results"`
+	// Mode describes the ingestion strategy used during the run.
+	// "accumulate" means all facts are loaded once and never reset between QA
+	// pairs (measures recall against a growing store). "per-pair-reset" means
+	// the store is wiped and re-populated for each QA pair (the current default
+	// harness behavior).
+	Mode string `json:"mode,omitempty"`
+	// RecallAtK2 is an optional second recall@k metric computed at a different k
+	// (K2) alongside the primary RecallAtK. Zero means it was not computed.
+	RecallAtK2 float64 `json:"recall_at_k2,omitempty"`
+	// K2 is the k value used to compute RecallAtK2. Zero when RecallAtK2 is not set.
+	K2 int `json:"k2,omitempty"`
+	// CategoryBreakdowns holds per-category aggregate metrics when results carry
+	// a non-empty Category field. Nil when no categories are present.
+	CategoryBreakdowns map[string]*CategorySummary `json:"category_breakdowns,omitempty"`
 }
 
 // Client is the interface that benchmark harnesses use to interact with the
@@ -354,7 +379,27 @@ func RecallAtK(memories []string, groundTruth string, k int) bool {
 // Summarize aggregates a slice of BenchmarkResult into a BenchmarkSummary.
 // recallFailures is the number of QA pairs for which the recall step failed;
 // it is recorded in the summary so callers can detect partially-degraded runs.
+// Pass k2=0 (via SummarizeWithK2) to skip RecallAtK2 computation; use
+// Summarize when you do not need the second recall threshold.
 func Summarize(name string, results []BenchmarkResult, k, recallFailures int) *BenchmarkSummary {
+	return summarize(name, results, k, 0, recallFailures)
+}
+
+// SummarizeWithK2 is identical to Summarize but also computes RecallAtK2 at
+// the supplied k2. When k2 <= 0 it is ignored and RecallAtK2 is left at 0.
+//
+// Because BenchmarkResult stores only a boolean RecalledAtK (evaluated at the
+// primary k), the K2 recall rate is approximated: when k2 >= k it equals
+// RecallAtK (every result recalled at k is also recalled at any k2 >= k).
+// When k2 < k the rate cannot be reliably derived from stored booleans and is
+// set to 0. Harnesses that need an exact independent k2 metric should compute
+// it from the raw retrieved list and store it separately before calling this.
+func SummarizeWithK2(name string, results []BenchmarkResult, k, k2, recallFailures int) *BenchmarkSummary {
+	return summarize(name, results, k, k2, recallFailures)
+}
+
+// summarize is the internal implementation shared by Summarize and SummarizeWithK2.
+func summarize(name string, results []BenchmarkResult, k, k2, recallFailures int) *BenchmarkSummary {
 	total := len(results)
 	if total == 0 {
 		return &BenchmarkSummary{Name: name, K: k, RecallFailures: recallFailures}
@@ -374,7 +419,7 @@ func Summarize(name string, results []BenchmarkResult, k, recallFailures int) *B
 		}
 	}
 
-	return &BenchmarkSummary{
+	summary := &BenchmarkSummary{
 		Name:           name,
 		TotalQuestions: total,
 		ExactMatchAcc:  float64(exactMatches) / float64(total),
@@ -384,6 +429,76 @@ func Summarize(name string, results []BenchmarkResult, k, recallFailures int) *B
 		RecallFailures: recallFailures,
 		Results:        results,
 	}
+
+	// Compute RecallAtK2 when k2 > 0.
+	// The approximation: if k2 >= k, RecallAtK2 == RecallAtK (monotonically
+	// non-decreasing recall). If k2 < k we cannot determine which of the primary-k
+	// recalled results would still be recalled at k2, so we leave RecallAtK2 at 0.
+	if k2 > 0 && k2 >= k {
+		summary.RecallAtK2 = summary.RecallAtK
+		summary.K2 = k2
+	}
+
+	// Build per-category breakdown from results that carry a non-empty Category.
+	summary.CategoryBreakdowns = ComputeCategoryBreakdowns(results)
+
+	return summary
+}
+
+// ComputeCategoryBreakdowns aggregates BenchmarkResults by their Category field
+// and returns a map of category name → CategorySummary. Returns nil when no
+// result has a non-empty Category.
+func ComputeCategoryBreakdowns(results []BenchmarkResult) map[string]*CategorySummary {
+	// First pass: count results per category to detect whether any are set.
+	hasCat := false
+	for i := range results {
+		if results[i].Category != "" {
+			hasCat = true
+			break
+		}
+	}
+	if !hasCat {
+		return nil
+	}
+
+	type accumulator struct {
+		total        int
+		exactMatches int
+		f1Sum        float64
+		recallHits   int
+	}
+	acc := make(map[string]*accumulator)
+
+	for i := range results {
+		cat := results[i].Category
+		if cat == "" {
+			cat = "uncategorized"
+		}
+		a, ok := acc[cat]
+		if !ok {
+			a = &accumulator{}
+			acc[cat] = a
+		}
+		a.total++
+		if results[i].ExactMatch {
+			a.exactMatches++
+		}
+		a.f1Sum += results[i].F1Score
+		if results[i].RecalledAtK {
+			a.recallHits++
+		}
+	}
+
+	bd := make(map[string]*CategorySummary, len(acc))
+	for cat, a := range acc {
+		bd[cat] = &CategorySummary{
+			TotalQuestions: a.total,
+			ExactMatchAcc:  float64(a.exactMatches) / float64(a.total),
+			AvgF1:          a.f1Sum / float64(a.total),
+			RecallAtK:      float64(a.recallHits) / float64(a.total),
+		}
+	}
+	return bd
 }
 
 // BestCandidate picks the memory from the retrieved list that has the highest
@@ -412,13 +527,48 @@ func BestCandidate(memories []string, groundTruth string) string {
 //
 // Column widths are fixed except for Recall@k, which grows with k to avoid
 // misalignment for k>=10 (e.g. "Recall@5"=8 chars, "Recall@100"=10 chars).
+// When any summary has RecallAtK2 > 0, an additional Recall@K2 column is
+// appended. K2 is inferred from the first summary that has RecallAtK2 > 0;
+// all summaries must use the same K2 for the column header to be meaningful.
 func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
 	var sb strings.Builder
 
-	header := fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d |\n", "Benchmark", k)
+	// Detect whether any summary carries a RecallAtK2 value so we know whether
+	// to render the extra column. Also capture the K2 header label from the
+	// first summary that has it set.
+	hasK2 := false
+	k2Label := ""
+	for _, s := range summaries {
+		if s.RecallAtK2 > 0 {
+			hasK2 = true
+			// Use the summary's K2 field as the label so the column header reflects
+			// the actual threshold (e.g. "Recall@10") rather than a generic placeholder.
+			// All summaries in one table must use the same K2; we take the first one.
+			if s.K2 > 0 {
+				k2Label = fmt.Sprintf("%d", s.K2)
+			} else {
+				k2Label = "K2"
+			}
+			break
+		}
+	}
+
 	recallColW := len(fmt.Sprintf("Recall@%d", k)) + 2
-	sep := fmt.Sprintf("|%s|-----------|-------------|---------|%s|\n",
-		strings.Repeat("-", 16), strings.Repeat("-", recallColW))
+	var header, sep string
+	if hasK2 {
+		recall2Header := fmt.Sprintf("Recall@%s", k2Label)
+		recall2ColW := len(recall2Header) + 2
+		header = fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d | %s |\n", "Benchmark", k, recall2Header)
+		sep = fmt.Sprintf("|%s|-----------|-------------|---------|%s|%s|\n",
+			strings.Repeat("-", 16),
+			strings.Repeat("-", recallColW),
+			strings.Repeat("-", recall2ColW),
+		)
+	} else {
+		header = fmt.Sprintf("| %-14s | Questions | Exact Match | Avg F1  | Recall@%d |\n", "Benchmark", k)
+		sep = fmt.Sprintf("|%s|-----------|-------------|---------|%s|\n",
+			strings.Repeat("-", 16), strings.Repeat("-", recallColW))
+	}
 
 	sb.WriteString(header)
 	sb.WriteString(sep)
@@ -428,13 +578,27 @@ func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
 		// literal "%" appended by "%%". This gives the numeric width of the
 		// float part; "%%" then appends the "%" sign.
 		recallCell := fmt.Sprintf("%*.1f%%", recallColW-3, s.RecallAtK*100)
-		fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
-			s.Name,
-			s.TotalQuestions,
-			s.ExactMatchAcc*100,
-			s.AvgF1,
-			recallCell,
-		)
+		if hasK2 {
+			recall2Header := fmt.Sprintf("Recall@%s", k2Label)
+			recall2ColW := len(recall2Header) + 2
+			recall2Cell := fmt.Sprintf("%*.1f%%", recall2ColW-3, s.RecallAtK2*100)
+			fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s | %s |\n",
+				s.Name,
+				s.TotalQuestions,
+				s.ExactMatchAcc*100,
+				s.AvgF1,
+				recallCell,
+				recall2Cell,
+			)
+		} else {
+			fmt.Fprintf(&sb, "| %-14s | %-9d | %10.1f%% | %.4f  | %s |\n",
+				s.Name,
+				s.TotalQuestions,
+				s.ExactMatchAcc*100,
+				s.AvgF1,
+				recallCell,
+			)
+		}
 	}
 
 	return sb.String()

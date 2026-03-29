@@ -2,6 +2,7 @@ package memgraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -17,6 +18,11 @@ import (
 	neo4j "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// ErrMAGENotAvailable is returned by RunCommunityDetection and GetMemoriesForCommunity
+// when the Memgraph MAGE library is not installed or the community_detection module
+// is not loaded.
+var ErrMAGENotAvailable = errors.New("MAGE community_detection module not available")
+
 // GraphAdapter wraps MemgraphStore and implements graph.Client.
 // It is needed because graph.Client.SearchEntities has a different signature than
 // store.Store.SearchEntities — Go does not allow two methods with the same name but
@@ -30,9 +36,10 @@ import (
 // NOTE: capped at fetchLimit rows in arbitrary storage order — not a true full scan.
 // Increase fetchLimit (or remove LIMIT) if the graph has many facts and recall quality degrades.
 type GraphAdapter struct {
-	store   *MemgraphStore
-	mu      sync.RWMutex      // protects embeddr
-	embeddr embedder.Embedder // optional; enables semantic fact embedding in UpsertFact
+	store         *MemgraphStore
+	mu            sync.RWMutex      // protects embeddr and mageAvailable
+	embeddr       embedder.Embedder // optional; enables semantic fact embedding in UpsertFact
+	mageAvailable bool              // true if MAGE community_detection module is loaded
 }
 
 // NewGraphAdapter creates a GraphAdapter that delegates to the given MemgraphStore.
@@ -47,6 +54,14 @@ func (g *GraphAdapter) SetEmbedder(e embedder.Embedder) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.embeddr = e
+}
+
+// IsMageAvailable reports whether the MAGE community_detection module was detected
+// during EnsureSchema. Safe to call concurrently.
+func (g *GraphAdapter) IsMageAvailable() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.mageAvailable
 }
 
 // Compile-time assertion: GraphAdapter must satisfy graph.Client.
@@ -388,6 +403,28 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 		"non_vector_query_count", len(otherQueries),
 		"vector_index_count", len(vectorIndexes),
 	)
+
+	// Probe for MAGE community_detection availability.
+	// Uses a LIMIT 0 query so no data is returned; success means the module is loaded.
+	mageProbeResult, mageProbeErr := session.Run(ctx,
+		`CALL community_detection.get() YIELD node, community_id RETURN 1 LIMIT 0`,
+		nil,
+	)
+	if mageProbeErr != nil {
+		g.store.logger.Debug("memgraph MAGE community_detection not available", "error", mageProbeErr)
+		g.mu.Lock()
+		g.mageAvailable = false
+		g.mu.Unlock()
+	} else {
+		if mageProbeResult != nil {
+			_, _ = mageProbeResult.Consume(ctx)
+		}
+		g.mu.Lock()
+		g.mageAvailable = true
+		g.mu.Unlock()
+		g.store.logger.Info("memgraph MAGE community_detection available")
+	}
+
 	return nil
 }
 
@@ -462,6 +499,14 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 	return g.store.GetEntity(ctx, id)
 }
 
+// validateAndNormalizeRelType sanitizes a relation type string before use as a Cypher label.
+// Only types in the canonical enum are accepted; all others fall back to "RELATES_TO".
+// This is critical for injection safety — the normalized value is concatenated into Cypher.
+// The output is ONLY from the validRelationshipTypes whitelist (via models.NormalizeRelType); user input is never interpolated directly.
+func validateAndNormalizeRelType(relType string) string {
+	return models.NormalizeRelType(relType)
+}
+
 // UpsertFact creates or updates a RELATES_TO relationship between two entities.
 // If the fact has no embedding and an embedder is configured, the fact text is
 // embedded before storage, enabling cosine similarity ranking in SearchFacts.
@@ -484,10 +529,13 @@ func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
-	cypher := `
+	// Use the sanitized/validated relationship type as the Cypher label.
+	// validateAndNormalizeRelType ensures only whitelisted labels are used — never raw user input.
+	relLabel := validateAndNormalizeRelType(fact.RelationType)
+	cypher := fmt.Sprintf(`
 		MATCH (s:Entity {uuid: $source_id})
 		MATCH (t:Entity {uuid: $target_id})
-		MERGE (s)-[r:RELATES_TO {uuid: $uuid}]->(t)
+		MERGE (s)-[r:%s {uuid: $uuid}]->(t)
 		SET r.relation_type = $relation_type,
 		    r.fact = $fact,
 		    r.fact_embedding = $fact_embedding,
@@ -498,7 +546,7 @@ func (g *GraphAdapter) UpsertFact(ctx context.Context, fact models.Fact) error {
 		    r.source_memory_ids = $source_memory_ids,
 		    r.episodes = $episodes,
 		    r.confidence = $confidence
-	`
+	`, relLabel)
 
 	params := map[string]any{
 		"uuid":              fact.ID,
@@ -586,8 +634,9 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 
 	if useEmbedding {
 		// Fetch all non-expired facts with their embeddings for cosine ranking.
+		// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 		cypher = `
-			MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+			MATCH (s:Entity)-[r]->(t:Entity)
 			WHERE r.expired_at IS NULL
 			RETURN r.uuid AS uuid, r.fact AS fact, s.uuid AS source_entity_id,
 			       t.uuid AS target_entity_id, r.source_memory_ids AS source_memory_ids,
@@ -595,8 +644,9 @@ func (g *GraphAdapter) SearchFacts(ctx context.Context, query string, embedding 
 			LIMIT $limit
 		`
 	} else {
+		// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 		cypher = `
-			MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+			MATCH (s:Entity)-[r]->(t:Entity)
 			WHERE r.expired_at IS NULL
 			  AND (toLower(r.fact) CONTAINS toLower($query)
 			       OR toLower(r.relation_type) CONTAINS toLower($query))
@@ -687,8 +737,9 @@ func (g *GraphAdapter) InvalidateFact(ctx context.Context, id string, expiredAt,
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH ()-[r:RELATES_TO {uuid: $uuid}]->()
+		MATCH ()-[r {uuid: $uuid}]->()
 		SET r.expired_at = $expired_at, r.invalid_at = $invalid_at
 	`
 
@@ -713,8 +764,9 @@ func (g *GraphAdapter) GetFactsBetween(ctx context.Context, sourceID, targetID s
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
+		MATCH (n:Entity)-[r]-(m:Entity)
 		WHERE r.expired_at IS NULL
 		  AND ((n.uuid = $source_id AND m.uuid = $target_id)
 		    OR (n.uuid = $target_id AND m.uuid = $source_id))
@@ -749,8 +801,9 @@ func (g *GraphAdapter) GetFactsForEntity(ctx context.Context, entityID string) (
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH (n:Entity {uuid: $entity_id})-[r:RELATES_TO]-(m:Entity)
+		MATCH (n:Entity {uuid: $entity_id})-[r]-(m:Entity)
 		WHERE r.expired_at IS NULL
 		WITH r, startNode(r) AS s, endNode(r) AS t
 		RETURN r.uuid AS uuid, r.relation_type AS relation_type, r.fact AS fact,
@@ -782,8 +835,9 @@ func (g *GraphAdapter) AppendEpisode(ctx context.Context, factID, episodeID stri
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH ()-[r:RELATES_TO {uuid: $uuid}]->()
+		MATCH ()-[r {uuid: $uuid}]->()
 		SET r.episodes = CASE
 			WHEN r.episodes IS NULL THEN [$episode_id]
 			WHEN NOT $episode_id IN r.episodes THEN r.episodes + $episode_id
@@ -811,8 +865,9 @@ func (g *GraphAdapter) AppendMemoryToFact(ctx context.Context, factID, memoryID 
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH ()-[r:RELATES_TO {uuid: $uuid}]->()
+		MATCH ()-[r {uuid: $uuid}]->()
 		SET r.source_memory_ids = CASE
 			WHEN r.source_memory_ids IS NULL THEN [$memory_id]
 			WHEN NOT $memory_id IN r.source_memory_ids THEN r.source_memory_ids + $memory_id
@@ -840,8 +895,9 @@ func (g *GraphAdapter) GetMemoryFacts(ctx context.Context, memoryID string) ([]m
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	cypher := `
-		MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+		MATCH (s:Entity)-[r]->(t:Entity)
 		WHERE $memory_id IN r.source_memory_ids
 		RETURN r.uuid AS uuid, r.relation_type AS relation_type, r.fact AS fact,
 		       r.fact_embedding AS fact_embedding,
@@ -994,11 +1050,12 @@ func (g *GraphAdapter) traverseEntityFacts(ctx context.Context, entityIDs []stri
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
-	// Traverse both outgoing and incoming RELATES_TO edges from seed entities.
+	// Traverse both outgoing and incoming edges from seed entities.
+	// [r] matches any relationship type — facts may use typed labels (e.g. WORKS_AT).
 	// expired_at IS NULL filters out invalidated (soft-deleted) facts.
 	cypher := `
 		UNWIND $entity_ids AS eid
-		MATCH (e:Entity {uuid: eid})-[r:RELATES_TO]-(neighbor:Entity)
+		MATCH (e:Entity {uuid: eid})-[r]-(neighbor:Entity)
 		WHERE r.expired_at IS NULL
 		RETURN r.source_memory_ids AS memory_ids,
 		       neighbor.uuid      AS neighbor_id
@@ -1298,4 +1355,472 @@ func getFloat32Slice(record *neo4j.Record, key string) []float32 {
 		}
 	}
 	return result
+}
+
+// maxSubgraphDepth is the maximum allowed depth for GetSubgraph variable-length path queries.
+// Memgraph variable-length path bounds must be literals, not parameters.
+const maxSubgraphDepth = 3
+
+// defaultSubgraphLimit is the default LIMIT for GetSubgraph result rows.
+const defaultSubgraphLimit = 200
+
+// GetSubgraph returns the neighborhood of nodes and edges reachable from
+// entityID within depth hops (capped at maxSubgraphDepth).
+//
+// The depth bound must be a literal integer in the Cypher variable-length path syntax;
+// Memgraph does not support parameterized path bounds. We substitute the integer
+// directly via fmt.Sprintf — the value is clamped to [1, maxSubgraphDepth] before
+// formatting, so no user input ever reaches the Cypher string.
+func (g *GraphAdapter) GetSubgraph(ctx context.Context, entityID string, depth int) (graph.SubgraphResult, error) {
+	if depth < 1 {
+		depth = 1
+	}
+	if depth > maxSubgraphDepth {
+		depth = maxSubgraphDepth
+	}
+
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	// depth is an integer literal clamped to [1, maxSubgraphDepth] — safe to inline.
+	// [r] matches any relationship type in the path (facts may use typed labels).
+	cypher := fmt.Sprintf(`
+		MATCH path = (start:Entity {uuid: $seed_id})-[*1..%d]-(connected:Entity)
+		WHERE ALL(r IN relationships(path) WHERE r.expired_at IS NULL)
+		RETURN DISTINCT
+		    startNode(last(relationships(path))).uuid AS source_id,
+		    endNode(last(relationships(path))).uuid   AS target_id,
+		    connected.uuid AS connected_id,
+		    connected.name AS connected_name,
+		    connected.type AS connected_type,
+		    length(path)   AS dist,
+		    last(relationships(path)).uuid AS fact_id,
+		    type(last(relationships(path)))  AS relation_label,
+		    last(relationships(path)).fact   AS fact
+		ORDER BY dist
+		LIMIT $limit
+	`, depth)
+
+	params := map[string]any{
+		"seed_id": entityID,
+		"limit":   int64(defaultSubgraphLimit),
+	}
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		records, runErr := tx.Run(ctx, cypher, params)
+		if runErr != nil {
+			return nil, runErr
+		}
+
+		res := graph.SubgraphResult{SeedEntityID: entityID}
+		seenNodes := make(map[string]struct{})
+		seenEdges := make(map[string]struct{})
+
+		for records.Next(ctx) {
+			rec := records.Record()
+
+			connID, _, _ := neo4j.GetRecordValue[string](rec, "connected_id")
+			connName, _, _ := neo4j.GetRecordValue[string](rec, "connected_name")
+			connType, _, _ := neo4j.GetRecordValue[string](rec, "connected_type")
+			dist, _, _ := neo4j.GetRecordValue[int64](rec, "dist")
+			factID, _, _ := neo4j.GetRecordValue[string](rec, "fact_id")
+			sourceID, _, _ := neo4j.GetRecordValue[string](rec, "source_id")
+			targetID, _, _ := neo4j.GetRecordValue[string](rec, "target_id")
+			relLabel, _, _ := neo4j.GetRecordValue[string](rec, "relation_label")
+			factText, _, _ := neo4j.GetRecordValue[string](rec, "fact")
+
+			if connID != "" {
+				if _, seen := seenNodes[connID]; !seen {
+					seenNodes[connID] = struct{}{}
+					res.Nodes = append(res.Nodes, graph.SubgraphNode{
+						EntityID:   connID,
+						EntityName: connName,
+						EntityType: connType,
+						Distance:   int(dist),
+					})
+				}
+			}
+
+			if factID != "" {
+				if _, seen := seenEdges[factID]; !seen {
+					seenEdges[factID] = struct{}{}
+					res.Edges = append(res.Edges, graph.SubgraphEdge{
+						FactID:         factID,
+						SourceEntityID: sourceID,
+						TargetEntityID: targetID,
+						RelationType:   relLabel,
+						Fact:           factText,
+					})
+				}
+			}
+		}
+		if collectErr := records.Err(); collectErr != nil {
+			return nil, collectErr
+		}
+		return res, nil
+	})
+	if err != nil {
+		return graph.SubgraphResult{SeedEntityID: entityID}, fmt.Errorf("memgraph get subgraph %s: %w", entityID, err)
+	}
+
+	res, _ := result.(graph.SubgraphResult)
+	return res, nil
+}
+
+// GetCommunitiesForEntity returns the community IDs (int64) that the given entity belongs to.
+// The community_id property is written by RunCommunityDetection.
+// Returns an empty slice (not an error) when the entity has no community_id property.
+func (g *GraphAdapter) GetCommunitiesForEntity(ctx context.Context, entityID string) ([]int64, error) {
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		cypher := `
+			MATCH (e:Entity {uuid: $entity_id})
+			WHERE e.community_id IS NOT NULL
+			RETURN e.community_id AS community_id
+		`
+		records, runErr := tx.Run(ctx, cypher, map[string]any{"entity_id": entityID})
+		if runErr != nil {
+			return nil, runErr
+		}
+		var ids []int64
+		for records.Next(ctx) {
+			rec := records.Record()
+			cid, _, _ := neo4j.GetRecordValue[int64](rec, "community_id")
+			ids = append(ids, cid)
+		}
+		if recErr := records.Err(); recErr != nil {
+			return nil, recErr
+		}
+		return ids, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("memgraph get communities for entity %s: %w", entityID, err)
+	}
+	ids, _ := result.([]int64)
+	return ids, nil
+}
+
+// RunCommunityDetection calls MAGE's community_detection algorithm and writes
+// the community_id property back to each Entity node.
+// Returns ErrMAGENotAvailable when MAGE is not installed.
+// This method is intended for periodic offline use; it is not called automatically.
+func (g *GraphAdapter) RunCommunityDetection(ctx context.Context) error {
+	g.mu.RLock()
+	mageAvail := g.mageAvailable
+	g.mu.RUnlock()
+	if !mageAvail {
+		return ErrMAGENotAvailable
+	}
+
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	// Step 1: run community detection and collect (node_id, community_id) pairs.
+	type pair struct {
+		nodeID      string
+		communityID int64
+	}
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		records, runErr := tx.Run(ctx,
+			`CALL community_detection.get() YIELD node, community_id
+			 WHERE node:Entity
+			 RETURN node.uuid AS uuid, community_id`,
+			nil,
+		)
+		if runErr != nil {
+			return nil, runErr
+		}
+		var pairs []pair
+		for records.Next(ctx) {
+			rec := records.Record()
+			uuid, _, _ := neo4j.GetRecordValue[string](rec, "uuid")
+			cid, _, _ := neo4j.GetRecordValue[int64](rec, "community_id")
+			if uuid != "" {
+				pairs = append(pairs, pair{nodeID: uuid, communityID: cid})
+			}
+		}
+		if recErr := records.Err(); recErr != nil {
+			return nil, recErr
+		}
+		return pairs, nil
+	})
+	if err != nil {
+		return fmt.Errorf("memgraph run community detection (read): %w", err)
+	}
+
+	pairs, _ := result.([]pair)
+	if len(pairs) == 0 {
+		g.store.logger.Info("community detection: no Entity nodes found, nothing to update")
+		return nil
+	}
+
+	// Step 2: write community_id back to Entity nodes in batches of 100.
+	const batchSize = 100
+	total := len(pairs)
+	for start := 0; start < total; start += batchSize {
+		end := start + batchSize
+		if end > total {
+			end = total
+		}
+		batch := pairs[start:end]
+
+		rows := make([]map[string]any, len(batch))
+		for i := range batch {
+			rows[i] = map[string]any{
+				"uuid":         batch[i].nodeID,
+				"community_id": batch[i].communityID,
+			}
+		}
+
+		_, writeErr := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+			_, runErr := tx.Run(ctx,
+				`UNWIND $rows AS row
+				 MATCH (e:Entity {uuid: row.uuid})
+				 SET e.community_id = row.community_id`,
+				map[string]any{"rows": rows},
+			)
+			return nil, runErr
+		})
+		if writeErr != nil {
+			return fmt.Errorf("memgraph run community detection (write batch %d-%d): %w", start, end, writeErr)
+		}
+
+		g.store.logger.Info("community detection: batch written",
+			"start", start, "end", end, "total", total)
+	}
+
+	g.store.logger.Info("community detection complete", "entities_updated", total)
+	return nil
+}
+
+// GetMemoriesForCommunity returns the memory IDs associated with all entities
+// in the given community (identified by its int64 community_id property).
+// Returns ErrMAGENotAvailable when MAGE is not installed.
+func (g *GraphAdapter) GetMemoriesForCommunity(ctx context.Context, communityID int64) ([]string, error) {
+	g.mu.RLock()
+	mageAvail := g.mageAvailable
+	g.mu.RUnlock()
+	if !mageAvail {
+		return nil, ErrMAGENotAvailable
+	}
+
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		cypher := `
+			MATCH (e:Entity {community_id: $cid})
+			RETURN e.memory_ids AS memory_ids
+		`
+		records, runErr := tx.Run(ctx, cypher, map[string]any{"cid": communityID})
+		if runErr != nil {
+			return nil, runErr
+		}
+
+		seen := make(map[string]struct{})
+		var memIDs []string
+		for records.Next(ctx) {
+			rec := records.Record()
+			ids := getStringSlice(rec, "memory_ids")
+			for _, id := range ids {
+				if _, exists := seen[id]; !exists {
+					seen[id] = struct{}{}
+					memIDs = append(memIDs, id)
+				}
+			}
+		}
+		if recErr := records.Err(); recErr != nil {
+			return nil, recErr
+		}
+		return memIDs, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("memgraph get memories for community %d: %w", communityID, err)
+	}
+	ids, _ := result.([]string)
+	return ids, nil
+}
+
+// MigrateRelTypesToLabels re-creates all legacy RELATES_TO edges with their correct
+// typed label (derived from the relation_type property), then deletes the old edges.
+// This is a one-time migration; it is NOT called automatically.
+// Run via a dedicated CLI command after upgrading to Phase C.
+//
+// Strategy per edge:
+//  1. Read the relation_type property from the existing RELATES_TO edge.
+//  2. Derive the typed label via validateAndNormalizeRelType.
+//  3. If the label is still RELATES_TO (either truly a fallback, or already migrated),
+//     skip — no work needed.
+//  4. Otherwise, create a new typed edge with all the same properties, then delete
+//     the old RELATES_TO edge.
+//
+// Processes edges in batches of 100 for memory efficiency. Progress is logged.
+func (g *GraphAdapter) MigrateRelTypesToLabels(ctx context.Context) error {
+	const batchSize = 100
+
+	// Step 1: collect all RELATES_TO edges that need migration.
+	type edgeRow struct {
+		uuid            string
+		sourceID        string
+		targetID        string
+		relationType    string
+		fact            string
+		factEmbedding   []float32
+		createdAt       string
+		expiredAt       string
+		validAt         string
+		invalidAt       string
+		sourceMemoryIDs []string
+		episodes        []string
+		confidence      float64
+	}
+
+	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
+	defer g.store.closeSession(ctx, session)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		records, runErr := tx.Run(ctx, `
+			MATCH (s:Entity)-[r:RELATES_TO]->(t:Entity)
+			RETURN r.uuid AS uuid, s.uuid AS source_id, t.uuid AS target_id,
+			       r.relation_type AS relation_type, r.fact AS fact,
+			       r.fact_embedding AS fact_embedding,
+			       r.created_at AS created_at, r.expired_at AS expired_at,
+			       r.valid_at AS valid_at, r.invalid_at AS invalid_at,
+			       r.source_memory_ids AS source_memory_ids,
+			       r.episodes AS episodes, r.confidence AS confidence
+		`, nil)
+		if runErr != nil {
+			return nil, runErr
+		}
+
+		var rows []edgeRow
+		for records.Next(ctx) {
+			rec := records.Record()
+			uuid, _, _ := neo4j.GetRecordValue[string](rec, "uuid")
+			sourceID, _, _ := neo4j.GetRecordValue[string](rec, "source_id")
+			targetID, _, _ := neo4j.GetRecordValue[string](rec, "target_id")
+			relType, _, _ := neo4j.GetRecordValue[string](rec, "relation_type")
+			factText, _, _ := neo4j.GetRecordValue[string](rec, "fact")
+			createdAt, _, _ := neo4j.GetRecordValue[string](rec, "created_at")
+			expiredAt, _, _ := neo4j.GetRecordValue[string](rec, "expired_at")
+			validAt, _, _ := neo4j.GetRecordValue[string](rec, "valid_at")
+			invalidAt, _, _ := neo4j.GetRecordValue[string](rec, "invalid_at")
+			confidence, _, _ := neo4j.GetRecordValue[float64](rec, "confidence")
+
+			rows = append(rows, edgeRow{
+				uuid:            uuid,
+				sourceID:        sourceID,
+				targetID:        targetID,
+				relationType:    relType,
+				fact:            factText,
+				factEmbedding:   getFloat32Slice(rec, "fact_embedding"),
+				createdAt:       createdAt,
+				expiredAt:       expiredAt,
+				validAt:         validAt,
+				invalidAt:       invalidAt,
+				sourceMemoryIDs: getStringSlice(rec, "source_memory_ids"),
+				episodes:        getStringSlice(rec, "episodes"),
+				confidence:      confidence,
+			})
+		}
+		if recErr := records.Err(); recErr != nil {
+			return nil, recErr
+		}
+		return rows, nil
+	})
+	if err != nil {
+		return fmt.Errorf("migrate rel types: read RELATES_TO edges: %w", err)
+	}
+
+	rows, _ := result.([]edgeRow)
+	total := len(rows)
+	g.store.logger.Info("migrate rel types: found RELATES_TO edges", "count", total)
+
+	migrated := 0
+	skipped := 0
+
+	// Group rows by their target label so each batch shares a single UNWIND query.
+	// Within each outer batch, collect rows that need migration (non-RELATES_TO labels),
+	// then sub-group by label and issue one ExecuteWrite per (batch × label) pair.
+	for start := 0; start < total; start += batchSize {
+		end := start + batchSize
+		if end > total {
+			end = total
+		}
+		batch := rows[start:end]
+
+		// Partition by new label.
+		byLabel := make(map[string][]edgeRow)
+		for i := range batch {
+			newLabel := validateAndNormalizeRelType(batch[i].relationType)
+			if newLabel == string(models.RelTypeRelatesTo) {
+				skipped++
+				continue
+			}
+			byLabel[newLabel] = append(byLabel[newLabel], batch[i])
+		}
+
+		for newLabel, labelRows := range byLabel {
+			// Build the parameter rows for UNWIND.
+			paramRows := make([]map[string]any, len(labelRows))
+			for i := range labelRows {
+				paramRows[i] = map[string]any{
+					"uuid":              labelRows[i].uuid,
+					"source_id":         labelRows[i].sourceID,
+					"target_id":         labelRows[i].targetID,
+					"relation_type":     labelRows[i].relationType,
+					"fact":              labelRows[i].fact,
+					"fact_embedding":    labelRows[i].factEmbedding,
+					"created_at":        labelRows[i].createdAt,
+					"expired_at":        labelRows[i].expiredAt,
+					"valid_at":          labelRows[i].validAt,
+					"invalid_at":        labelRows[i].invalidAt,
+					"source_memory_ids": labelRows[i].sourceMemoryIDs,
+					"episodes":          labelRows[i].episodes,
+					"confidence":        labelRows[i].confidence,
+				}
+			}
+
+			// newLabel is from the whitelist-only validateAndNormalizeRelType — safe to inline.
+			createCypher := fmt.Sprintf(`
+				UNWIND $rows AS row
+				MATCH (s:Entity {uuid: row.source_id})
+				MATCH (t:Entity {uuid: row.target_id})
+				MERGE (s)-[rNew:%s {uuid: row.uuid}]->(t)
+				SET rNew.relation_type     = row.relation_type,
+				    rNew.fact              = row.fact,
+				    rNew.fact_embedding    = row.fact_embedding,
+				    rNew.created_at        = row.created_at,
+				    rNew.expired_at        = row.expired_at,
+				    rNew.valid_at          = row.valid_at,
+				    rNew.invalid_at        = row.invalid_at,
+				    rNew.source_memory_ids = row.source_memory_ids,
+				    rNew.episodes          = row.episodes,
+				    rNew.confidence        = row.confidence
+				WITH s, t, row
+				MATCH (s)-[rOld:RELATES_TO {uuid: row.uuid}]->(t)
+				DELETE rOld
+			`, newLabel)
+
+			_, writeErr := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+				_, runErr := tx.Run(ctx, createCypher, map[string]any{"rows": paramRows})
+				return nil, runErr
+			})
+			if writeErr != nil {
+				return fmt.Errorf("migrate rel types: write batch label=%s start=%d end=%d: %w",
+					newLabel, start, end, writeErr)
+			}
+			migrated += len(labelRows)
+		}
+
+		g.store.logger.Info("migrate rel types: batch complete",
+			"start", start, "end", end, "migrated_so_far", migrated, "skipped_so_far", skipped)
+	}
+
+	g.store.logger.Info("migrate rel types complete",
+		"total", total, "migrated", migrated, "skipped", skipped)
+	return nil
 }
