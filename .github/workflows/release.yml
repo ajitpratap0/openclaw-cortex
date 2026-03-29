@@ -188,6 +188,13 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          # Merge the three per-benchmark result files into a single JSON array
+          # so the compare tool can index them all by benchmark name.
+          jq -s '.[0] + .[1] + .[2]' \
+            "results_locomo_${RELEASE_TAG}.json" \
+            "results_longmemeval_${RELEASE_TAG}.json" \
+            "results_dmr_${RELEASE_TAG}.json" \
+            > "results_${RELEASE_TAG}.json"
           go run ./eval/cmd/compare \
             --baseline eval/baselines/published.json \
             --current "results_${RELEASE_TAG}.json" \

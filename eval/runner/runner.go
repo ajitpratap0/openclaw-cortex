@@ -65,6 +65,8 @@ type BenchmarkSummary struct {
 	// RecallAtK2 is an optional second recall@k metric computed at a different k
 	// (K2) alongside the primary RecallAtK. Zero means it was not computed.
 	RecallAtK2 float64 `json:"recall_at_k2,omitempty"`
+	// K2 is the k value used to compute RecallAtK2. Zero when RecallAtK2 is not set.
+	K2 int `json:"k2,omitempty"`
 	// CategoryBreakdowns holds per-category aggregate metrics when results carry
 	// a non-empty Category field. Nil when no categories are present.
 	CategoryBreakdowns map[string]*CategorySummary `json:"category_breakdowns,omitempty"`
@@ -434,9 +436,69 @@ func summarize(name string, results []BenchmarkResult, k, k2, recallFailures int
 	// recalled results would still be recalled at k2, so we leave RecallAtK2 at 0.
 	if k2 > 0 && k2 >= k {
 		summary.RecallAtK2 = summary.RecallAtK
+		summary.K2 = k2
 	}
 
+	// Build per-category breakdown from results that carry a non-empty Category.
+	summary.CategoryBreakdowns = ComputeCategoryBreakdowns(results)
+
 	return summary
+}
+
+// ComputeCategoryBreakdowns aggregates BenchmarkResults by their Category field
+// and returns a map of category name → CategorySummary. Returns nil when no
+// result has a non-empty Category.
+func ComputeCategoryBreakdowns(results []BenchmarkResult) map[string]*CategorySummary {
+	// First pass: count results per category to detect whether any are set.
+	hasCat := false
+	for i := range results {
+		if results[i].Category != "" {
+			hasCat = true
+			break
+		}
+	}
+	if !hasCat {
+		return nil
+	}
+
+	type accumulator struct {
+		total        int
+		exactMatches int
+		f1Sum        float64
+		recallHits   int
+	}
+	acc := make(map[string]*accumulator)
+
+	for i := range results {
+		cat := results[i].Category
+		if cat == "" {
+			cat = "uncategorized"
+		}
+		a, ok := acc[cat]
+		if !ok {
+			a = &accumulator{}
+			acc[cat] = a
+		}
+		a.total++
+		if results[i].ExactMatch {
+			a.exactMatches++
+		}
+		a.f1Sum += results[i].F1Score
+		if results[i].RecalledAtK {
+			a.recallHits++
+		}
+	}
+
+	bd := make(map[string]*CategorySummary, len(acc))
+	for cat, a := range acc {
+		bd[cat] = &CategorySummary{
+			TotalQuestions: a.total,
+			ExactMatchAcc:  float64(a.exactMatches) / float64(a.total),
+			AvgF1:          a.f1Sum / float64(a.total),
+			RecallAtK:      float64(a.recallHits) / float64(a.total),
+		}
+	}
+	return bd
 }
 
 // BestCandidate picks the memory from the retrieved list that has the highest
@@ -479,10 +541,14 @@ func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
 	for _, s := range summaries {
 		if s.RecallAtK2 > 0 {
 			hasK2 = true
-			// k2Label is a generic placeholder; callers that need a precise label
-			// (e.g. "10") should set it from the K2 value before calling this function.
-			_ = s
-			k2Label = "K2"
+			// Use the summary's K2 field as the label so the column header reflects
+			// the actual threshold (e.g. "Recall@10") rather than a generic placeholder.
+			// All summaries in one table must use the same K2; we take the first one.
+			if s.K2 > 0 {
+				k2Label = fmt.Sprintf("%d", s.K2)
+			} else {
+				k2Label = "K2"
+			}
 			break
 		}
 	}
