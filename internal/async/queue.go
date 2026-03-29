@@ -44,6 +44,7 @@ type WorkItem struct {
 	Project    string // project scope
 	SessionID  string // originating session
 	EnqueuedAt time.Time
+	Attempts   int // number of processing attempts so far; persisted across re-enqueues
 }
 
 // WALEntry is a single line in the append-only JSONL WAL file.
@@ -54,6 +55,7 @@ type WALEntry struct {
 	Project    string    `json:"project"`
 	SessionID  string    `json:"session_id"`
 	EnqueuedAt time.Time `json:"enqueued_at"`
+	Attempts   int       `json:"attempts,omitempty"` // persisted so retries survive re-enqueue
 	State      WALState  `json:"state"`
 	Error      string    `json:"error,omitempty"`
 	UpdatedAt  time.Time `json:"updated_at"`
@@ -106,6 +108,26 @@ func NewQueue(walPath string, capacity int, compactEvery int) (*Queue, error) {
 	return q, nil
 }
 
+// NewQueueReadOnly opens the WAL at walPath for read-only inspection.  Unlike
+// NewQueue it does NOT replay items into a channel and does NOT compact the
+// WAL, so it is safe to use for status checks (e.g. "worker status") without
+// mutating the queue state.  The returned Queue can only be used with Status();
+// calls to Enqueue, Complete, Fail, Compact, or Close are no-ops or may panic.
+func NewQueueReadOnly(walPath string) (*Queue, error) {
+	q := &Queue{
+		walPath: walPath,
+		ch:      make(chan WorkItem, 0), // never written; just keeps the type consistent
+		logger:  slog.Default(),
+	}
+	// Create the WAL file if it doesn't exist yet (first-run case).
+	f, err := os.OpenFile(walPath, os.O_RDONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("async.NewQueueReadOnly open: %w", err)
+	}
+	_ = f.Close()
+	return q, nil
+}
+
 // replay reads all WAL lines, keeps the last entry per ID (by max UpdatedAt),
 // and re-enqueues items in pending or processing state.
 func (q *Queue) replay() error {
@@ -150,6 +172,7 @@ func (q *Queue) replay() error {
 			Project:    entry.Project,
 			SessionID:  entry.SessionID,
 			EnqueuedAt: entry.EnqueuedAt,
+			Attempts:   entry.Attempts,
 		}
 		select {
 		case q.ch <- item:
@@ -204,6 +227,7 @@ func (q *Queue) Enqueue(item WorkItem) error {
 		Project:    item.Project,
 		SessionID:  item.SessionID,
 		EnqueuedAt: item.EnqueuedAt,
+		Attempts:   item.Attempts,
 		State:      WALStatePending,
 		UpdatedAt:  time.Now().UTC(),
 	}
@@ -362,7 +386,9 @@ func (q *Queue) Compact() error {
 		return fmt.Errorf("compact scan: %w", scanErr)
 	}
 
-	// Write surviving pending entries to a temp file then rename.
+	// Write surviving pending and failed entries to a temp file then rename.
+	// Failed entries are preserved so Status().TotalFailed remains accurate
+	// across compaction cycles.  Done entries are discarded to bound WAL growth.
 	tmpPath := q.walPath + ".compact.tmp"
 	tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -372,7 +398,7 @@ func (q *Queue) Compact() error {
 	w := bufio.NewWriter(tmp)
 	for i := range byID {
 		entry := byID[i]
-		if entry.State != WALStatePending && entry.State != WALStateProcessing {
+		if entry.State != WALStatePending && entry.State != WALStateProcessing && entry.State != WALStateFailed {
 			continue
 		}
 		data, marshalErr := json.Marshal(entry)

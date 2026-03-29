@@ -107,13 +107,12 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 
 // runWorker is the per-goroutine loop.  It reads from the queue channel and
 // calls the processor for each item, applying retry / fail logic.
+//
+// The attempt counter is stored in WorkItem.Attempts and persisted to the WAL
+// on every re-enqueue, so retries survive process restarts and are counted
+// correctly even when different workers handle the same item.
 func (p *Pool) runWorker(ctx context.Context) {
 	defer p.wg.Done()
-
-	// pending holds items that failed and need to be retried within this
-	// worker's lifetime.  We store them in a local map keyed by ID so a
-	// re-dequeue from the channel can increment the attempt counter.
-	attempts := make(map[string]int)
 
 	for {
 		select {
@@ -123,8 +122,9 @@ func (p *Pool) runWorker(ctx context.Context) {
 			if !ok {
 				return
 			}
-			attempts[item.ID]++
-			currentAttempt := attempts[item.ID]
+			// Increment the durable attempt counter before processing so that
+			// crashes mid-flight are counted on the next replay.
+			item.Attempts++
 
 			metrics.AsyncInFlight.Add(1)
 			processErr := p.processor.Process(p.processCtx, item)
@@ -133,30 +133,29 @@ func (p *Pool) runWorker(ctx context.Context) {
 			if processErr == nil {
 				p.queue.Complete(item.ID)
 				metrics.AsyncProcessedTotal.Add(1)
-				delete(attempts, item.ID)
 				continue
 			}
 
 			// Processing failed.
-			if currentAttempt >= p.maxRetries {
+			if item.Attempts >= p.maxRetries {
 				// Exhausted retries — permanently fail the item.
 				p.logger.Warn("async: item failed permanently",
 					"id", item.ID,
 					"memory_id", item.MemoryID,
-					"attempts", currentAttempt,
+					"attempts", item.Attempts,
 					"error", processErr)
 				p.queue.Fail(item.ID, processErr)
 				metrics.AsyncFailedTotal.Add(1)
-				delete(attempts, item.ID)
 				continue
 			}
 
 			// Retry: re-enqueue the same item (preserving its ID so the WAL
 			// tombstone from Fail/Complete targets the right entry).
+			// item.Attempts is already incremented and will be persisted to the WAL.
 			p.logger.Warn("async: item processing failed, will retry",
 				"id", item.ID,
 				"memory_id", item.MemoryID,
-				"attempt", currentAttempt,
+				"attempt", item.Attempts,
 				"max_retries", p.maxRetries,
 				"error", processErr)
 
@@ -226,6 +225,12 @@ func (gp *GraphProcessor) Process(ctx context.Context, item WorkItem) error {
 
 // runExtraction bridges a WorkItem into the existing synchronous extract.Run
 // pipeline.  Phase 5 will replace this with the full 8-stage async pipeline.
+//
+// runExtraction returns an error when extract.Run produces zero entities AND
+// zero facts for non-empty content.  This indicates a transient LLM failure
+// (extract.Run logs the underlying error as a warning) and allows the Pool's
+// retry mechanism to re-attempt the item rather than silently swallowing the
+// failure.
 func (gp *GraphProcessor) runExtraction(ctx context.Context, item WorkItem) error {
 	if gp.store == nil || gp.graphClient == nil || gp.llmClient == nil {
 		return errors.New("async.GraphProcessor: store, graphClient, and llmClient must be non-nil")
@@ -251,6 +256,14 @@ func (gp *GraphProcessor) runExtraction(ctx context.Context, item WorkItem) erro
 		"entities_extracted", result.EntitiesExtracted,
 		"facts_extracted", result.FactsExtracted,
 	)
+
+	// If the content is non-empty but extraction yielded nothing, treat it as a
+	// transient failure so the Pool's retry logic can re-attempt the item.
+	// extract.Run logs the underlying LLM error as a warning; returning an error
+	// here surfaces it to the retry / fail-tracking layer.
+	if item.Content != "" && result.EntitiesExtracted == 0 && result.FactsExtracted == 0 {
+		return fmt.Errorf("async.GraphProcessor: extraction yielded no entities or facts for memory %s (possible transient LLM error)", item.MemoryID)
+	}
 
 	return nil
 }

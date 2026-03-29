@@ -33,9 +33,9 @@ func workerStatusCmd() *cobra.Command {
 				return cmdErr("worker status: resolve WAL path", err)
 			}
 
-			// Open the queue in read-only mode by using a large compactEvery so
-			// automatic compaction never fires during this brief inspection.
-			q, err := async.NewQueue(walPath, 1, 9999)
+			// Open the queue in read-only mode: no channel replay, no WAL
+			// compaction, no mutations — safe for a status-only inspection.
+			q, err := async.NewQueueReadOnly(walPath)
 			if err != nil {
 				return cmdErr("worker status: open queue", err)
 			}
