@@ -125,6 +125,8 @@ func TestReembed_DryRun(t *testing.T) {
 	}
 	require.NoError(t, s.Upsert(ctx, mem, testVector(0.5)))
 
+	// NOTE: Tests the dry-run invocation at a high level. Full command testing requires integration test setup.
+
 	// In dry-run mode the store must not change: zero-embedding count stays at 2.
 	zerosBefore, err := s.CountZeroEmbeddingMemories(ctx)
 	require.NoError(t, err)

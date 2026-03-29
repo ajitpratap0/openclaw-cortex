@@ -84,7 +84,11 @@ func healthCmd() *cobra.Command {
 					result.Errors["memgraph"] = fmt.Sprintf("schema: %v", err)
 				} else {
 					// Non-fatal: count memories with missing embeddings and warn.
-					if zeroCount, countErr := st.CountZeroEmbeddingMemories(ctx); countErr == nil && zeroCount > 0 {
+					if zeroCount, countErr := st.CountZeroEmbeddingMemories(ctx); countErr != nil {
+						result.Warnings = append(result.Warnings,
+							fmt.Sprintf("could not count zero-embedding memories: %v", countErr),
+						)
+					} else if zeroCount > 0 {
 						result.ZeroEmbeddingCount = zeroCount
 						result.Warnings = append(result.Warnings,
 							fmt.Sprintf("%d memories have no embedding (run 'openclaw-cortex reembed' to fix)", zeroCount),

@@ -45,46 +45,41 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				return nil
 			}
 
-			// Paginate through all memories and re-embed those without an embedding.
-			// The List API does not expose the raw embedding vector, so we use
-			// CountZeroEmbeddingMemories to check the aggregate count. Because we
-			// cannot inspect per-memory embedding state through the Store interface,
-			// we scan all memories and emit the dry-run preview for every one that
-			// would be affected (i.e., the first zeroCount we encounter).
+			// Paginate unconditionally through all memories and re-embed only those
+			// whose embedding is missing (zero-length). We cannot rely on the initial
+			// zeroCount as a loop bound because the List API returns all memories
+			// regardless of embedding state — stopping after `fixed >= zeroCount`
+			// iterations would skip memories that happen to appear later in the page
+			// order and may miss actual zero-embedding nodes while re-embedding ones
+			// that already had valid vectors.
 			//
-			// In the apply path we re-embed every memory (Upsert is idempotent —
-			// it overwrites any existing embedding). We track two counters:
-			//   reembedN — memories we actually wrote a new vector for
-			//   skippedN — memories that already had an embedding and were left alone
-			//
-			// To distinguish "already has embedding" from "missing embedding" we call
-			// CountZeroEmbeddingMemories before and after each batch is processed.
-			// For simplicity, we use the initial count as the authoritative number of
-			// memories to fix and re-embed exactly that many (first zeroCount found).
+			// We track two counters:
+			//   fixed   — memories whose embedding was missing and was written
+			//   skipped — memories that already had an embedding (left untouched)
 			var (
 				cursor  string
 				fixed   int64
 				skipped int64
 			)
 
-			for fixed < zeroCount {
+			for {
 				memories, nextCursor, listErr := st.List(ctx, &store.SearchFilters{IncludeInvalidated: true}, uint64(batchSize), cursor) //nolint:gosec
 				if listErr != nil {
 					return cmdErr("reembed: listing memories", listErr)
 				}
 
 				for i := range memories {
-					if fixed >= zeroCount {
-						break
-					}
 					mem := memories[i]
+					if mem.HasEmbedding {
+						continue // already has embedding, skip
+					}
 
 					if dryRun {
 						preview := mem.Content
 						if len([]rune(preview)) > 80 {
 							preview = string([]rune(preview)[:80])
 						}
-						fmt.Printf("[dry-run] would re-embed %s: %q\n", mem.ID, preview)
+						fmt.Printf("[dry-run] would re-embed missing-vector memory %s: %q\n", mem.ID, preview)
 						fixed++
 						continue
 					}
@@ -108,11 +103,12 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				cursor = nextCursor
 			}
 
-			// Count remaining memories that were not re-embedded in this run.
-			// These had valid embeddings already present.
+			// skipped = total memories that already had a valid embedding.
+			// Use the pre-run zeroCount so the calculation is stable regardless of
+			// concurrent writes: skipped = total - zeroCount (memories that needed fixing).
 			totalCount, statErr := st.Stats(ctx)
 			if statErr == nil && totalCount != nil {
-				skipped = totalCount.TotalMemories - fixed
+				skipped = totalCount.TotalMemories - zeroCount
 				if skipped < 0 {
 					skipped = 0
 				}

@@ -1020,13 +1020,6 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 	return nil
 }
 
-// DeleteAllMemories removes all nodes and relationships from the graph.
-// This is intended for eval benchmark isolation only — it is destructive.
-//
-// Known limitation: `MATCH (n) DETACH DELETE n` runs as a single Bolt
-// transaction. On a large or heavily-indexed graph this can exhaust the
-// Memgraph transaction memory budget and fail even within
-// memgraphDeleteAllTimeout. The eval harness synthetic datasets are small
 // CountZeroEmbeddingMemories returns the number of Memory nodes whose embedding
 // property is NULL or has zero length. These nodes are silently invisible to
 // vector search (recall, search, forget --query).
@@ -1063,6 +1056,13 @@ func (s *MemgraphStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, 
 	}
 }
 
+// DeleteAllMemories removes all nodes and relationships from the graph.
+// This is intended for eval benchmark isolation only — it is destructive.
+//
+// Known limitation: `MATCH (n) DETACH DELETE n` runs as a single Bolt
+// transaction. On a large or heavily-indexed graph this can exhaust the
+// Memgraph transaction memory budget and fail even within
+// memgraphDeleteAllTimeout. The eval harness synthetic datasets are small
 // (O(100) nodes per QA pair), so this is safe in practice. For production
 // stores with millions of nodes, batched deletion (WITH n LIMIT N) would be
 // required; tracked in issue #91 alongside the --format json follow-up.
@@ -1226,6 +1226,14 @@ func recordToMemory(record *neo4j.Record, alias string) (*models.Memory, error) 
 		var meta map[string]any
 		if unmarshalErr := json.Unmarshal([]byte(metaStr), &meta); unmarshalErr == nil {
 			m.Metadata = meta
+		}
+	}
+
+	// HasEmbedding is derived from whether the embedding property is non-empty.
+	// This allows callers (e.g. cmd_reembed) to skip memories that already have a vector.
+	if raw, exists := props["embedding"]; exists {
+		if list, isList := raw.([]any); isList && len(list) > 0 {
+			m.HasEmbedding = true
 		}
 	}
 

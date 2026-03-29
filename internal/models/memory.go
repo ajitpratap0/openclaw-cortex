@@ -147,6 +147,11 @@ type Memory struct {
 
 	// ConflictStatus tracks resolution: "" (no conflict), "active" (unresolved), "resolved".
 	ConflictStatus ConflictStatus `json:"conflict_status,omitempty"`
+
+	// HasEmbedding indicates whether this memory has a non-empty embedding vector stored.
+	// Populated by the store on List/Get; not written back to the DB.
+	// Used by the reembed command to skip memories that already have a valid vector.
+	HasEmbedding bool `json:"has_embedding,omitempty"`
 }
 
 // SearchResult wraps a Memory with its similarity score.

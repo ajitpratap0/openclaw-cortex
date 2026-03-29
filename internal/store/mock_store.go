@@ -174,6 +174,9 @@ func (m *MockStore) List(_ context.Context, filters *SearchFilters, limit uint64
 			continue
 		}
 		mem := sm.memory
+		// Derive HasEmbedding from the stored vector so callers can distinguish
+		// memories that need re-embedding from those that already have a valid vector.
+		mem.HasEmbedding = len(sm.vector) > 0
 		// Deep-copy mutable fields to prevent callers from mutating stored data.
 		if len(mem.Tags) > 0 {
 			tags := make([]string, len(mem.Tags))
