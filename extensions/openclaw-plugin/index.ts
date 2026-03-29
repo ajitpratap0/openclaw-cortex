@@ -132,6 +132,12 @@ export function resolveEnv(
 // Store output parser (exported for unit testing)
 // ============================================================================
 
+// Compile regex patterns once at module level instead of on every parse call.
+const _UUID_RE = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const _CREATED_RE = new RegExp(`^Stored memory (${_UUID_RE})`, "m");
+const _UPDATED_RE = new RegExp(`^duplicate detected: updated existing memory (${_UUID_RE}) with richer content`, "m");
+const _SKIPPED_RE = new RegExp(`^duplicate detected: memory (${_UUID_RE}) already covers this content`, "m");
+
 /**
  * Parse the stdout line(s) emitted by `openclaw-cortex store` and return a
  * structured result.  Returns null when the output matches none of the known
@@ -145,19 +151,11 @@ export function resolveEnv(
 export function parseStoreOutput(
   out: string,
 ): { id: string; action: "created" | "updated" | "skipped" } | null {
-  const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-  // "Stored memory <UUID> [type/scope]"
-  const createdMatch = out.match(new RegExp(`^Stored memory (${UUID})`, "m"));
+  const createdMatch = out.match(_CREATED_RE);
   if (createdMatch) return { id: createdMatch[1], action: "created" };
-  // "duplicate detected: updated existing memory <UUID> with richer content ..."
-  const updatedMatch = out.match(
-    new RegExp(`^duplicate detected: updated existing memory (${UUID}) with richer content`, "m"),
-  );
+  const updatedMatch = out.match(_UPDATED_RE);
   if (updatedMatch) return { id: updatedMatch[1], action: "updated" };
-  // "duplicate detected: memory <UUID> already covers this content (skipped)"
-  const skippedMatch = out.match(
-    new RegExp(`^duplicate detected: memory (${UUID}) already covers this content`, "m"),
-  );
+  const skippedMatch = out.match(_SKIPPED_RE);
   if (skippedMatch) return { id: skippedMatch[1], action: "skipped" };
   return null;
 }
