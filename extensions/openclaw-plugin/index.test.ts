@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEnv } from "./index.ts";
-import { parseStoreOutput } from "./index.ts";
+import { resolveEnv, parseStoreOutput } from "./index.ts";
 
 describe("resolveEnv", () => {
   const empty: Record<string, string | undefined> = {};

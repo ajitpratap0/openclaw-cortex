@@ -565,9 +565,11 @@ const memoryCortexPlugin = {
           }
 
           if (result.action === "updated") {
+            // Note: the binary's dedup path retains the existing memory's type/scope;
+            // --type/--scope flags were not applied. Only expose id to avoid misleading callers.
             return {
               content: [{ type: "text", text: `Updated existing memory ${result.id} with richer content: "${content.slice(0, 80)}..."` }],
-              details: { action: "updated", id: result.id, type, scope },
+              details: { action: "updated", id: result.id },
             };
           }
 
