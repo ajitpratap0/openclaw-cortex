@@ -42,9 +42,10 @@ func storeCmd() *cobra.Command {
 
 			// Validate minimum content length.
 			const minContentLen = 10
-			if len(strings.TrimSpace(content)) < minContentLen {
+			trimmed := strings.TrimSpace(content)
+			if len(trimmed) < minContentLen {
 				return fmt.Errorf("store: content too short (%d chars, minimum %d); provide meaningful text",
-					len(strings.TrimSpace(content)), minContentLen)
+					len(trimmed), minContentLen)
 			}
 
 			// Validate memory type.
@@ -80,7 +81,7 @@ func storeCmd() *cobra.Command {
 			// Resolve effective dedup threshold: flag overrides config default.
 			effectiveThreshold := cfg.Memory.DedupThreshold
 			if cmd.Flags().Changed("dedup-threshold") {
-				if dedupThreshold < 0 || dedupThreshold > 1 {
+				if dedupThreshold <= 0 || dedupThreshold > 1 {
 					return fmt.Errorf("store: --dedup-threshold %g out of range [0.0, 1.0]", dedupThreshold)
 				}
 				effectiveThreshold = dedupThreshold
@@ -183,7 +184,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
-	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "cosine similarity threshold for dedup (0 = use config default, range 0.0–1.0)")
+	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range 0.0–1.0; omit to use config default)")
 	return cmd
 }
 

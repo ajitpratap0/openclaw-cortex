@@ -52,6 +52,7 @@ func storeValidationMemory(t *testing.T, st *store.MockStore, id, content string
 
 // validateContentLength mirrors the guard added to cmd_store.go and
 // cmd_store_batch.go so we can test it directly without invoking the CLI.
+// NOTE: this mirrors the validation logic in cmd_store.go; keep in sync.
 func validateContentLength(content string) error {
 	if len(strings.TrimSpace(content)) < minContentLen {
 		return &contentTooShortError{
@@ -187,7 +188,7 @@ func TestStoreCmd_DedupThresholdInvalidRange(t *testing.T) {
 		{-1.0, true},
 		{1.1, true},
 		{2.0, true},
-		{0.0, false}, // 0 means "use config default" — valid sentinel
+		{0.0, true}, // 0.0 is now rejected (sentinel 0 must not pass through as a real threshold)
 		{0.5, false},
 		{0.92, false},
 		{1.0, false},
@@ -205,8 +206,9 @@ func TestStoreCmd_DedupThresholdInvalidRange(t *testing.T) {
 
 // validateDedupThreshold mirrors the range check in cmd_store.go so we can
 // unit-test it without invoking the CLI binary.
+// NOTE: this mirrors the validation logic in cmd_store.go; keep in sync.
 func validateDedupThreshold(v float64) error {
-	if v < 0 || v > 1 {
+	if v <= 0 || v > 1 {
 		return &dedupThresholdRangeError{value: v}
 	}
 	return nil
