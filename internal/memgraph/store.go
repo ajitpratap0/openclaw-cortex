@@ -1027,6 +1027,42 @@ func (s *MemgraphStore) UpdateReinforcement(ctx context.Context, id string, conf
 // transaction. On a large or heavily-indexed graph this can exhaust the
 // Memgraph transaction memory budget and fail even within
 // memgraphDeleteAllTimeout. The eval harness synthetic datasets are small
+// CountZeroEmbeddingMemories returns the number of Memory nodes whose embedding
+// property is NULL or has zero length. These nodes are silently invisible to
+// vector search (recall, search, forget --query).
+func (s *MemgraphStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, error) {
+	rctx, cancel := context.WithTimeout(ctx, memgraphReadTimeout)
+	defer cancel()
+
+	session := s.driver.NewSession(rctx, s.sessionConfig())
+	defer s.closeSession(ctx, session)
+
+	raw, err := session.ExecuteRead(rctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		res, txErr := tx.Run(rctx, `
+			MATCH (m:Memory) WHERE m.embedding IS NULL OR size(m.embedding) = 0 RETURN count(m) AS n
+		`, nil)
+		if txErr != nil {
+			return nil, txErr
+		}
+		rec, nextErr := res.Single(rctx)
+		if nextErr != nil {
+			return int64(0), nil //nolint:nilerr // no rows is a valid "zero" result
+		}
+		n, _ := rec.Get("n")
+		return n, nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("memgraph count zero embedding memories: %w", err)
+	}
+
+	switch v := raw.(type) {
+	case int64:
+		return v, nil
+	default:
+		return 0, nil
+	}
+}
+
 // (O(100) nodes per QA pair), so this is safe in practice. For production
 // stores with millions of nodes, batched deletion (WITH n LIMIT N) would be
 // required; tracked in issue #91 alongside the --format json follow-up.

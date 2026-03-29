@@ -72,6 +72,7 @@ func run() error {
 		mcpCmd(),
 		migrateCmd(),
 		resetCmd(),
+		reembedCmd(),
 	)
 
 	rootCmd.SetContext(ctx)

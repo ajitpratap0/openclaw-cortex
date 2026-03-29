@@ -18,12 +18,14 @@ import (
 // true means the ping succeeded, and false means it failed. Consumers must test
 // the "skipped" array before interpreting a null LLM field as a failure.
 type healthResult struct {
-	OK       bool              `json:"ok"`
-	Memgraph bool              `json:"memgraph"`
-	Ollama   bool              `json:"ollama"`
-	LLM      *bool             `json:"llm"`
-	Errors   map[string]string `json:"errors,omitempty"`
-	Skipped  []string          `json:"skipped,omitempty"`
+	OK                 bool              `json:"ok"`
+	Memgraph           bool              `json:"memgraph"`
+	Ollama             bool              `json:"ollama"`
+	LLM                *bool             `json:"llm"`
+	Errors             map[string]string `json:"errors,omitempty"`
+	Skipped            []string          `json:"skipped,omitempty"`
+	Warnings           []string          `json:"warnings,omitempty"`
+	ZeroEmbeddingCount int64             `json:"zero_embedding_count,omitempty"`
 }
 
 // boolPtr returns a pointer to b. Used for the three-state LLM field in
@@ -80,6 +82,14 @@ func healthCmd() *cobra.Command {
 						result.Errors = make(map[string]string)
 					}
 					result.Errors["memgraph"] = fmt.Sprintf("schema: %v", err)
+				} else {
+					// Non-fatal: count memories with missing embeddings and warn.
+					if zeroCount, countErr := st.CountZeroEmbeddingMemories(ctx); countErr == nil && zeroCount > 0 {
+						result.ZeroEmbeddingCount = zeroCount
+						result.Warnings = append(result.Warnings,
+							fmt.Sprintf("%d memories have no embedding (run 'openclaw-cortex reembed' to fix)", zeroCount),
+						)
+					}
 				}
 			}
 
@@ -177,6 +187,10 @@ func healthCmd() *cobra.Command {
 				}
 			default:
 				fmt.Printf("Claude LLM: FAIL (%s)\n", result.Errors["llm"])
+			}
+
+			for _, w := range result.Warnings {
+				fmt.Printf("WARNING: %s\n", w)
 			}
 
 			if !result.OK {
