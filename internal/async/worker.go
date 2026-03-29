@@ -35,7 +35,7 @@ type Pool struct {
 	retryDelay time.Duration // delay between retry attempts
 	wg         sync.WaitGroup
 	cancel     context.CancelFunc // cancels the loop context (stops accepting new work)
-	processCtx context.Context    // context passed to Process; not cancelled by Shutdown
+	processCtx context.Context    // context passed to Process; not canceled by Shutdown
 	logger     *slog.Logger
 }
 
@@ -77,9 +77,9 @@ func (p *Pool) Start(ctx context.Context) {
 }
 
 // Shutdown signals workers to stop accepting new items and waits for all
-// in-flight goroutines to exit.  The loop context is cancelled so that idle
+// in-flight goroutines to exit.  The loop context is canceled so that idle
 // workers (blocked on the queue channel) wake up and return; however the
-// process context passed to each Process call is NOT cancelled here — callers
+// process context passed to each Process call is NOT canceled here — callers
 // that want to abort in-flight work must cancel the context they passed to
 // Start themselves.
 //
@@ -160,7 +160,7 @@ func (p *Pool) runWorker(ctx context.Context) {
 				"max_retries", p.maxRetries,
 				"error", processErr)
 
-			// Honour the configured retry back-off before re-enqueuing.
+			// Honor the configured retry back-off before re-enqueuing.
 			if p.retryDelay > 0 {
 				select {
 				case <-time.After(p.retryDelay):

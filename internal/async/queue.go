@@ -237,7 +237,7 @@ func (q *Queue) C() <-chan WorkItem {
 	return q.ch
 }
 
-// Close closes the underlying work channel, signalling workers that no more
+// Close closes the underlying work channel, signaling workers that no more
 // items will be sent.  Callers must ensure no concurrent Enqueue calls are
 // made after Close.
 func (q *Queue) Close() {
