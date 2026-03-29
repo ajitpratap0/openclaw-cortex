@@ -32,8 +32,6 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			}
 			defer func() { _ = st.Close() }()
 
-			emb := newEmbedder(logger)
-
 			// Count how many memories need re-embedding before we start.
 			zeroCount, countErr := st.CountZeroEmbeddingMemories(ctx)
 			if countErr != nil {
@@ -44,6 +42,9 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				fmt.Println("Re-embedded 0 memories (0 skipped as already embedded)")
 				return nil
 			}
+
+			// Only dial Ollama after confirming there is work to do.
+			emb := newEmbedder(logger)
 
 			// Paginate unconditionally through all memories and re-embed only those
 			// whose embedding is missing (zero-length). We cannot rely on the initial
@@ -56,6 +57,10 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			// We track two counters:
 			//   fixed   — memories whose embedding was missing and was written
 			//   skipped — memories that already had an embedding (left untouched)
+			if batchSize <= 0 {
+				return fmt.Errorf("--batch must be a positive integer, got %d", batchSize)
+			}
+
 			var (
 				cursor  string
 				fixed   int64
@@ -103,9 +108,14 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				cursor = nextCursor
 			}
 
-			// skipped = total memories that already had a valid embedding.
-			// Use the pre-run zeroCount so the calculation is stable regardless of
-			// concurrent writes: skipped = total - zeroCount (memories that needed fixing).
+			// errored = memories that needed fixing but failed (embed or upsert error).
+			// skipped = memories that already had a valid embedding (no action needed).
+			// Use the pre-run zeroCount so both calculations are stable regardless of
+			// concurrent writes.
+			errored := zeroCount - fixed
+			if errored < 0 {
+				errored = 0
+			}
 			totalCount, statErr := st.Stats(ctx)
 			if statErr == nil && totalCount != nil {
 				skipped = totalCount.TotalMemories - zeroCount
@@ -117,7 +127,7 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			if dryRun {
 				fmt.Printf("Re-embedded %d memories (dry run — no changes applied)\n", fixed)
 			} else {
-				fmt.Printf("Re-embedded %d memories (%d skipped as already embedded)\n", fixed, skipped)
+				fmt.Printf("Re-embedded %d memories (%d skipped as already embedded, %d errored)\n", fixed, skipped, errored)
 			}
 			return nil
 		},

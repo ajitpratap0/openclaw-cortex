@@ -89,8 +89,12 @@ func TestCountZeroEmbeddingMemories_Empty(t *testing.T) {
 // TestReembed_DryRun verifies that dry-run mode detects zero-embedding memories
 // and reports them without modifying the store.
 //
-// The test exercises the reembed logic directly using the store and a mock
-// embedder, mirroring what cmd_reembed.go would do.
+// The reembed command (cmd_reembed.go) iterates all memories and calls
+// Upsert only when dryRun is false. This test mirrors that logic directly
+// using MockStore so we can assert: (a) the initial count is correct, and
+// (b) after simulating a dry-run loop (no Upsert calls), the count is
+// unchanged. Full CLI-flag integration testing requires a live Memgraph +
+// Ollama environment and lives outside the short-test suite.
 func TestReembed_DryRun(t *testing.T) {
 	ctx := context.Background()
 	s := store.NewMockStore()
@@ -113,7 +117,7 @@ func TestReembed_DryRun(t *testing.T) {
 	}
 
 	// Insert one memory that already has an embedding.
-	mem := models.Memory{
+	embedded := models.Memory{
 		ID:         "dry-has-vec",
 		Type:       models.MemoryTypeFact,
 		Scope:      models.ScopePermanent,
@@ -123,16 +127,28 @@ func TestReembed_DryRun(t *testing.T) {
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
-	require.NoError(t, s.Upsert(ctx, mem, testVector(0.5)))
+	require.NoError(t, s.Upsert(ctx, embedded, testVector(0.5)))
 
-	// NOTE: Tests the dry-run invocation at a high level. Full command testing requires integration test setup.
-
-	// In dry-run mode the store must not change: zero-embedding count stays at 2.
+	// Confirm initial state: 2 memories need re-embedding.
 	zerosBefore, err := s.CountZeroEmbeddingMemories(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), zerosBefore)
+	require.Equal(t, int64(2), zerosBefore)
 
-	// Simulate dry-run: count is read, no Upsert is called.
+	// Simulate the dry-run loop from cmd_reembed.go: iterate all memories but
+	// skip the Upsert call (dryRun=true path). The store must not be modified.
+	memories, _, listErr := s.List(ctx, &store.SearchFilters{IncludeInvalidated: true}, 100, "")
+	require.NoError(t, listErr)
+	var fixed int64
+	for i := range memories {
+		if memories[i].HasEmbedding {
+			continue
+		}
+		// dry-run: log only, no Upsert
+		fixed++
+	}
+	assert.Equal(t, int64(2), fixed, "dry-run should detect exactly 2 missing-embedding memories")
+
+	// After the dry-run loop, the store must be unmodified.
 	zerosAfter, err := s.CountZeroEmbeddingMemories(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), zerosAfter, "dry-run must not change zero-embedding count")

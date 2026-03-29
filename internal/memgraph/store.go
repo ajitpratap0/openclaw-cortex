@@ -1039,7 +1039,7 @@ func (s *MemgraphStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, 
 		}
 		rec, nextErr := res.Single(rctx)
 		if nextErr != nil {
-			return int64(0), nil //nolint:nilerr // no rows is a valid "zero" result
+			return 0, fmt.Errorf("count zero-embedding memories: %w", nextErr)
 		}
 		n, _ := rec.Get("n")
 		return n, nil
