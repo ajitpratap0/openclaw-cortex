@@ -1,15 +1,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
+	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
+	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
 	"github.com/ajitpratap0/openclaw-cortex/internal/models"
 	"github.com/ajitpratap0/openclaw-cortex/internal/recall"
 	"github.com/ajitpratap0/openclaw-cortex/internal/sentry"
 	"github.com/ajitpratap0/openclaw-cortex/internal/store"
 )
+
+// asyncQueue is the global async work queue. Initialized in initAsyncQueue,
+// shutdown in shutdownAsyncQueue. nil when cfg.Async.Disabled is true.
+var asyncQueue async.Enqueuer
 
 // cmdErr wraps an error with context and reports it to Sentry.
 // Returns nil if err is nil.
@@ -76,4 +86,49 @@ func parseTags(tagsStr string) []string {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 	return parts
+}
+
+// initAsyncQueue creates and starts the async graph pipeline pool.
+// Returns (nil, nil, nil) when cfg.Async.Disabled is true.
+// The caller is responsible for calling pool.Shutdown(ctx) when done, and then
+// calling the returned closer to release the underlying store connection.
+func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) (*async.Pool, func() error, error) {
+	if c.Async.Disabled {
+		return nil, nil, nil
+	}
+
+	// Resolve WAL path: explicit config or default under ~/.openclaw/.
+	// Uses the same resolveWALPath helper as the worker commands.
+	walPath, walErr := resolveWALPath(c.Async.WALPath)
+	if walErr != nil {
+		return nil, nil, fmt.Errorf("initAsyncQueue: %w", walErr)
+	}
+
+	q, err := async.NewQueue(walPath, c.Async.QueueCapacity, c.Async.WALCompactEvery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initAsyncQueue: new queue: %w", err)
+	}
+
+	// Build the GraphProcessor dependencies from cfg.
+	emb := newEmbedder(logger)
+
+	st, stErr := newMemgraphStore(ctx, logger)
+	if stErr != nil {
+		return nil, nil, fmt.Errorf("initAsyncQueue: connecting to store: %w", stErr)
+	}
+
+	gc := memgraph.NewGraphAdapter(st)
+	lc := llm.NewClient(c.Claude)
+	if lc == nil {
+		_ = st.Close()
+		return nil, nil, fmt.Errorf("initAsyncQueue: no LLM credentials configured: set ANTHROPIC_API_KEY or configure claude.gateway_url + claude.gateway_token")
+	}
+
+	retryDelay := time.Duration(c.Async.RetryDelaySeconds) * time.Second
+	gp := async.NewGraphProcessor(st, gc, emb, lc, c.Claude.Model, logger)
+	pool := async.NewPool(q, gp, c.Async.WorkerCount, c.Async.MaxRetries, retryDelay, logger)
+	pool.Start(ctx)
+
+	asyncQueue = q
+	return pool, st.Close, nil
 }

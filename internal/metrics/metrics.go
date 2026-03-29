@@ -16,5 +16,20 @@ var (
 	LifecycleRetired = expvar.NewInt("cortex_lifecycle_retired_total")
 )
 
+// Async pipeline counters.
+var (
+	// AsyncInFlight tracks the number of work items currently being processed
+	// by the async worker pool.  It is incremented on dequeue and decremented
+	// when processing finishes (success or permanent failure).
+	AsyncInFlight = expvar.NewInt("cortex_async_in_flight")
+
+	// AsyncProcessedTotal counts work items that completed successfully.
+	AsyncProcessedTotal = expvar.NewInt("cortex_async_processed_total")
+
+	// AsyncFailedTotal counts work items that exhausted their retry budget and
+	// were permanently marked as failed.
+	AsyncFailedTotal = expvar.NewInt("cortex_async_failed_total")
+)
+
 // Inc increments the given counter by 1.
 func Inc(counter *expvar.Int) { counter.Add(1) }

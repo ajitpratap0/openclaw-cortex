@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 	"github.com/ajitpratap0/openclaw-cortex/internal/config"
 	"github.com/ajitpratap0/openclaw-cortex/internal/embedder"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
@@ -33,6 +34,9 @@ func main() {
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
+	var asyncPool *async.Pool
+	var asyncStoreCloser func() error
+
 	rootCmd := &cobra.Command{
 		Use:     "openclaw-cortex",
 		Short:   "OpenClaw Cortex — hybrid layered memory system for AI agents",
@@ -45,6 +49,13 @@ func run() error {
 				return fmt.Errorf("loading config: %w", err)
 			}
 			sentry.Init(cfg.Sentry.DSN, cfg.Sentry.Environment, version)
+
+			logger := newLogger()
+			asyncPool, asyncStoreCloser, err = initAsyncQueue(cmd.Context(), cfg, logger)
+			if err != nil {
+				// Non-fatal: log and continue without async queue.
+				logger.Warn("async queue init failed, falling back to synchronous extraction", "err", err)
+			}
 			return nil
 		},
 	}
@@ -73,12 +84,30 @@ func run() error {
 		migrateCmd(),
 		resetCmd(),
 		reembedCmd(),
+		workerCmd(),
+		graphAdminCmd(),
 	)
 
 	rootCmd.SetContext(ctx)
 
 	err := rootCmd.Execute()
 	stop()
+
+	// Graceful shutdown of the async worker pool (if initialized).
+	if asyncPool != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		if shutdownErr := asyncPool.Shutdown(shutdownCtx); shutdownErr != nil {
+			slog.Default().Warn("async pool shutdown did not complete cleanly", "err", shutdownErr)
+		}
+		// Close the store connection opened by initAsyncQueue.
+		if asyncStoreCloser != nil {
+			if closeErr := asyncStoreCloser(); closeErr != nil {
+				slog.Default().Warn("async store close error", "err", closeErr)
+			}
+		}
+	}
+
 	return err
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 	"github.com/ajitpratap0/openclaw-cortex/internal/extract"
 	"github.com/ajitpratap0/openclaw-cortex/internal/llm"
 	"github.com/ajitpratap0/openclaw-cortex/internal/memgraph"
@@ -146,23 +147,37 @@ func storeCmd() *cobra.Command {
 			fmt.Printf("Stored memory %s [%s/%s]\n", mem.ID, mem.Type, mem.Scope)
 
 			if extractEntities {
-				llmClient := llm.NewClient(cfg.Claude)
-				if llmClient == nil {
-					fmt.Println("  Entity extraction skipped: no LLM configured (set ANTHROPIC_API_KEY or gateway)")
-				} else {
-					gc := memgraph.NewGraphAdapter(st)
-					gc.SetEmbedder(emb)
-					res := extract.Run(ctx, extract.Deps{
-						LLMClient:   llmClient,
-						Model:       cfg.Claude.Model,
-						Store:       st,
-						GraphClient: gc,
-						Logger:      logger,
-					}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
-					if res.EntitiesExtracted > 0 || res.FactsExtracted > 0 {
-						fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
+				if cfg.Async.Disabled || asyncQueue == nil {
+					// Synchronous fallback (backward compat / disabled mode).
+					llmClient := llm.NewClient(cfg.Claude)
+					if llmClient == nil {
+						fmt.Println("  Entity extraction skipped: no LLM configured (set ANTHROPIC_API_KEY or gateway)")
 					} else {
-						fmt.Println("  No entities or facts extracted")
+						gc := memgraph.NewGraphAdapter(st)
+						gc.SetEmbedder(emb)
+						res := extract.Run(ctx, extract.Deps{
+							LLMClient:   llmClient,
+							Model:       cfg.Claude.Model,
+							Store:       st,
+							GraphClient: gc,
+							Logger:      logger,
+						}, []extract.StoredMemory{{ID: mem.ID, Content: content}})
+						if res.EntitiesExtracted > 0 || res.FactsExtracted > 0 {
+							fmt.Printf("  Extracted %d entities, %d facts\n", res.EntitiesExtracted, res.FactsExtracted)
+						} else {
+							fmt.Println("  No entities or facts extracted")
+						}
+					}
+				} else {
+					// Fast path: enqueue for async graph processing.
+					item := async.WorkItem{
+						MemoryID:   mem.ID,
+						Content:    content,
+						Project:    project,
+						EnqueuedAt: time.Now().UTC(),
+					}
+					if enqErr := asyncQueue.Enqueue(item); enqErr != nil {
+						logger.Warn("failed to enqueue graph work", "memory_id", mem.ID, "err", enqErr)
 					}
 				}
 			}

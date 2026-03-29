@@ -24,6 +24,13 @@ func validCfg() *Config {
 			DefaultTTLHours:    720,
 			VectorDimension:    768,
 		},
+		Async: AsyncConfig{
+			WorkerCount:       2,
+			QueueCapacity:     512,
+			MaxRetries:        3,
+			RetryDelaySeconds: 5,
+			WALCompactEvery:   1000,
+		},
 	}
 }
 

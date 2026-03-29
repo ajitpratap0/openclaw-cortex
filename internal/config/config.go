@@ -42,6 +42,17 @@ type HooksConfig struct {
 	PostTurnConcurrency int `mapstructure:"post_turn_concurrency"`
 }
 
+// AsyncConfig controls the asynchronous graph pipeline (Phase 1 scaffold).
+type AsyncConfig struct {
+	WorkerCount       int    `mapstructure:"worker_count"`
+	QueueCapacity     int    `mapstructure:"queue_capacity"`
+	MaxRetries        int    `mapstructure:"max_retries"`
+	RetryDelaySeconds int    `mapstructure:"retry_delay_seconds"`
+	WALPath           string `mapstructure:"wal_path"`
+	WALCompactEvery   int    `mapstructure:"wal_compact_every"`
+	Disabled          bool   `mapstructure:"disabled"`
+}
+
 // Config holds all configuration for cortex.
 type Config struct {
 	Memgraph         MemgraphConfig         `mapstructure:"memgraph"`
@@ -57,6 +68,7 @@ type Config struct {
 	FactExtraction   FactExtractionConfig   `mapstructure:"fact_extraction"`
 	Sentry           SentryConfig           `mapstructure:"sentry"`
 	Hooks            HooksConfig            `mapstructure:"hooks"`
+	Async            AsyncConfig            `mapstructure:"async"`
 }
 
 // MemgraphConfig holds Memgraph database connection settings.
@@ -262,6 +274,21 @@ func Load() (*Config, error) {
 	v.SetDefault("hooks.post_turn_concurrency", 4)
 	_ = v.BindEnv("hooks.post_turn_concurrency", "OPENCLAW_CORTEX_HOOKS_POST_TURN_CONCURRENCY")
 
+	v.SetDefault("async.worker_count", 2)
+	v.SetDefault("async.queue_capacity", 512)
+	v.SetDefault("async.max_retries", 3)
+	v.SetDefault("async.retry_delay_seconds", 5)
+	v.SetDefault("async.wal_path", "")
+	v.SetDefault("async.wal_compact_every", 1000)
+	v.SetDefault("async.disabled", false)
+	_ = v.BindEnv("async.worker_count", "OPENCLAW_CORTEX_ASYNC_WORKER_COUNT")
+	_ = v.BindEnv("async.queue_capacity", "OPENCLAW_CORTEX_ASYNC_QUEUE_CAPACITY")
+	_ = v.BindEnv("async.max_retries", "OPENCLAW_CORTEX_ASYNC_MAX_RETRIES")
+	_ = v.BindEnv("async.retry_delay_seconds", "OPENCLAW_CORTEX_ASYNC_RETRY_DELAY_SECONDS")
+	_ = v.BindEnv("async.wal_path", "OPENCLAW_CORTEX_ASYNC_WAL_PATH")
+	_ = v.BindEnv("async.wal_compact_every", "OPENCLAW_CORTEX_ASYNC_WAL_COMPACT_EVERY")
+	_ = v.BindEnv("async.disabled", "OPENCLAW_CORTEX_ASYNC_DISABLED")
+
 	// Config file
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -338,6 +365,22 @@ func (c *Config) Validate() error {
 	if c.Memory.DefaultTTLHours < 0 {
 		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
 	}
+	// Only validate async pipeline fields when async is enabled.
+	if !c.Async.Disabled {
+		if c.Async.WorkerCount < 1 {
+			return fmt.Errorf("async.worker_count must be >= 1")
+		}
+		if c.Async.QueueCapacity < 1 {
+			return fmt.Errorf("async.queue_capacity must be >= 1")
+		}
+		if c.Async.MaxRetries < 0 {
+			return fmt.Errorf("async.max_retries must be >= 0")
+		}
+		if c.Async.RetryDelaySeconds < 0 {
+			return fmt.Errorf("async.retry_delay_seconds must be >= 0")
+		}
+	}
+
 	// Validate provider name and provider-specific fields.
 	switch c.Embedder.Provider {
 	case "ollama", "":
