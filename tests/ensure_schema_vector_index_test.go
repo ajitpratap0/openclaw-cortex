@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -170,5 +171,63 @@ func TestBuildEntityVectorIndexDDL_IndexAndPropertyNames(t *testing.T) {
 	}
 	if !strings.Contains(ddl, ":Entity(name_embedding)") {
 		t.Errorf("entity DDL must target :Entity(name_embedding) property, got: %s", ddl)
+	}
+}
+
+// TestIsAlreadyExistsErr_MatchesVectorIndexDuplicate verifies that IsAlreadyExistsErr
+// matches the error patterns that Memgraph may return for duplicate vector index
+// creation, including "already defined" which is used for vector indexes.
+func TestIsAlreadyExistsErr_MatchesVectorIndexDuplicate(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     error
+		want    bool
+	}{
+		{name: "nil error", err: nil, want: false},
+		{name: "unrelated error", err: errors.New("connection refused"), want: false},
+		{name: "constraint already exists", err: errors.New("Constraint already exists"), want: true},
+		{name: "index already exists", err: errors.New("Index already exists"), want: true},
+		{name: "already defined (vector index)", err: errors.New("vector index memory_embedding already defined"), want: true},
+		{name: "mixed case already exists", err: errors.New("ALREADY EXISTS"), want: true},
+		{name: "index already (partial)", err: errors.New("index already created"), want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := memgraph.IsAlreadyExistsErr(tt.err)
+			if got != tt.want {
+				t.Errorf("IsAlreadyExistsErr(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestVerifyOrRebuildVectorIndex_ShowFailedReturnsError documents the expected
+// behavior when SHOW VECTOR INDEXES fails and the index already exists:
+// verifyOrRebuildVectorIndex should return an error (not nil) because the index
+// may be on the wrong property and property correctness cannot be verified.
+//
+// This test cannot call verifyOrRebuildVectorIndex directly (it is unexported and
+// requires a neo4j session), so it validates the preconditions that the function
+// relies on — specifically, that showFailed=true with an empty indexes map means
+// the index will not be found, triggering a CREATE attempt, and that a duplicate
+// error in that scenario must not be silently accepted.
+func TestVerifyOrRebuildVectorIndex_ShowFailedReturnsError(t *testing.T) {
+	// When SHOW VECTOR INDEXES fails, EnsureSchema passes an empty map and showFailed=true.
+	// The function will try to CREATE the index, which returns "already exists".
+	// The review feedback requires that this scenario returns an error, not nil.
+	//
+	// We validate the condition: when indexes map is empty, the index is treated
+	// as absent, meaning the CREATE path is taken.
+	indexes := memgraph.ParseVectorIndexRows(nil) // simulates empty SHOW result
+	_, exists := indexes["memory_embedding"]
+	if exists {
+		t.Fatal("empty indexes map should not contain memory_embedding — CREATE path would be skipped")
+	}
+
+	// Also verify that "already defined" (vector-index specific) is matched,
+	// which is the error that triggers the showFailed error-return branch.
+	vectorDupErr := errors.New("vector index memory_embedding already defined")
+	if !memgraph.IsAlreadyExistsErr(vectorDupErr) {
+		t.Error("IsAlreadyExistsErr must match vector-index-specific 'already defined' error")
 	}
 }
