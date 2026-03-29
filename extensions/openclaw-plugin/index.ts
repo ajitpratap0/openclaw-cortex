@@ -366,7 +366,8 @@ const memoryCortexPlugin = {
     const gwAuth = rawGwAuth != null && typeof rawGwAuth === "object" ? (rawGwAuth as Record<string, unknown>) : undefined;
     const gwPortRaw = gwCfg?.port;
     // YAML may deserialise port as a string; accept both number and numeric string.
-    const gwPortNum = typeof gwPortRaw === "string" ? parseInt(gwPortRaw, 10) : gwPortRaw;
+    // Use Number() instead of parseInt() to reject partial strings like "18789abc".
+    const gwPortNum = typeof gwPortRaw === "string" ? Number(gwPortRaw) : gwPortRaw;
     const gwPort =
       typeof gwPortNum === "number" && Number.isInteger(gwPortNum) && gwPortNum > 0 && gwPortNum <= 65535
         ? gwPortNum
@@ -378,7 +379,8 @@ const memoryCortexPlugin = {
     // GatewayClient.Complete() in gateway.go appends that path itself.
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
-    const gatewayToken = typeof gwAuth?.token === "string" && gwAuth.token.trim() ? gwAuth.token.trim() : undefined;
+    const rawToken = typeof gwAuth?.token === "string" ? gwAuth.token.trim() : undefined;
+    const gatewayToken = rawToken || undefined;
     // Group both gateway misconfiguration warnings together, before construction.
     if (!gatewayUrl && gatewayToken) {
       api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
@@ -394,11 +396,13 @@ const memoryCortexPlugin = {
       gatewayToken,
       cfg.anthropicApiKey,
     );
+    // Distinguish plugin-provided credentials from ambient env vars in the log.
+    const pluginSetGateway = gatewayUrl && gatewayToken;
     const llmMode =
       resolvedEnv.OPENCLAW_GATEWAY_URL && resolvedEnv.OPENCLAW_GATEWAY_TOKEN
-        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL})`
+        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL}${pluginSetGateway ? "" : ", from env"})`
         : resolvedEnv.ANTHROPIC_API_KEY
-          ? "direct API key"
+          ? `direct API key${cfg.anthropicApiKey ? "" : " (from env)"}`
           : "none";
 
     const cortex = new CortexClient(cfg.binaryPath, cfg.project, resolvedEnv);
