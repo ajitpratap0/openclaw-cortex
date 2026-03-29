@@ -1,0 +1,13 @@
+{
+  "systems": [
+    {"name": "GPT-4 (RAG)", "locomo_em": 0.58, "longmemeval_em": 0.52, "dmr_em": null},
+    {"name": "MemGPT", "locomo_em": 0.61, "longmemeval_em": 0.55, "dmr_em": 0.934},
+    {"name": "Zep (Graphiti)", "locomo_em": null, "longmemeval_em": null, "dmr_em": 0.948},
+    {"name": "Mem0", "locomo_em": null, "longmemeval_em": null, "dmr_em": null}
+  ],
+  "sources": {
+    "locomo": "LoCoMo paper (SNAP, 2024)",
+    "longmemeval": "LongMemEval paper (Wu et al., 2024)",
+    "dmr": "Zep Graphiti paper (arXiv 2501.13956)"
+  }
+}

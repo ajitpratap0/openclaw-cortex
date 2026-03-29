@@ -766,10 +766,11 @@ func TestNewDefaultWeightsSum(t *testing.T) {
 	w := recall.DefaultWeights()
 
 	sum := w.Similarity + w.Recency + w.Frequency + w.TypeBoost +
-		w.ScopeBoost + w.Confidence + w.Reinforcement + w.TagAffinity
+		w.ScopeBoost + w.Confidence + w.Reinforcement + w.TagAffinity +
+		w.GraphProximity
 	assert.InDelta(t, 1.0, sum, 0.01, "default weights should sum to 1.0")
 
-	// Verify all 8 weights are positive
+	// Verify all 9 weights are positive
 	assert.Greater(t, w.Similarity, 0.0, "Similarity weight must be positive")
 	assert.Greater(t, w.Recency, 0.0, "Recency weight must be positive")
 	assert.Greater(t, w.Frequency, 0.0, "Frequency weight must be positive")
@@ -778,6 +779,7 @@ func TestNewDefaultWeightsSum(t *testing.T) {
 	assert.Greater(t, w.Confidence, 0.0, "Confidence weight must be positive")
 	assert.Greater(t, w.Reinforcement, 0.0, "Reinforcement weight must be positive")
 	assert.Greater(t, w.TagAffinity, 0.0, "TagAffinity weight must be positive")
+	assert.Greater(t, w.GraphProximity, 0.0, "GraphProximity weight must be positive")
 }
 
 func TestFullRankingWithAllFactors(t *testing.T) {
