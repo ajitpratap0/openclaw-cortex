@@ -261,6 +261,20 @@ func (g *GraphAdapter) GetEntity(ctx context.Context, id string) (*models.Entity
 	return g.store.GetEntity(ctx, id)
 }
 
+// validateAndNormalizeRelType sanitizes a relation type string before use as a Cypher label.
+// Only types in the canonical enum are accepted; all others fall back to "RELATES_TO".
+// This is critical for injection safety — the normalized value is concatenated into Cypher.
+// Called by UpsertFact in Phase C; suppressed until then.
+//
+//nolint:unused // used in Phase C UpsertFact typed-label implementation
+func validateAndNormalizeRelType(relType string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(relType))
+	if models.ValidRelationshipTypes[normalized] {
+		return normalized
+	}
+	return string(models.RelTypeRelatesTo)
+}
+
 // UpsertFact creates or updates a RELATES_TO relationship between two entities.
 // If the fact has no embedding and an embedder is configured, the fact text is
 // embedded before storage, enabling cosine similarity ranking in SearchFacts.
