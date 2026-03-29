@@ -33,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache: true
 
       - name: Run tests
@@ -124,7 +124,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache: true
 
       - name: Download binary artifact
@@ -160,12 +160,28 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           go run ./eval/cmd/eval \
-            --benchmark all \
+            --benchmark locomo \
             --accumulate \
             --binary ./openclaw-cortex_linux_amd64 \
             --k 5 \
             --dataset-path eval/locomo/testdata/locomo_dataset.json \
-            --output "results_${RELEASE_TAG}.json" \
+            --output "results_locomo_${RELEASE_TAG}.json" \
+            --timeout 7200
+          go run ./eval/cmd/eval \
+            --benchmark longmemeval \
+            --accumulate \
+            --binary ./openclaw-cortex_linux_amd64 \
+            --k 5 \
+            --dataset-path eval/longmemeval/testdata/longmemeval_dataset.json \
+            --output "results_longmemeval_${RELEASE_TAG}.json" \
+            --timeout 7200
+          go run ./eval/cmd/eval \
+            --benchmark dmr \
+            --accumulate \
+            --binary ./openclaw-cortex_linux_amd64 \
+            --k 5 \
+            --dataset-path eval/dmr/testdata/dmr_dataset.json \
+            --output "results_dmr_${RELEASE_TAG}.json" \
             --timeout 7200
 
       - name: Generate comparison table

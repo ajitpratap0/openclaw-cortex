@@ -72,7 +72,7 @@ download_file() {
   if command -v curl &>/dev/null; then
     curl -fsSL --retry 3 -o "$dest" "$url"
   elif command -v wget &>/dev/null; then
-    wget -q -O "$dest" "$url"
+    wget -q --tries=4 -O "$dest" "$url"
   else
     echo "ERROR: neither curl nor wget found" >&2
     exit 1

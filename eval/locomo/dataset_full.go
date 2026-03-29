@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -80,11 +81,16 @@ func LoadDataset(path string) ([]QAPair, error) {
 
 		// Collect all turns from every session in sorted key order.
 		// Sessions are named "session_1", "session_2", etc.
-		var allTurns []ConvTurn
-		for sessionKey, sessionRaw := range convFields {
-			if !strings.HasPrefix(sessionKey, "session_") {
-				continue
+		var sessionKeys []string
+		for k := range convFields {
+			if strings.HasPrefix(k, "session_") {
+				sessionKeys = append(sessionKeys, k)
 			}
+		}
+		sort.Strings(sessionKeys)
+		var allTurns []ConvTurn
+		for _, sessionKey := range sessionKeys {
+			sessionRaw := convFields[sessionKey]
 			var rawTurns []locomoTurn
 			if err := json.Unmarshal(sessionRaw, &rawTurns); err != nil {
 				return nil, fmt.Errorf("locomo: parse %s/%s: %w", convID, sessionKey, err)

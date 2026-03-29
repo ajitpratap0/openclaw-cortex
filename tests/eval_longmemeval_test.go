@@ -296,6 +296,7 @@ func TestLongMemEval_CategoryBreakdown(t *testing.T) {
 		results[i] = runner.BenchmarkResult{
 			QuestionID: pairs[i].ID,
 			ExactMatch: true,
+			Category:   pairs[i].Category,
 		}
 	}
 	summary := runner.Summarize("LongMemEval", results, 5, 0)

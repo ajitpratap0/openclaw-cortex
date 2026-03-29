@@ -91,6 +91,9 @@ func run() error {
 		summaries = append(summaries, s)
 
 	case "all":
+		if *datasetPath != "" {
+			return fmt.Errorf("--dataset-path cannot be used with --benchmark all; run each benchmark separately with its own path")
+		}
 		s1, err := runLocomo(ctx, client, *k, *accumulate, *datasetPath)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)

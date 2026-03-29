@@ -479,11 +479,10 @@ func FormatMarkdownTable(summaries []*BenchmarkSummary, k int) string {
 	for _, s := range summaries {
 		if s.RecallAtK2 > 0 {
 			hasK2 = true
-			// Use the summary's K field as the k2 label if available; fall back
-			// to a generic "K2" label. The caller is responsible for ensuring all
-			// summaries use the same K2 threshold.
+			// k2Label is a generic placeholder; callers that need a precise label
+			// (e.g. "10") should set it from the K2 value before calling this function.
+			_ = s
 			k2Label = "K2"
-			_ = s // used above
 			break
 		}
 	}

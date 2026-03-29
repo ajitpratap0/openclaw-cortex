@@ -96,6 +96,7 @@ func runPairs(ctx context.Context, client runner.Client, pairs []QAPair, k int, 
 				ExactMatch:  runner.ExactMatch(best, qp.GroundTruth),
 				F1Score:     runner.TokenF1(best, qp.GroundTruth),
 				RecalledAtK: runner.RecallAtK(memories, qp.GroundTruth, k),
+				Category:    qp.Category,
 			}
 			results = append(results, result)
 		}
@@ -173,6 +174,7 @@ func runPairs(ctx context.Context, client runner.Client, pairs []QAPair, k int, 
 			ExactMatch:  runner.ExactMatch(best, qp.GroundTruth), // oracle substring containment, not strict equality — see BenchmarkResult doc
 			F1Score:     runner.TokenF1(best, qp.GroundTruth),
 			RecalledAtK: runner.RecallAtK(memories, qp.GroundTruth, k),
+			Category:    qp.Category,
 		}
 		results = append(results, result)
 	}
@@ -187,17 +189,11 @@ func runPairs(ctx context.Context, client runner.Client, pairs []QAPair, k int, 
 
 // CategoryBreakdown returns ExactMatch accuracy broken down by QA category.
 func CategoryBreakdown(summary *runner.BenchmarkSummary) map[string]float64 {
-	pairs := Dataset()
-	idToCategory := make(map[string]string, len(pairs))
-	for i := range pairs {
-		idToCategory[pairs[i].ID] = pairs[i].Category
-	}
-
 	counts := map[string]int{}
 	hits := map[string]int{}
 	for i := range summary.Results {
 		r := &summary.Results[i]
-		cat := idToCategory[r.QuestionID]
+		cat := r.Category
 		if cat == "" {
 			cat = "unknown"
 		}
@@ -206,7 +202,6 @@ func CategoryBreakdown(summary *runner.BenchmarkSummary) map[string]float64 {
 			hits[cat]++
 		}
 	}
-
 	breakdown := make(map[string]float64, len(counts))
 	for cat, total := range counts {
 		if total > 0 {

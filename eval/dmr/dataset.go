@@ -63,7 +63,7 @@ func hopCategory(hopCount int) string {
 		return "5-hop"
 	default:
 		if hopCount <= 0 {
-			return "1-hop"
+			return "unknown"
 		}
 		return fmt.Sprintf("%d-hop", hopCount)
 	}
