@@ -84,8 +84,8 @@ func TestParseVectorIndexRows_SkipsEmptyIndexName(t *testing.T) {
 // index_name or property_name are silently ignored (type-assert yields zero value).
 func TestParseVectorIndexRows_NonStringValues(t *testing.T) {
 	rows := []map[string]any{
-		{"index_name": 42, "property_name": "embedding"},         // int name → skipped
-		{"index_name": "ok_index", "property_name": true},        // bool prop → empty string stored
+		{"index_name": 42, "property_name": "embedding"},           // int name → skipped
+		{"index_name": "ok_index", "property_name": true},          // bool prop → empty string stored
 		{"index_name": "real_index", "property_name": "real_prop"}, // valid
 	}
 	result := memgraph.ParseVectorIndexRows(rows)
