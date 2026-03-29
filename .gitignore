@@ -28,4 +28,4 @@ qdrant_data/
 .worktrees/
 
 # Node
-extensions/openclaw-plugin/package-lock.json
+node_modules/
