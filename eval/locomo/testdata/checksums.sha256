@@ -1,0 +1,5 @@
+# Expected SHA256 checksums for LoCoMo dataset files.
+# Update these values after downloading the real dataset with scripts/download_eval_datasets.sh.
+#
+# TODO: populate when real dataset is downloaded.
+# locomo_dataset.json  <sha256-hash-here>

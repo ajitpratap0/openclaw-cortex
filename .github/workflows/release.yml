@@ -33,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache: true
 
       - name: Run tests
@@ -95,6 +95,119 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ github.ref_name }}
+
+  full-benchmarks:
+    name: Full Benchmark Suite
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    services:
+      memgraph:
+        image: memgraph/memgraph-mage:latest
+        ports:
+          - "7687:7687"
+        options: >-
+          --health-cmd "echo > /dev/tcp/localhost/7687"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - "11434:11434"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-amd64
+
+      - name: Make binary executable
+        run: chmod +x openclaw-cortex_linux_amd64
+
+      - name: Pull Ollama embedding model
+        run: |
+          # Wait for Ollama to be ready (up to 60s) then pull the embedding model.
+          for i in $(seq 1 12); do
+            if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
+              echo "Ollama ready after ${i}x5s"
+              break
+            fi
+            echo "Waiting for Ollama... (attempt $i/12)"
+            sleep 5
+          done
+          curl -sf http://localhost:11434/api/tags > /dev/null || (echo "Ollama never became ready" && exit 1)
+          curl -X POST http://localhost:11434/api/pull \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"nomic-embed-text"}' \
+            --max-time 300
+
+      - name: Download eval datasets
+        run: bash scripts/download_eval_datasets.sh
+
+      - name: Run full benchmarks
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          go run ./eval/cmd/eval \
+            --benchmark locomo \
+            --accumulate \
+            --binary ./openclaw-cortex_linux_amd64 \
+            --k 5 \
+            --dataset-path eval/locomo/testdata/locomo_dataset.json \
+            --output "results_locomo_${RELEASE_TAG}.json" \
+            --timeout 7200
+          go run ./eval/cmd/eval \
+            --benchmark longmemeval \
+            --accumulate \
+            --binary ./openclaw-cortex_linux_amd64 \
+            --k 5 \
+            --dataset-path eval/longmemeval/testdata/longmemeval_dataset.json \
+            --output "results_longmemeval_${RELEASE_TAG}.json" \
+            --timeout 7200
+          go run ./eval/cmd/eval \
+            --benchmark dmr \
+            --accumulate \
+            --binary ./openclaw-cortex_linux_amd64 \
+            --k 5 \
+            --dataset-path eval/dmr/testdata/dmr_dataset.json \
+            --output "results_dmr_${RELEASE_TAG}.json" \
+            --timeout 7200
+
+      - name: Generate comparison table
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # Merge the three per-benchmark result files into a single JSON array
+          # so the compare tool can index them all by benchmark name.
+          jq -s '.[0] + .[1] + .[2]' \
+            "results_locomo_${RELEASE_TAG}.json" \
+            "results_longmemeval_${RELEASE_TAG}.json" \
+            "results_dmr_${RELEASE_TAG}.json" \
+            > "results_${RELEASE_TAG}.json"
+          go run ./eval/cmd/compare \
+            --baseline eval/baselines/published.json \
+            --current "results_${RELEASE_TAG}.json" \
+            --output "comparison_${RELEASE_TAG}.md"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.ref_name }}
+          path: |
+            results_*.json
+            comparison_*.md
+            comparison.json
 
   release:
     name: Publish Release

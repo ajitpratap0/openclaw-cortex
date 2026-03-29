@@ -278,6 +278,21 @@ func (m *MockGraphClient) RecallByGraph(_ context.Context, _ string, _ []float32
 	return memoryIDs, nil
 }
 
+// GetSubgraph returns an empty SubgraphResult (stub for testing).
+func (m *MockGraphClient) GetSubgraph(_ context.Context, entityID string, _ int) (SubgraphResult, error) {
+	return SubgraphResult{SeedEntityID: entityID}, nil
+}
+
+// GetCommunitiesForEntity returns an empty slice (stub for testing).
+func (m *MockGraphClient) GetCommunitiesForEntity(_ context.Context, _ string) ([]int64, error) {
+	return nil, nil
+}
+
+// GetMemoriesForCommunity returns an empty slice (stub for testing).
+func (m *MockGraphClient) GetMemoriesForCommunity(_ context.Context, _ int64) ([]string, error) {
+	return nil, nil
+}
+
 // CreateEpisode stores an episode in the mock.
 func (m *MockGraphClient) CreateEpisode(_ context.Context, episode models.Episode) error {
 	m.mu.Lock()

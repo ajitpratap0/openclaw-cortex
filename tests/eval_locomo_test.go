@@ -102,6 +102,7 @@ func TestLoCoMoCategoryBreakdown(t *testing.T) {
 		results[i] = runner.BenchmarkResult{
 			QuestionID: pairs[i].ID,
 			ExactMatch: true,
+			Category:   pairs[i].Category,
 		}
 	}
 	summary := runner.Summarize("LoCoMo", results, 5, 0)
@@ -168,7 +169,7 @@ func TestLoCoMoRunHappyPath(t *testing.T) {
 	stub := &stubHarnessClient{
 		recallResp: []string{"answer content"},
 	}
-	summary, err := locomo.Run(context.Background(), stub, 5)
+	summary, err := locomo.Run(context.Background(), stub, 5, false)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	require.Equal(t, len(pairs), summary.TotalQuestions)
@@ -181,7 +182,7 @@ func TestLoCoMoRunResetFailure(t *testing.T) {
 	stub := &stubHarnessClient{
 		resetErr: errors.New("stub: reset failed"),
 	}
-	summary, err := locomo.Run(context.Background(), stub, 5)
+	summary, err := locomo.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "reset failed")
@@ -194,7 +195,7 @@ func TestLoCoMoRunAllRecallFail(t *testing.T) {
 	stub := &stubHarnessClient{
 		recallErrs: recallErrors(len(pairs)),
 	}
-	summary, err := locomo.Run(context.Background(), stub, 5)
+	summary, err := locomo.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "recall calls failed")
@@ -212,7 +213,7 @@ func TestLoCoMoRunPartialRecallFail(t *testing.T) {
 		recallErrs: errs,
 		recallResp: []string{"answer content"},
 	}
-	summary, err := locomo.Run(context.Background(), stub, 5)
+	summary, err := locomo.Run(context.Background(), stub, 5, false)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	require.Equal(t, len(pairs)-1, summary.RecallFailures)
@@ -224,7 +225,7 @@ func TestLoCoMoRunStoreFailure(t *testing.T) {
 	stub := &stubHarnessClient{
 		storeErr: errors.New("stub: store failed"),
 	}
-	summary, err := locomo.Run(context.Background(), stub, 5)
+	summary, err := locomo.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "ingest turn failed")
@@ -238,8 +239,47 @@ func TestLoCoMoRunContextCancel(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before calling Run
-	summary, err := locomo.Run(ctx, stub, 5)
+	summary, err := locomo.Run(ctx, stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "context canceled")
+}
+
+// TestLocomo_AccumulateMode_TwoPass verifies the accumulate=true protocol:
+//   - Reset is called exactly once (at the start).
+//   - Store is called once per conversation turn across ALL pairs (pass 1) before
+//     any Recall call is made.
+//   - Recall is called once per pair (pass 2).
+//   - summary.Mode is set to "accumulate".
+func TestLocomo_AccumulateMode_TwoPass(t *testing.T) {
+	pairs := locomo.Dataset()
+
+	// Count total turns across all pairs (expected Store calls in pass 1).
+	totalTurns := 0
+	for i := range pairs {
+		totalTurns += len(pairs[i].Conversation)
+	}
+
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+
+	summary, err := locomo.Run(context.Background(), stub, 5, true)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+
+	// Exactly one Reset at the start of the accumulate run.
+	require.Equal(t, 1, stub.resetCount, "accumulate mode must call Reset exactly once")
+
+	// Store called once per turn (pass 1), before any Recall.
+	require.Equal(t, totalTurns, stub.storeCount,
+		"accumulate mode must store all turns in pass 1")
+
+	// Recall called once per pair (pass 2).
+	require.Equal(t, len(pairs), stub.recallCount,
+		"accumulate mode must recall once per pair in pass 2")
+
+	// Mode field set correctly.
+	require.Equal(t, "accumulate", summary.Mode)
+	require.Equal(t, len(pairs), summary.TotalQuestions)
 }
