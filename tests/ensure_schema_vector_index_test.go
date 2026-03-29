@@ -204,9 +204,9 @@ func TestIsAlreadyExistsErr_MatchesVectorIndexDuplicate(t *testing.T) {
 // TestCheckCreateAlreadyExistsErr exercises the showFailed decision branch of
 // verifyOrRebuildVectorIndex via the exported CheckCreateAlreadyExistsErr helper.
 // When SHOW VECTOR INDEXES failed (showFailed=true) and the CREATE attempt returns
-// an "already exists" error, the function must return a non-empty error message
-// because the index may be on the wrong property. When showFailed=false the
-// duplicate is benign and the function must return "".
+// an "already exists" error, the function must return a non-nil error that wraps
+// the original createErr because the index may be on the wrong property. When
+// showFailed=false the duplicate is benign and the function must return nil.
 func TestCheckCreateAlreadyExistsErr(t *testing.T) {
 	alreadyExistsErr := errors.New("vector index memory_embedding already defined")
 	unrelatedErr := errors.New("connection refused")
@@ -215,47 +215,52 @@ func TestCheckCreateAlreadyExistsErr(t *testing.T) {
 		name          string
 		err           error
 		showFailed    bool
-		wantNonEmpty  bool
+		wantErr       bool
 		wantSubstring string
+		wantWrapped   error
 	}{
 		{
-			name:          "showFailed=true with already-exists error returns error message",
+			name:          "showFailed=true with already-exists error returns wrapped error",
 			err:           alreadyExistsErr,
 			showFailed:    true,
-			wantNonEmpty:  true,
+			wantErr:       true,
 			wantSubstring: "could not be verified",
+			wantWrapped:   alreadyExistsErr,
 		},
 		{
-			name:         "showFailed=false with already-exists error returns empty (benign)",
-			err:          alreadyExistsErr,
-			showFailed:   false,
-			wantNonEmpty: false,
+			name:       "showFailed=false with already-exists error returns nil (benign)",
+			err:        alreadyExistsErr,
+			showFailed: false,
+			wantErr:    false,
 		},
 		{
-			name:         "showFailed=true with unrelated error returns empty",
-			err:          unrelatedErr,
-			showFailed:   true,
-			wantNonEmpty: false,
+			name:       "showFailed=true with unrelated error returns nil",
+			err:        unrelatedErr,
+			showFailed: true,
+			wantErr:    false,
 		},
 		{
-			name:         "nil error returns empty",
-			err:          nil,
-			showFailed:   true,
-			wantNonEmpty: false,
+			name:       "nil error returns nil",
+			err:        nil,
+			showFailed: true,
+			wantErr:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			msg := memgraph.CheckCreateAlreadyExistsErr(tt.err, tt.showFailed, "memory_embedding", "embedding")
-			if tt.wantNonEmpty && msg == "" {
-				t.Error("expected non-empty error message, got empty")
+			got := memgraph.CheckCreateAlreadyExistsErr(tt.err, tt.showFailed, "memory_embedding", "embedding")
+			if tt.wantErr && got == nil {
+				t.Error("expected non-nil error, got nil")
 			}
-			if !tt.wantNonEmpty && msg != "" {
-				t.Errorf("expected empty message, got %q", msg)
+			if !tt.wantErr && got != nil {
+				t.Errorf("expected nil error, got %q", got)
 			}
-			if tt.wantSubstring != "" && !strings.Contains(msg, tt.wantSubstring) {
-				t.Errorf("expected message to contain %q, got %q", tt.wantSubstring, msg)
+			if tt.wantSubstring != "" && got != nil && !strings.Contains(got.Error(), tt.wantSubstring) {
+				t.Errorf("expected error to contain %q, got %q", tt.wantSubstring, got.Error())
+			}
+			if tt.wantWrapped != nil && got != nil && !errors.Is(got, tt.wantWrapped) {
+				t.Errorf("expected error to wrap %v, but errors.Is returned false", tt.wantWrapped)
 			}
 		})
 	}

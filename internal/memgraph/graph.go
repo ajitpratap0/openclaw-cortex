@@ -166,19 +166,19 @@ func ParseVectorIndexRows(rows []map[string]any) map[string]string {
 // a CREATE INDEX attempt should be treated as a real failure. When showFailed is
 // true (meaning SHOW VECTOR INDEXES failed earlier), an "already exists" error is
 // ambiguous because the index may be on the wrong property. In that case we
-// return an error string describing the situation. When showFailed is false the
-// duplicate is benign and we return "".
+// return a wrapped error describing the situation. When showFailed is false the
+// duplicate is benign and we return nil.
 //
 // Exported so tests/ can exercise the showFailed decision branch of
 // verifyOrRebuildVectorIndex without a live neo4j session.
-func CheckCreateAlreadyExistsErr(createErr error, showFailed bool, indexName, expectedProperty string) string {
+func CheckCreateAlreadyExistsErr(createErr error, showFailed bool, indexName, expectedProperty string) error {
 	if createErr == nil || !IsAlreadyExistsErr(createErr) {
-		return ""
+		return nil
 	}
 	if showFailed {
-		return fmt.Sprintf("index %q already exists but property could not be verified (SHOW VECTOR INDEXES failed earlier); expected property %q — manual inspection required", indexName, expectedProperty)
+		return fmt.Errorf("index %q already exists but property could not be verified (SHOW VECTOR INDEXES failed earlier); expected property %q — manual inspection required: %w", indexName, expectedProperty, createErr)
 	}
-	return ""
+	return nil
 }
 
 // showVectorIndexes runs SHOW VECTOR INDEXES and returns a map of
@@ -202,6 +202,10 @@ func showVectorIndexes(ctx context.Context, session neo4j.SessionWithContext) (m
 		rows = append(rows, row)
 	}
 	if err := result.Err(); err != nil {
+		// Consume to flush server-side state even on error, preventing a dirty session.
+		if _, consumeErr := result.Consume(ctx); consumeErr != nil {
+			return nil, fmt.Errorf("show vector indexes: consuming result after iteration error: %w (iteration error: %v)", consumeErr, err)
+		}
 		return nil, fmt.Errorf("show vector indexes: iterating results: %w", err)
 	}
 	// Flush any remaining server-side state so the session can be reused safely.
@@ -238,8 +242,8 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		// Index does not exist — create it.
 		result, runErr := session.Run(ctx, ddl, nil)
 		if runErr != nil {
-			if msg := CheckCreateAlreadyExistsErr(runErr, showFailed, indexName, expectedProperty); msg != "" {
-				return fmt.Errorf("verifyOrRebuildVectorIndex: %s", msg)
+			if checkErr := CheckCreateAlreadyExistsErr(runErr, showFailed, indexName, expectedProperty); checkErr != nil {
+				return fmt.Errorf("verifyOrRebuildVectorIndex: %w", checkErr)
 			}
 			if IsAlreadyExistsErr(runErr) {
 				return nil
