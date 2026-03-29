@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -99,19 +97,11 @@ func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) 
 		return nil, nil, nil
 	}
 
-	// Resolve WAL path: explicit config or default under ~/.openclaw/
-	walPath := c.Async.WALPath
-	if walPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, nil, fmt.Errorf("initAsyncQueue: resolve home dir: %w", err)
-		}
-		walPath = filepath.Join(homeDir, ".openclaw", "graph_wal.jsonl")
-	}
-
-	// Ensure the parent directory exists.
-	if err := os.MkdirAll(filepath.Dir(walPath), 0o700); err != nil {
-		return nil, nil, fmt.Errorf("initAsyncQueue: create WAL dir: %w", err)
+	// Resolve WAL path: explicit config or default under ~/.openclaw/.
+	// Uses the same resolveWALPath helper as the worker commands.
+	walPath, walErr := resolveWALPath(c.Async.WALPath)
+	if walErr != nil {
+		return nil, nil, fmt.Errorf("initAsyncQueue: %w", walErr)
 	}
 
 	q, err := async.NewQueue(walPath, c.Async.QueueCapacity, c.Async.WALCompactEvery)
@@ -129,6 +119,10 @@ func initAsyncQueue(ctx context.Context, c *config.Config, logger *slog.Logger) 
 
 	gc := memgraph.NewGraphAdapter(st)
 	lc := llm.NewClient(c.Claude)
+	if lc == nil {
+		_ = st.Close()
+		return nil, nil, fmt.Errorf("initAsyncQueue: no LLM credentials configured: set ANTHROPIC_API_KEY or configure claude.gateway_url + claude.gateway_token")
+	}
 
 	retryDelay := time.Duration(c.Async.RetryDelaySeconds) * time.Second
 	gp := async.NewGraphProcessor(st, gc, emb, lc, c.Claude.Model, logger)

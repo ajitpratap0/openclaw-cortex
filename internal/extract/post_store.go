@@ -54,6 +54,10 @@ type Result struct {
 	// AppendMemoryToFact succeeded. A partial write (upsert ok, link fail) is not
 	// counted — the fact exists in the graph but lacks the memory provenance link.
 	FactsExtracted int
+	// Errors is the number of extraction or write operations that failed. A
+	// non-zero value distinguishes "no entities/facts found" (legitimate for
+	// trivially short content) from "LLM/store errors prevented extraction".
+	Errors int
 }
 
 // Run extracts entities and facts from memories and writes them to the store
@@ -84,7 +88,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	// fact extractor (which returns names) can resolve them to UUIDs.
 	entityNameToID := make(map[string]string)
 	var allEntityNames []string
-	var entitiesExtracted int
+	var entitiesExtracted, extractionErrors int
 
 	for i := range memories {
 		if ctx.Err() != nil {
@@ -93,6 +97,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 		entities, extractErr := extractor.Extract(ctx, memories[i].Content)
 		if extractErr != nil {
 			logger.Warn("entity extraction failed, skipping", "error", extractErr)
+			extractionErrors++
 			continue
 		}
 		for j := range entities {
@@ -116,7 +121,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 
 	// Skip fact extraction if no entities were found.
 	if len(allEntityNames) == 0 {
-		return Result{EntitiesExtracted: entitiesExtracted}
+		return Result{EntitiesExtracted: entitiesExtracted, Errors: extractionErrors}
 	}
 
 	factExtractor := graphpkg.NewFactExtractor(deps.LLMClient, deps.Model, logger)
@@ -131,6 +136,7 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 		facts, factErr := factExtractor.Extract(ctx, memories[i].Content, allEntityNames)
 		if factErr != nil {
 			logger.Warn("fact extraction failed, skipping", "error", factErr)
+			extractionErrors++
 			continue
 		}
 		for j := range facts {
@@ -165,5 +171,6 @@ func Run(ctx context.Context, deps Deps, memories []StoredMemory) Result {
 	return Result{
 		EntitiesExtracted: entitiesExtracted,
 		FactsExtracted:    factsExtracted,
+		Errors:            extractionErrors,
 	}
 }

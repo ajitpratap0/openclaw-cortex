@@ -257,12 +257,12 @@ func (gp *GraphProcessor) runExtraction(ctx context.Context, item WorkItem) erro
 		"facts_extracted", result.FactsExtracted,
 	)
 
-	// If the content is non-empty but extraction yielded nothing, treat it as a
-	// transient failure so the Pool's retry logic can re-attempt the item.
-	// extract.Run logs the underlying LLM error as a warning; returning an error
-	// here surfaces it to the retry / fail-tracking layer.
-	if item.Content != "" && result.EntitiesExtracted == 0 && result.FactsExtracted == 0 {
-		return fmt.Errorf("async.GraphProcessor: extraction yielded no entities or facts for memory %s (possible transient LLM error)", item.MemoryID)
+	// Only retry when extract.Run encountered actual errors (LLM failures,
+	// store write errors, etc.).  Trivially short content like "ok" or "noted"
+	// legitimately produces zero entities and facts — retrying those would
+	// exhaust the retry budget for no reason.
+	if result.Errors > 0 && result.EntitiesExtracted == 0 && result.FactsExtracted == 0 {
+		return fmt.Errorf("async.GraphProcessor: extraction failed with %d errors for memory %s", result.Errors, item.MemoryID)
 	}
 
 	return nil

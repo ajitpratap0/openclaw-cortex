@@ -304,11 +304,14 @@ func (q *Queue) Fail(id string, failErr error) {
 }
 
 // Status returns observable metrics about the queue.
+//
+// The WAL scan is performed without holding the queue mutex so that
+// concurrent Enqueue/Complete/Fail calls are not blocked while status
+// is being computed.  A partial last line (from a concurrent write) is
+// silently skipped by the JSON parser, which is acceptable for a
+// best-effort status report.
 func (q *Queue) Status() QueueStatus {
 	var pending, failed int64
-
-	q.mu.Lock()
-	defer q.mu.Unlock()
 
 	f, err := os.OpenFile(q.walPath, os.O_RDONLY|os.O_CREATE, 0o600)
 	if err != nil {

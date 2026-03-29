@@ -86,6 +86,9 @@ func workerDrainCmd() *cobra.Command {
 
 			gc := memgraph.NewGraphAdapter(st)
 			lc := llm.NewClient(cfg.Claude)
+			if lc == nil {
+				return cmdErr("worker drain", fmt.Errorf("no LLM credentials configured: set ANTHROPIC_API_KEY or configure claude.gateway_url + claude.gateway_token"))
+			}
 
 			retryDelay := time.Duration(cfg.Async.RetryDelaySeconds) * time.Second
 			gp := async.NewGraphProcessor(st, gc, emb, lc, cfg.Claude.Model, logger)
