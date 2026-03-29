@@ -27,14 +27,15 @@ func cmdErr(context string, err error) error {
 // every command that creates a Recaller.
 func recallWeightsFromConfig(c config.RecallWeightsConfig) recall.Weights {
 	return recall.Weights{
-		Similarity:    c.Similarity,
-		Recency:       c.Recency,
-		Frequency:     c.Frequency,
-		TypeBoost:     c.TypeBoost,
-		ScopeBoost:    c.ScopeBoost,
-		Confidence:    c.Confidence,
-		Reinforcement: c.Reinforcement,
-		TagAffinity:   c.TagAffinity,
+		Similarity:     c.Similarity,
+		Recency:        c.Recency,
+		Frequency:      c.Frequency,
+		TypeBoost:      c.TypeBoost,
+		ScopeBoost:     c.ScopeBoost,
+		Confidence:     c.Confidence,
+		Reinforcement:  c.Reinforcement,
+		TagAffinity:    c.TagAffinity,
+		GraphProximity: c.GraphProximity,
 	}
 }
 
