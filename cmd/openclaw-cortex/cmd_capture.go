@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/ajitpratap0/openclaw-cortex/internal/async"
 	"github.com/ajitpratap0/openclaw-cortex/internal/capture"
 	"github.com/ajitpratap0/openclaw-cortex/internal/classifier"
 	"github.com/ajitpratap0/openclaw-cortex/internal/extract"
@@ -72,13 +73,8 @@ func captureCmd() *cobra.Command {
 
 			logger.Info("extracted memories", "count", len(memories))
 
-			type storedMemory struct {
-				id      string
-				content string
-			}
-
 			stored := 0
-			storedMems := make([]storedMemory, 0, len(memories))
+			storedMems := make([]extract.StoredMemory, 0, len(memories))
 			for _, cm := range memories {
 				// Classify if not already typed
 				if cm.Type == "" {
@@ -121,23 +117,35 @@ func captureCmd() *cobra.Command {
 					continue
 				}
 				stored++
-				storedMems = append(storedMems, storedMemory{id: mem.ID, content: cm.Content})
+				storedMems = append(storedMems, extract.StoredMemory{ID: mem.ID, Content: cm.Content})
 				fmt.Printf("Captured [%s]: %s\n", mem.Type, truncate(cm.Content, 100))
 			}
 
-			gc := memgraph.NewGraphAdapter(st)
-			mems := make([]extract.StoredMemory, len(storedMems))
-			for i := range storedMems {
-				mems[i] = extract.StoredMemory{ID: storedMems[i].id, Content: storedMems[i].content}
+			if cfg.Async.Disabled || asyncQueue == nil {
+				// Synchronous fallback (backward compat / disabled mode).
+				gc := memgraph.NewGraphAdapter(st)
+				res := extract.Run(ctx, extract.Deps{
+					LLMClient:   llmClient,
+					Model:       cfg.Claude.Model,
+					Store:       st,
+					GraphClient: gc,
+					Logger:      logger,
+				}, storedMems)
+				logger.Info("post-store extraction", "entities", res.EntitiesExtracted, "facts", res.FactsExtracted)
+			} else {
+				// Fast path: enqueue each memory for async graph processing.
+				for i := range storedMems {
+					item := async.WorkItem{
+						MemoryID:   storedMems[i].ID,
+						Content:    storedMems[i].Content,
+						SessionID:  sessionID,
+						EnqueuedAt: time.Now().UTC(),
+					}
+					if enqErr := asyncQueue.Enqueue(item); enqErr != nil {
+						logger.Warn("failed to enqueue graph work", "memory_id", storedMems[i].ID, "err", enqErr)
+					}
+				}
 			}
-			res := extract.Run(ctx, extract.Deps{
-				LLMClient:   llmClient,
-				Model:       cfg.Claude.Model,
-				Store:       st,
-				GraphClient: gc,
-				Logger:      logger,
-			}, mems)
-			logger.Info("post-store extraction", "entities", res.EntitiesExtracted, "facts", res.FactsExtracted)
 
 			fmt.Printf("Captured %d memories from conversation\n", stored)
 			return nil
