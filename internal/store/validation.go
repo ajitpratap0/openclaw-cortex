@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // MinContentLen is the minimum number of non-whitespace characters required for
@@ -33,11 +34,14 @@ func (e *ErrDedupThresholdRange) Error() string {
 }
 
 // ValidateContentLength checks that content (after trimming whitespace) meets
-// the MinContentLen requirement. Returns ErrContentTooShort when it does not.
+// the MinContentLen requirement. It counts Unicode code points (runes), not
+// bytes, so multibyte characters (CJK, emoji) are counted correctly.
+// Returns ErrContentTooShort when it does not meet the minimum.
 func ValidateContentLength(content string) error {
 	trimmed := strings.TrimSpace(content)
-	if len(trimmed) < MinContentLen {
-		return &ErrContentTooShort{Actual: len(trimmed), Minimum: MinContentLen}
+	runeCount := utf8.RuneCountInString(trimmed)
+	if runeCount < MinContentLen {
+		return &ErrContentTooShort{Actual: runeCount, Minimum: MinContentLen}
 	}
 	return nil
 }

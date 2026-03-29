@@ -95,6 +95,11 @@ func TestStoreCmd_MinContentLength(t *testing.T) {
 		{name: "exactly ten chars", content: "1234567890", wantErr: false},
 		{name: "ten chars with spaces", content: "  1234567890  ", wantErr: false},
 		{name: "normal sentence", content: "Go uses goroutines for concurrency.", wantErr: false},
+		// Multibyte UTF-8: 10 CJK runes (30 bytes) should pass because we count
+		// runes, not bytes.
+		{name: "ten CJK runes", content: "\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341", wantErr: false},
+		// 9 CJK runes (27 bytes) — passes len() >= 10 but fails rune count < 10.
+		{name: "nine CJK runes", content: "\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d", wantErr: true},
 	}
 
 	for _, tc := range cases {

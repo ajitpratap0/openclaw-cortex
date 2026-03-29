@@ -75,20 +75,20 @@ func storeCmd() *cobra.Command {
 				return cmdErr("store: embedding content", err)
 			}
 
-			// Resolve effective dedup threshold: flag overrides config default.
-			effectiveThreshold := cfg.Memory.DedupThreshold
-			if cmd.Flags().Changed("dedup-threshold") {
-				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
-					return fmt.Errorf("store: --dedup-threshold: %w", err)
-				}
-				effectiveThreshold = dedupThreshold
-			} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
-				return fmt.Errorf("store: config dedup_threshold: %w", err)
-			}
-
 			// Store-time dedup: check for near-identical memories (similarity > 0.92).
 			// Bypassed when --skip-dedup is set.
 			if !skipDedup {
+				// Resolve effective dedup threshold: flag overrides config default.
+				effectiveThreshold := cfg.Memory.DedupThreshold
+				if cmd.Flags().Changed("dedup-threshold") {
+					if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+						return fmt.Errorf("store: --dedup-threshold: %w", err)
+					}
+					effectiveThreshold = dedupThreshold
+				} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
+					return fmt.Errorf("store: config dedup_threshold: %w", err)
+				}
+
 				dedupRes, dedupErr := store.CheckAndHandleDuplicate(ctx, st, vec, content, effectiveThreshold)
 				if dedupErr != nil {
 					// Dedup is an optimisation, not a correctness gate — fail open

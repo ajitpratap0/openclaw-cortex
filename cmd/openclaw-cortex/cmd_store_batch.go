@@ -128,20 +128,23 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 					len(vectors), len(inputs))
 			}
 
-			// Resolve effective dedup threshold: flag overrides config default.
-			effectiveThreshold := cfg.Memory.DedupThreshold
-			if cmd.Flags().Changed("dedup-threshold") {
-				if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
-					return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
-				}
-				effectiveThreshold = dedupThreshold
-			} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
-				return fmt.Errorf("store-batch: config dedup_threshold: %w", err)
-			}
-
 			// Process each memory: dedup check then upsert.
 			results := make([]batchStoreResult, len(inputs))
 			now := time.Now().UTC()
+
+			// Resolve effective dedup threshold once (only needed when dedup is active).
+			var effectiveThreshold float64
+			if !skipDedup {
+				effectiveThreshold = cfg.Memory.DedupThreshold
+				if cmd.Flags().Changed("dedup-threshold") {
+					if err := store.ValidateDedupThreshold(dedupThreshold); err != nil {
+						return fmt.Errorf("store-batch: --dedup-threshold: %w", err)
+					}
+					effectiveThreshold = dedupThreshold
+				} else if err := store.ValidateDedupThreshold(effectiveThreshold); err != nil {
+					return fmt.Errorf("store-batch: config dedup_threshold: %w", err)
+				}
+			}
 
 			for i := range inputs {
 				inp := &inputs[i]
