@@ -116,7 +116,7 @@ func NewQueue(walPath string, capacity int, compactEvery int) (*Queue, error) {
 func NewQueueReadOnly(walPath string) (*Queue, error) {
 	q := &Queue{
 		walPath: walPath,
-		ch:      make(chan WorkItem, 0), // never written; just keeps the type consistent
+		ch:      make(chan WorkItem), // never written; just keeps the type consistent
 		logger:  slog.Default(),
 	}
 	// Create the WAL file if it doesn't exist yet (first-run case).

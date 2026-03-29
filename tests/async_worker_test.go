@@ -283,6 +283,9 @@ func TestPool_Shutdown_TimesOut(t *testing.T) {
 
 	// Clean up: cancel the worker context so goroutines exit (prevents goroutine leak).
 	workerCancel()
+
+	// Allow goroutines time to exit so temp dir cleanup succeeds.
+	time.Sleep(50 * time.Millisecond)
 }
 
 // asyncProcessorFunc is an adapter that allows a plain function to satisfy async.Processor.

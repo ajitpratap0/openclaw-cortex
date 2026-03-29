@@ -46,6 +46,7 @@ func graphRebuildCmd() *cobra.Command {
 			if qErr != nil {
 				return cmdErr("graph rebuild: open queue", qErr)
 			}
+			defer q.Close()
 
 			var (
 				cursor    string

@@ -92,9 +92,16 @@ func workerDrainCmd() *cobra.Command {
 			pool := async.NewPool(q, gp, 1, cfg.Async.MaxRetries, retryDelay, logger)
 			pool.Start(ctx)
 
-			// Poll until both the WAL pending count and the channel depth reach
-			// zero so that items that overflowed the channel are not missed.
+			// Poll until the WAL pending count reaches zero.  We also
+			// respect context cancellation so that SIGINT/SIGTERM causes a
+			// clean exit rather than an infinite loop.
 			for {
+				select {
+				case <-ctx.Done():
+					// Graceful exit on signal; still attempt a clean shutdown below.
+					goto shutdown
+				default:
+				}
 				s := q.Status()
 				if s.TotalPending == 0 && s.ChannelDepth == 0 {
 					break
@@ -102,6 +109,7 @@ func workerDrainCmd() *cobra.Command {
 				time.Sleep(100 * time.Millisecond)
 			}
 
+		shutdown:
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if shutdownErr := pool.Shutdown(shutdownCtx); shutdownErr != nil {

@@ -87,6 +87,19 @@ func TestAsyncConfigValidateNegativeRetryDelay(t *testing.T) {
 	assert.Contains(t, err.Error(), "async.retry_delay_seconds")
 }
 
+func TestAsyncConfigValidateDisabledSkipsChecks(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.Async = config.AsyncConfig{
+		Disabled:      true,
+		WorkerCount:   0,
+		QueueCapacity: 0,
+		MaxRetries:    0,
+	}
+
+	err := cfg.Validate()
+	assert.NoError(t, err, "validation should skip async fields when disabled=true")
+}
+
 func TestAsyncConfigValidateValid(t *testing.T) {
 	cfg := validBaseConfig()
 	cfg.Async = config.AsyncConfig{

@@ -365,17 +365,20 @@ func (c *Config) Validate() error {
 	if c.Memory.DefaultTTLHours < 0 {
 		return fmt.Errorf("memory.default_ttl_hours must be >= 0")
 	}
-	if c.Async.WorkerCount < 1 {
-		return fmt.Errorf("async.worker_count must be >= 1")
-	}
-	if c.Async.QueueCapacity < 1 {
-		return fmt.Errorf("async.queue_capacity must be >= 1")
-	}
-	if c.Async.MaxRetries < 0 {
-		return fmt.Errorf("async.max_retries must be >= 0")
-	}
-	if c.Async.RetryDelaySeconds < 0 {
-		return fmt.Errorf("async.retry_delay_seconds must be >= 0")
+	// Only validate async pipeline fields when async is enabled.
+	if !c.Async.Disabled {
+		if c.Async.WorkerCount < 1 {
+			return fmt.Errorf("async.worker_count must be >= 1")
+		}
+		if c.Async.QueueCapacity < 1 {
+			return fmt.Errorf("async.queue_capacity must be >= 1")
+		}
+		if c.Async.MaxRetries < 0 {
+			return fmt.Errorf("async.max_retries must be >= 0")
+		}
+		if c.Async.RetryDelaySeconds < 0 {
+			return fmt.Errorf("async.retry_delay_seconds must be >= 0")
+		}
 	}
 
 	// Validate provider name and provider-specific fields.
