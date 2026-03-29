@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,10 @@ Memories without embeddings are silently invisible to recall, search, and forget
 Use --dry-run to preview which memories would be re-embedded without making changes.
 Use --batch to control how many memories are fetched per page (default 50).`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if batchSize <= 0 {
+				return fmt.Errorf("--batch must be a positive integer, got %d", batchSize)
+			}
+
 			logger := newLogger()
 			ctx := cmd.Context()
 
@@ -43,8 +48,15 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				return nil
 			}
 
-			// Only dial Ollama after confirming there is work to do.
-			emb := newEmbedder(logger)
+			// Only dial Ollama when we will actually write embeddings.
+			// During --dry-run we never call emb.Embed, so connecting to
+			// Ollama would be unnecessary and would fail if it is down.
+			var emb interface {
+				Embed(ctx context.Context, text string) ([]float32, error)
+			}
+			if !dryRun {
+				emb = newEmbedder(logger)
+			}
 
 			// Paginate unconditionally through all memories and re-embed only those
 			// whose embedding is missing (zero-length). We cannot rely on the initial
@@ -54,12 +66,10 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			// order and may miss actual zero-embedding nodes while re-embedding ones
 			// that already had valid vectors.
 			//
-			// We track two counters:
+			// We track three counters:
 			//   fixed   — memories whose embedding was missing and was written
 			//   skipped — memories that already had an embedding (left untouched)
-			if batchSize <= 0 {
-				return fmt.Errorf("--batch must be a positive integer, got %d", batchSize)
-			}
+			//   errored — memories that needed fixing but embed/upsert failed
 
 			var (
 				cursor  string
@@ -76,6 +86,7 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 				for i := range memories {
 					mem := memories[i]
 					if mem.HasEmbedding {
+						skipped++
 						continue // already has embedding, skip
 					}
 
@@ -109,19 +120,9 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			}
 
 			// errored = memories that needed fixing but failed (embed or upsert error).
-			// skipped = memories that already had a valid embedding (no action needed).
-			// Use the pre-run zeroCount so both calculations are stable regardless of
-			// concurrent writes.
 			errored := zeroCount - fixed
 			if errored < 0 {
 				errored = 0
-			}
-			totalCount, statErr := st.Stats(ctx)
-			if statErr == nil && totalCount != nil {
-				skipped = totalCount.TotalMemories - zeroCount
-				if skipped < 0 {
-					skipped = 0
-				}
 			}
 
 			if dryRun {
