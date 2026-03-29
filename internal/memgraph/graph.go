@@ -3,6 +3,7 @@ package memgraph
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -135,21 +136,141 @@ func BuildSearchEntitiesCypher() string {
 	`
 }
 
+// ParseVectorIndexRows converts raw SHOW VECTOR INDEXES row data (a slice of
+// maps with at least "index_name" and "property_name" keys) into the
+// indexName → propertyName map used by showVectorIndexes.
+// Exported so tests/ can exercise the parsing logic without a live session.
+func ParseVectorIndexRows(rows []map[string]any) map[string]string {
+	indexes := make(map[string]string)
+	for _, row := range rows {
+		name, _ := row["index_name"].(string)
+		prop, _ := row["property_name"].(string)
+		if name != "" {
+			indexes[name] = prop
+		}
+	}
+	return indexes
+}
+
+// showVectorIndexes runs SHOW VECTOR INDEXES and returns a map of
+// indexName → propertyName for all existing vector indexes.
+func showVectorIndexes(ctx context.Context, session neo4j.SessionWithContext) (map[string]string, error) {
+	result, err := session.Run(ctx, "SHOW VECTOR INDEXES", nil)
+	if err != nil {
+		return nil, fmt.Errorf("show vector indexes: %w", err)
+	}
+
+	var rows []map[string]any
+	for result.Next(ctx) {
+		record := result.Record()
+		row := make(map[string]any)
+		if nameVal, ok := record.Get("index_name"); ok {
+			row["index_name"] = nameVal
+		}
+		if propVal, ok := record.Get("property_name"); ok {
+			row["property_name"] = propVal
+		}
+		rows = append(rows, row)
+	}
+	if err := result.Err(); err != nil {
+		return nil, fmt.Errorf("show vector indexes: consuming results: %w", err)
+	}
+	return ParseVectorIndexRows(rows), nil
+}
+
+// verifyOrRebuildVectorIndex checks whether the named vector index exists and is
+// on the expected property. Three outcomes:
+//   - Index absent: the DDL is executed to create it.
+//   - Index present with correct property: nothing to do, returns nil.
+//   - Index present with wrong property: logs a Warn, drops the index, then recreates it.
+func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithContext, logger *slog.Logger, indexName, expectedProperty, ddl string) error {
+	indexes, err := showVectorIndexes(ctx, session)
+	if err != nil {
+		// Non-fatal for the "show" step — fall through and attempt creation.
+		logger.Warn("verifyOrRebuildVectorIndex: could not inspect existing indexes, will attempt creation",
+			"index", indexName, "error", err)
+		indexes = make(map[string]string)
+	}
+
+	existingProp, exists := indexes[indexName]
+	if !exists {
+		// Index does not exist — create it.
+		result, runErr := session.Run(ctx, ddl, nil)
+		if runErr != nil {
+			return fmt.Errorf("verifyOrRebuildVectorIndex: create %s: %w", indexName, runErr)
+		}
+		if result != nil {
+			_, _ = result.Consume(ctx)
+		}
+		return nil
+	}
+
+	if existingProp == expectedProperty {
+		// Index exists on the correct property — nothing to do.
+		return nil
+	}
+
+	// Index exists but is on the wrong property — drop and recreate.
+	logger.Warn("vector index is on wrong property, dropping and recreating",
+		"index", indexName,
+		"expected_property", expectedProperty,
+		"actual_property", existingProp,
+	)
+
+	dropDDL := fmt.Sprintf("DROP VECTOR INDEX %s", indexName)
+	dropResult, dropErr := session.Run(ctx, dropDDL, nil)
+	if dropErr != nil {
+		return fmt.Errorf("verifyOrRebuildVectorIndex: drop %s: %w", indexName, dropErr)
+	}
+	if dropResult != nil {
+		_, _ = dropResult.Consume(ctx)
+	}
+
+	recreateResult, recreateErr := session.Run(ctx, ddl, nil)
+	if recreateErr != nil {
+		return fmt.Errorf("verifyOrRebuildVectorIndex: recreate %s: %w", indexName, recreateErr)
+	}
+	if recreateResult != nil {
+		_, _ = recreateResult.Consume(ctx)
+	}
+
+	logger.Info("vector index rebuilt on correct property",
+		"index", indexName, "property", expectedProperty)
+	return nil
+}
+
+// vectorIndexSpec pairs an index name with its expected property for verification.
+type vectorIndexSpec struct {
+	name     string
+	property string
+	ddl      string
+}
+
 // EnsureSchema creates indexes, constraints, and vector indexes on Memgraph.
 // Memgraph does not support IF NOT EXISTS on constraints, so "already exists" errors
 // are caught and logged as warnings.
+// For vector indexes, EnsureSchema additionally validates that the existing index is
+// on the correct property — if not, it drops and recreates the index to prevent
+// silent garbage results from mismatched index definitions.
 func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
 	defer g.store.closeSession(ctx, session)
 
-	queries := []string{
+	memoryVectorDDL := BuildMemoryVectorIndexDDL(vectorDim)
+	entityVectorDDL := BuildEntityVectorIndexDDL(vectorDim)
+
+	// Vector indexes require property verification — handled separately below.
+	vectorIndexes := []vectorIndexSpec{
+		{name: "memory_embedding", property: "embedding", ddl: memoryVectorDDL},
+		{name: "entity_name_embedding", property: "name_embedding", ddl: entityVectorDDL},
+	}
+
+	// Non-vector DDL: constraints, property indexes, and text indexes.
+	// "already exists" errors are silently skipped (Memgraph has no IF NOT EXISTS).
+	otherQueries := []string{
 		// Uniqueness constraints — Memgraph-specific DDL (no IF NOT EXISTS)
 		"CREATE CONSTRAINT ON (m:Memory) ASSERT m.uuid IS UNIQUE",
 		"CREATE CONSTRAINT ON (e:Entity) ASSERT e.name IS UNIQUE",
-
-		// Vector indexes for semantic search
-		BuildMemoryVectorIndexDDL(vectorDim),
-		BuildEntityVectorIndexDDL(vectorDim),
 
 		// Property indexes for filtering
 		"CREATE INDEX ON :Memory(type)",
@@ -169,10 +290,10 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 		// Fact text search uses property-level CONTAINS matching instead.
 	}
 
-	for i := range queries {
+	for i := range otherQueries {
 		// Memgraph requires auto-commit (implicit) transactions for DDL.
 		// session.Run() executes as an auto-commit transaction.
-		result, runErr := session.Run(ctx, queries[i], nil)
+		result, runErr := session.Run(ctx, otherQueries[i], nil)
 		if runErr != nil {
 			if isAlreadyExistsErr(runErr) {
 				g.store.logger.Debug("memgraph schema already exists, skipping", "query_index", i)
@@ -186,7 +307,18 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 		}
 	}
 
-	g.store.logger.Info("memgraph schema ensured", "query_count", len(queries))
+	// Verify (and if needed, rebuild) each vector index on the expected property.
+	for i := range vectorIndexes {
+		spec := vectorIndexes[i]
+		if err := verifyOrRebuildVectorIndex(ctx, session, g.store.logger, spec.name, spec.property, spec.ddl); err != nil {
+			return fmt.Errorf("memgraph ensure schema: vector index %s: %w", spec.name, err)
+		}
+	}
+
+	g.store.logger.Info("memgraph schema ensured",
+		"non_vector_query_count", len(otherQueries),
+		"vector_index_count", len(vectorIndexes),
+	)
 	return nil
 }
 
