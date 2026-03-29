@@ -559,7 +559,7 @@ const memoryCortexPlugin = {
 
           if (result.action === "created") {
             return {
-              content: [{ type: "text", text: `Stored [${type}/${scope}]: "${content.slice(0, 80)}..."` }],
+              content: [{ type: "text", text: `Stored [${type}/${scope}]: "${content.length > 80 ? content.slice(0, 80) + "..." : content}"` }],
               details: { action: "created", id: result.id, type, scope },
             };
           }
@@ -568,7 +568,7 @@ const memoryCortexPlugin = {
             // Note: the binary's dedup path retains the existing memory's type/scope;
             // --type/--scope flags were not applied. Only expose id to avoid misleading callers.
             return {
-              content: [{ type: "text", text: `Updated existing memory ${result.id} with richer content: "${content.slice(0, 80)}..."` }],
+              content: [{ type: "text", text: `Updated existing memory ${result.id} with richer content: "${content.length > 80 ? content.slice(0, 80) + "..." : content}"` }],
               details: { action: "updated", id: result.id },
             };
           }
@@ -680,7 +680,7 @@ const memoryCortexPlugin = {
             content: [
               {
                 type: "text",
-                text: `Updated memory ${memoryId} -> ${newId}: "${content.slice(0, 80)}..."`,
+                text: `Updated memory ${memoryId} -> ${newId}: "${content.length > 80 ? content.slice(0, 80) + "..." : content}"`,
               },
             ],
             details: { action: "updated", oldId: memoryId, newId },
