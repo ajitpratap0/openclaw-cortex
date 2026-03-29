@@ -366,8 +366,9 @@ const memoryCortexPlugin = {
     const gwAuth = rawGwAuth != null && typeof rawGwAuth === "object" ? (rawGwAuth as Record<string, unknown>) : undefined;
     const gwPortRaw = gwCfg?.port;
     // YAML may deserialise port as a string; accept both number and numeric string.
-    // Use Number() instead of parseInt() to reject partial strings like "18789abc".
-    const gwPortNum = typeof gwPortRaw === "string" ? Number(gwPortRaw) : gwPortRaw;
+    // Use a strict decimal-only check to reject partial strings ("18789abc"),
+    // hex ("0x1F90"), binary ("0b10000"), and other non-decimal literals.
+    const gwPortNum = typeof gwPortRaw === "string" ? (/^\d+$/.test(gwPortRaw) ? Number(gwPortRaw) : NaN) : gwPortRaw;
     const gwPort =
       typeof gwPortNum === "number" && Number.isInteger(gwPortNum) && gwPortNum > 0 && gwPortNum <= 65535
         ? gwPortNum
@@ -380,7 +381,7 @@ const memoryCortexPlugin = {
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
     const rawToken = typeof gwAuth?.token === "string" ? gwAuth.token.trim() : undefined;
-    const gatewayToken = rawToken || undefined;
+    const gatewayToken = rawToken ? rawToken : undefined;
     // Group both gateway misconfiguration warnings together, before construction.
     if (!gatewayUrl && gatewayToken) {
       api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
