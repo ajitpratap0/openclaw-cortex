@@ -90,14 +90,15 @@ type RecallConfig struct {
 
 // RecallWeightsConfig holds the scoring weights for the recall ranking formula.
 type RecallWeightsConfig struct {
-	Similarity    float64 `mapstructure:"similarity"`
-	Recency       float64 `mapstructure:"recency"`
-	Frequency     float64 `mapstructure:"frequency"`
-	TypeBoost     float64 `mapstructure:"type_boost"`
-	ScopeBoost    float64 `mapstructure:"scope_boost"`
-	Confidence    float64 `mapstructure:"confidence"`
-	Reinforcement float64 `mapstructure:"reinforcement"`
-	TagAffinity   float64 `mapstructure:"tag_affinity"`
+	Similarity     float64 `mapstructure:"similarity"`
+	Recency        float64 `mapstructure:"recency"`
+	Frequency      float64 `mapstructure:"frequency"`
+	TypeBoost      float64 `mapstructure:"type_boost"`
+	ScopeBoost     float64 `mapstructure:"scope_boost"`
+	Confidence     float64 `mapstructure:"confidence"`
+	Reinforcement  float64 `mapstructure:"reinforcement"`
+	TagAffinity    float64 `mapstructure:"tag_affinity"`
+	GraphProximity float64 `mapstructure:"graph_proximity"`
 }
 
 // APIConfig holds HTTP API server settings.

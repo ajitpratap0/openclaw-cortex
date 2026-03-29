@@ -1098,3 +1098,21 @@ func getFloat32Slice(record *neo4j.Record, key string) []float32 {
 	}
 	return result
 }
+
+// GetSubgraph returns the neighborhood of nodes and edges reachable from
+// entityID within depth hops. Full implementation in Phase C.
+func (g *GraphAdapter) GetSubgraph(_ context.Context, entityID string, _ int) (graph.SubgraphResult, error) {
+	return graph.SubgraphResult{SeedEntityID: entityID}, nil
+}
+
+// GetCommunitiesForEntity returns the community IDs that the given entity
+// belongs to. Full implementation in Phase C.
+func (g *GraphAdapter) GetCommunitiesForEntity(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+// GetMemoriesForCommunity returns the memory IDs associated with all entities
+// in the given community. Full implementation in Phase C.
+func (g *GraphAdapter) GetMemoriesForCommunity(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}

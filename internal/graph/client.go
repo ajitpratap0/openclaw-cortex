@@ -51,6 +51,18 @@ type Client interface {
 	// RecallByGraph returns memory IDs relevant to a query via graph traversal.
 	RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error)
 
+	// GetSubgraph returns the neighborhood of nodes and edges reachable from
+	// entityID within depth hops.
+	GetSubgraph(ctx context.Context, entityID string, depth int) (SubgraphResult, error)
+
+	// GetCommunitiesForEntity returns the community IDs that the given entity
+	// belongs to (populated by a MAGE community-detection algorithm).
+	GetCommunitiesForEntity(ctx context.Context, entityID string) ([]string, error)
+
+	// GetMemoriesForCommunity returns the memory IDs associated with all entities
+	// in the given community.
+	GetMemoriesForCommunity(ctx context.Context, communityID string) ([]string, error)
+
 	// CreateEpisode stores an episode node in the graph.
 	CreateEpisode(ctx context.Context, episode models.Episode) error
 

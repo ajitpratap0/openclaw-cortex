@@ -36,14 +36,15 @@ const (
 
 // Weights controls the relative importance of each ranking factor.
 type Weights struct {
-	Similarity    float64 `json:"similarity" mapstructure:"similarity"`
-	Recency       float64 `json:"recency" mapstructure:"recency"`
-	Frequency     float64 `json:"frequency" mapstructure:"frequency"`
-	TypeBoost     float64 `json:"type_boost" mapstructure:"type_boost"`
-	ScopeBoost    float64 `json:"scope_boost" mapstructure:"scope_boost"`
-	Confidence    float64 `json:"confidence" mapstructure:"confidence"`
-	Reinforcement float64 `json:"reinforcement" mapstructure:"reinforcement"`
-	TagAffinity   float64 `json:"tag_affinity" mapstructure:"tag_affinity"`
+	Similarity      float64 `json:"similarity" mapstructure:"similarity"`
+	Recency         float64 `json:"recency" mapstructure:"recency"`
+	Frequency       float64 `json:"frequency" mapstructure:"frequency"`
+	TypeBoost       float64 `json:"type_boost" mapstructure:"type_boost"`
+	ScopeBoost      float64 `json:"scope_boost" mapstructure:"scope_boost"`
+	Confidence      float64 `json:"confidence" mapstructure:"confidence"`
+	Reinforcement   float64 `json:"reinforcement" mapstructure:"reinforcement"`
+	TagAffinity     float64 `json:"tag_affinity" mapstructure:"tag_affinity"`
+	GraphProximity  float64 `json:"graph_proximity" mapstructure:"graph_proximity"`
 }
 
 // DefaultWeights returns sensible default ranking weights.
@@ -52,14 +53,15 @@ type Weights struct {
 // inflation from drowning out genuinely relevant but less-accessed memories.
 func DefaultWeights() Weights {
 	return Weights{
-		Similarity:    0.50,
-		Recency:       0.08,
-		Frequency:     0.05,
-		TypeBoost:     0.10,
-		ScopeBoost:    0.08,
-		Confidence:    0.07,
-		Reinforcement: 0.07,
-		TagAffinity:   0.05,
+		Similarity:     0.45,
+		Recency:        0.08,
+		Frequency:      0.05,
+		TypeBoost:      0.10,
+		ScopeBoost:     0.08,
+		Confidence:     0.07,
+		Reinforcement:  0.07,
+		TagAffinity:    0.05,
+		GraphProximity: 0.05,
 	}
 }
 
@@ -77,6 +79,7 @@ func (w Weights) Validate() error {
 		{"confidence", w.Confidence},
 		{"reinforcement", w.Reinforcement},
 		{"tag_affinity", w.TagAffinity},
+		{"graph_proximity", w.GraphProximity},
 	}
 	for i := range fields {
 		if fields[i].value < 0 {
@@ -84,7 +87,7 @@ func (w Weights) Validate() error {
 		}
 	}
 	sum := w.Similarity + w.Recency + w.Frequency + w.TypeBoost + w.ScopeBoost +
-		w.Confidence + w.Reinforcement + w.TagAffinity
+		w.Confidence + w.Reinforcement + w.TagAffinity + w.GraphProximity
 	const epsilon = 0.01
 	if sum < 1.0-epsilon || sum > 1.0+epsilon {
 		return fmt.Errorf("recall weights must sum to 1.0 (±%.2f), got %.4f", epsilon, sum)
