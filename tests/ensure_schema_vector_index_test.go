@@ -82,10 +82,12 @@ func TestParseVectorIndexRows_SkipsEmptyIndexName(t *testing.T) {
 
 // TestParseVectorIndexRows_NonStringValues verifies that non-string values for
 // index_name or property_name are silently ignored (type-assert yields zero value).
+// Rows where property_name is non-string (empty after type assertion) are skipped
+// entirely to avoid spurious drop+recreate cycles.
 func TestParseVectorIndexRows_NonStringValues(t *testing.T) {
 	rows := []map[string]any{
 		{"index_name": 42, "property_name": "embedding"},           // int name → skipped
-		{"index_name": "ok_index", "property_name": true},          // bool prop → empty string stored
+		{"index_name": "ok_index", "property_name": true},          // bool prop → empty string → skipped
 		{"index_name": "real_index", "property_name": "real_prop"}, // valid
 	}
 	result := memgraph.ParseVectorIndexRows(rows)
@@ -93,8 +95,8 @@ func TestParseVectorIndexRows_NonStringValues(t *testing.T) {
 	if _, ok := result[""]; ok {
 		t.Error("non-string index_name (42) should produce empty key, which must be skipped")
 	}
-	if result["ok_index"] != "" {
-		t.Errorf("non-string property_name should produce empty string, got %q", result["ok_index"])
+	if _, ok := result["ok_index"]; ok {
+		t.Error("non-string property_name yields empty prop; row must be skipped to avoid spurious drop+recreate")
 	}
 	if result["real_index"] != "real_prop" {
 		t.Errorf("expected real_index → real_prop, got %q", result["real_index"])

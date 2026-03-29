@@ -145,7 +145,7 @@ func ParseVectorIndexRows(rows []map[string]any) map[string]string {
 	for _, row := range rows {
 		name, _ := row["index_name"].(string)
 		prop, _ := row["property_name"].(string)
-		if name != "" {
+		if name != "" && prop != "" {
 			indexes[name] = prop
 		}
 	}
@@ -197,6 +197,10 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		// Index does not exist — create it.
 		result, runErr := session.Run(ctx, ddl, nil)
 		if runErr != nil {
+			if isAlreadyExistsErr(runErr) {
+				// Index already exists (showVectorIndexes may have failed to read it).
+				return nil
+			}
 			return fmt.Errorf("verifyOrRebuildVectorIndex: create %s: %w", indexName, runErr)
 		}
 		if result != nil {
@@ -217,7 +221,7 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		"actual_property", existingProp,
 	)
 
-	dropDDL := fmt.Sprintf("DROP VECTOR INDEX %s", indexName)
+	dropDDL := fmt.Sprintf("DROP VECTOR INDEX `%s`", indexName)
 	dropResult, dropErr := session.Run(ctx, dropDDL, nil)
 	if dropErr != nil {
 		return fmt.Errorf("verifyOrRebuildVectorIndex: drop %s: %w", indexName, dropErr)
@@ -308,8 +312,7 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 	}
 
 	// Verify (and if needed, rebuild) each vector index on the expected property.
-	for i := range vectorIndexes {
-		spec := vectorIndexes[i]
+	for _, spec := range vectorIndexes {
 		if err := verifyOrRebuildVectorIndex(ctx, session, g.store.logger, spec.name, spec.property, spec.ddl); err != nil {
 			return fmt.Errorf("memgraph ensure schema: vector index %s: %w", spec.name, err)
 		}
