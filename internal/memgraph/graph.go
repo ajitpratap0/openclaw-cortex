@@ -179,23 +179,22 @@ func showVectorIndexes(ctx context.Context, session neo4j.SessionWithContext) (m
 }
 
 // verifyOrRebuildVectorIndex checks whether the named vector index exists and is
-// on the expected property. Three outcomes:
+// on the expected property. The caller provides a pre-fetched indexes map so that
+// all specs share a single SHOW VECTOR INDEXES round-trip (no TOCTOU between specs).
+//
+// Three outcomes:
 //   - Index absent: the DDL is executed to create it.
 //   - Index present with correct property: nothing to do, returns nil.
 //   - Index present with wrong property: logs a Warn, drops the index, then recreates it.
-func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithContext, logger *slog.Logger, indexName, expectedProperty, ddl string) error {
+//
+// When showFailed is true the indexes map is empty because the SHOW query failed.
+// In that case an "already exists" error on CREATE is ambiguous — the index may be on
+// the wrong property — so we log a warning instead of silently returning nil.
+func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithContext, logger *slog.Logger, indexes map[string]string, showFailed bool, indexName, expectedProperty, ddl string) error {
 	// Whitelist validation: only allow known index names to prevent DDL injection.
 	knownIndexNames := map[string]bool{"memory_embedding": true, "entity_name_embedding": true}
 	if !knownIndexNames[indexName] {
 		return fmt.Errorf("verifyOrRebuildVectorIndex: unknown index name %q", indexName)
-	}
-
-	indexes, err := showVectorIndexes(ctx, session)
-	if err != nil {
-		// Non-fatal for the "show" step — fall through and attempt creation.
-		logger.Warn("verifyOrRebuildVectorIndex: could not inspect existing indexes, will attempt creation",
-			"index", indexName, "error", err)
-		indexes = make(map[string]string)
 	}
 
 	existingProp, exists := indexes[indexName]
@@ -204,13 +203,21 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		result, runErr := session.Run(ctx, ddl, nil)
 		if runErr != nil {
 			if isAlreadyExistsErr(runErr) {
-				// Index already exists (showVectorIndexes may have failed to read it).
+				if showFailed {
+					// Cannot verify property correctness — the SHOW query failed
+					// and the index already exists, possibly on the wrong property.
+					logger.Warn("verifyOrRebuildVectorIndex: index already exists but property could not be verified (SHOW VECTOR INDEXES failed earlier)",
+						"index", indexName, "expected_property", expectedProperty)
+				}
 				return nil
 			}
 			return fmt.Errorf("verifyOrRebuildVectorIndex: create %s: %w", indexName, runErr)
 		}
 		if result != nil {
-			_, _ = result.Consume(ctx)
+			if _, consumeErr := result.Consume(ctx); consumeErr != nil {
+				logger.Warn("verifyOrRebuildVectorIndex: consume after create",
+					"index", indexName, "error", consumeErr)
+			}
 		}
 		return nil
 	}
@@ -233,7 +240,10 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		return fmt.Errorf("verifyOrRebuildVectorIndex: drop %s: %w", indexName, dropErr)
 	}
 	if dropResult != nil {
-		_, _ = dropResult.Consume(ctx)
+		if _, consumeErr := dropResult.Consume(ctx); consumeErr != nil {
+			logger.Warn("verifyOrRebuildVectorIndex: consume after drop",
+				"index", indexName, "error", consumeErr)
+		}
 	}
 
 	recreateResult, recreateErr := session.Run(ctx, ddl, nil)
@@ -241,7 +251,10 @@ func verifyOrRebuildVectorIndex(ctx context.Context, session neo4j.SessionWithCo
 		return fmt.Errorf("verifyOrRebuildVectorIndex: recreate %s: %w", indexName, recreateErr)
 	}
 	if recreateResult != nil {
-		_, _ = recreateResult.Consume(ctx)
+		if _, consumeErr := recreateResult.Consume(ctx); consumeErr != nil {
+			logger.Warn("verifyOrRebuildVectorIndex: consume after recreate",
+				"index", indexName, "error", consumeErr)
+		}
 	}
 
 	logger.Info("vector index rebuilt on correct property",
@@ -317,9 +330,19 @@ func (g *GraphAdapter) EnsureSchema(ctx context.Context, vectorDim int) error {
 		}
 	}
 
+	// Fetch existing vector indexes once — all specs share this snapshot,
+	// avoiding N round-trips and the TOCTOU window between specs.
+	indexes, indexErr := showVectorIndexes(ctx, session)
+	showFailed := indexErr != nil
+	if showFailed {
+		g.store.logger.Warn("EnsureSchema: could not inspect existing vector indexes, will attempt creation",
+			"error", indexErr)
+		indexes = make(map[string]string)
+	}
+
 	// Verify (and if needed, rebuild) each vector index on the expected property.
 	for _, spec := range vectorIndexes {
-		if err := verifyOrRebuildVectorIndex(ctx, session, g.store.logger, spec.name, spec.property, spec.ddl); err != nil {
+		if err := verifyOrRebuildVectorIndex(ctx, session, g.store.logger, indexes, showFailed, spec.name, spec.property, spec.ddl); err != nil {
 			return fmt.Errorf("memgraph ensure schema: vector index %s: %w", spec.name, err)
 		}
 	}
