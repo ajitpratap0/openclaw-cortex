@@ -40,10 +40,11 @@ func TestConfigValidationChunkOverlap(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       10,
-			ChunkOverlap:    15,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
+			ChunkSize:          10,
+			ChunkOverlap:       15,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -66,10 +67,11 @@ func TestConfigValidationDedupThreshold(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  1.5,
-			VectorDimension: 768,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     1.5,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -82,10 +84,11 @@ func TestConfigValidationMissingHost(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: ""},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -98,10 +101,11 @@ func TestConfigValidationMissingOllamaURL(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: ""},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -114,10 +118,11 @@ func TestConfigValidationChunkSizeZero(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       0,
-			ChunkOverlap:    0,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
+			ChunkSize:          0,
+			ChunkOverlap:       0,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -130,10 +135,11 @@ func TestConfigValidationVectorDimensionZero(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.9,
-			VectorDimension: 0,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    0,
 		},
 	}
 	err := cfg.Validate()
@@ -146,11 +152,12 @@ func TestConfigValidationNegativeTTL(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
-			DefaultTTLHours: -1,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
+			DefaultTTLHours:    -1,
 		},
 	}
 	err := cfg.Validate()
@@ -163,10 +170,11 @@ func TestConfigValidationNegativeChunkOverlap(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    -1,
-			DedupThreshold:  0.9,
-			VectorDimension: 768,
+			ChunkSize:          512,
+			ChunkOverlap:       -1,
+			DedupThreshold:     0.9,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
 		},
 	}
 	err := cfg.Validate()
@@ -179,11 +187,12 @@ func TestConfigValidationValid(t *testing.T) {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.92,
-			VectorDimension: 768,
-			DefaultTTLHours: 720,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.92,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
+			DefaultTTLHours:    720,
 		},
 	}
 	err := cfg.Validate()
@@ -218,11 +227,12 @@ func validBaseConfig() config.Config {
 		Memgraph: config.MemgraphConfig{URI: "bolt://localhost:7687"},
 		Ollama:   config.OllamaConfig{BaseURL: "http://localhost:11434"},
 		Memory: config.MemoryConfig{
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.92,
-			VectorDimension: 768,
-			DefaultTTLHours: 720,
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.92,
+			DedupThresholdHook: 0.95,
+			VectorDimension:    768,
+			DefaultTTLHours:    720,
 		},
 	}
 }

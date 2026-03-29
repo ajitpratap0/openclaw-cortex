@@ -16,12 +16,13 @@ func validCfg() *Config {
 			Model:   "nomic-embed-text",
 		},
 		Memory: MemoryConfig{
-			MemoryDir:       "/tmp",
-			ChunkSize:       512,
-			ChunkOverlap:    64,
-			DedupThreshold:  0.92,
-			DefaultTTLHours: 720,
-			VectorDimension: 768,
+			MemoryDir:          "/tmp",
+			ChunkSize:          512,
+			ChunkOverlap:       64,
+			DedupThreshold:     0.92,
+			DedupThresholdHook: 0.95,
+			DefaultTTLHours:    720,
+			VectorDimension:    768,
 		},
 	}
 }
