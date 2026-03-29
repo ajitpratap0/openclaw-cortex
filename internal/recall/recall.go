@@ -36,15 +36,15 @@ const (
 
 // Weights controls the relative importance of each ranking factor.
 type Weights struct {
-	Similarity      float64 `json:"similarity" mapstructure:"similarity"`
-	Recency         float64 `json:"recency" mapstructure:"recency"`
-	Frequency       float64 `json:"frequency" mapstructure:"frequency"`
-	TypeBoost       float64 `json:"type_boost" mapstructure:"type_boost"`
-	ScopeBoost      float64 `json:"scope_boost" mapstructure:"scope_boost"`
-	Confidence      float64 `json:"confidence" mapstructure:"confidence"`
-	Reinforcement   float64 `json:"reinforcement" mapstructure:"reinforcement"`
-	TagAffinity     float64 `json:"tag_affinity" mapstructure:"tag_affinity"`
-	GraphProximity  float64 `json:"graph_proximity" mapstructure:"graph_proximity"`
+	Similarity     float64 `json:"similarity" mapstructure:"similarity"`
+	Recency        float64 `json:"recency" mapstructure:"recency"`
+	Frequency      float64 `json:"frequency" mapstructure:"frequency"`
+	TypeBoost      float64 `json:"type_boost" mapstructure:"type_boost"`
+	ScopeBoost     float64 `json:"scope_boost" mapstructure:"scope_boost"`
+	Confidence     float64 `json:"confidence" mapstructure:"confidence"`
+	Reinforcement  float64 `json:"reinforcement" mapstructure:"reinforcement"`
+	TagAffinity    float64 `json:"tag_affinity" mapstructure:"tag_affinity"`
+	GraphProximity float64 `json:"graph_proximity" mapstructure:"graph_proximity"`
 }
 
 // DefaultWeights returns sensible default ranking weights.

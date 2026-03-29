@@ -1447,19 +1447,19 @@ func (g *GraphAdapter) MigrateRelTypesToLabels(ctx context.Context) error {
 
 	// Step 1: collect all RELATES_TO edges that need migration.
 	type edgeRow struct {
-		uuid           string
-		sourceID       string
-		targetID       string
-		relationType   string
-		fact           string
-		factEmbedding  []float32
-		createdAt      string
-		expiredAt      string
-		validAt        string
-		invalidAt      string
+		uuid            string
+		sourceID        string
+		targetID        string
+		relationType    string
+		fact            string
+		factEmbedding   []float32
+		createdAt       string
+		expiredAt       string
+		validAt         string
+		invalidAt       string
 		sourceMemoryIDs []string
-		episodes       []string
-		confidence     float64
+		episodes        []string
+		confidence      float64
 	}
 
 	session := g.store.driver.NewSession(ctx, g.store.sessionConfig())
