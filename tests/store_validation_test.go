@@ -116,9 +116,9 @@ func TestStoreCmd_MinContentLength_BatchValidation(t *testing.T) {
 		valid   bool
 	}{
 		{"Go uses goroutines.", true},
-		{"short", false},   // 5 chars — under threshold
-		{"x", false},       // 1 char
-		{"  hi  ", false},  // 2 trimmed chars
+		{"short", false},     // 5 chars — under threshold
+		{"x", false},         // 1 char
+		{"  hi  ", false},    // 2 trimmed chars
 		{"1234567890", true}, // exactly 10 trimmed chars — accepted
 	}
 
