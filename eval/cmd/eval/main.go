@@ -7,12 +7,13 @@
 //
 // Flags:
 //
-//	--benchmark  string   Which benchmark to run: locomo, longmemeval, all (default: all)
-//	--binary     string   Path to openclaw-cortex binary (default: openclaw-cortex)
-//	--k          int      k for recall@k metric (default: 5)
-//	--output     string   Output file path for JSON results (default: stdout)
-//	--config     string   Path to openclaw-cortex config file (optional)
-//	--timeout    int      Total timeout in seconds (default: 300)
+//	--benchmark   string   Which benchmark to run: locomo, longmemeval, all (default: all)
+//	--binary      string   Path to openclaw-cortex binary (default: openclaw-cortex)
+//	--k           int      k for recall@k metric (default: 5)
+//	--output      string   Output file path for JSON results (default: stdout)
+//	--config      string   Path to openclaw-cortex config file (optional)
+//	--timeout     int      Total timeout in seconds (default: 300)
+//	--accumulate  bool     Use accumulate mode: single reset, ingest all then recall all (default: false)
 package main
 
 import (
@@ -43,6 +44,7 @@ func run() error {
 	output := flag.String("output", "", "Output file path for JSON results (default: stdout)")
 	configPath := flag.String("config", "", "Path to openclaw-cortex config file")
 	timeout := flag.Int("timeout", 300, "Total timeout in seconds (default: 300)")
+	accumulate := flag.Bool("accumulate", false, "Use accumulate mode: single reset, two-pass ingest-then-recall (default: false)")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -65,21 +67,21 @@ func run() error {
 
 	switch strings.ToLower(*benchmark) {
 	case "locomo":
-		s, err := runLocomo(ctx, client, *k)
+		s, err := runLocomo(ctx, client, *k, *accumulate)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)
 		}
 		summaries = append(summaries, s)
 
 	case "longmemeval":
-		s, err := runLongMemEval(ctx, client, *k)
+		s, err := runLongMemEval(ctx, client, *k, *accumulate)
 		if err != nil {
 			return fmt.Errorf("running LongMemEval: %w", err)
 		}
 		summaries = append(summaries, s)
 
 	case "all":
-		s1, err := runLocomo(ctx, client, *k)
+		s1, err := runLocomo(ctx, client, *k, *accumulate)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)
 		}
@@ -94,7 +96,7 @@ func run() error {
 			return fmt.Errorf("inter-benchmark reset failed (aborting to prevent contamination): %w", resetErr)
 		}
 
-		s2, err := runLongMemEval(ctx, client, *k)
+		s2, err := runLongMemEval(ctx, client, *k, *accumulate)
 		if err != nil {
 			return fmt.Errorf("running LongMemEval: %w", err)
 		}
@@ -132,15 +134,32 @@ func run() error {
 	// Print markdown summary table to stderr so stdout stays clean JSON
 	// (allows: go run ./eval/cmd/eval | jq '.').
 	fmt.Fprintln(os.Stderr, runner.FormatMarkdownTable(summaries, *k))
+
+	// Print per-category breakdown tables to stderr for each benchmark.
+	for _, s := range summaries {
+		switch s.Name {
+		case "LoCoMo":
+			bd := locomo.CategoryBreakdown(s)
+			if len(bd) > 0 {
+				fmt.Fprintf(os.Stderr, "\nLoCoMo category breakdown:\n%s", locomo.FormatCategoryTable(bd))
+			}
+		case "LongMemEval":
+			bd := longmemeval.CategoryBreakdown(s)
+			if len(bd) > 0 {
+				fmt.Fprintf(os.Stderr, "\nLongMemEval category breakdown:\n%s", longmemeval.FormatCategoryTable(bd))
+			}
+		}
+	}
+
 	return nil
 }
 
-func runLocomo(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
+func runLocomo(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LoCoMo benchmark...")
-	return locomo.Run(ctx, client, k)
+	return locomo.Run(ctx, client, k, accumulate)
 }
 
-func runLongMemEval(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
+func runLongMemEval(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LongMemEval benchmark...")
-	return longmemeval.Run(ctx, client, k)
+	return longmemeval.Run(ctx, client, k, accumulate)
 }

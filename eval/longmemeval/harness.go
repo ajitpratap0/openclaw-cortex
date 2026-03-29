@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
 )
@@ -14,15 +15,88 @@ const benchmarkName = "LongMemEval"
 // Run ingests all synthetic LongMemEval facts and evaluates all QA pairs.
 // It returns a BenchmarkSummary with individual and aggregate results.
 //
-// For each QA pair:
-//  1. Ingest all facts via client.Store.
-//  2. Run Recall(question, k) to retrieve relevant memories.
-//  3. Score: ExactMatch + TokenF1 + RecallAtK.
-func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSummary, error) {
+// When accumulate is false (default), the store is reset before every QA pair
+// so each pair is evaluated against only its own facts (isolation mode).
+//
+// When accumulate is true, the store is reset once at the start.  The run then
+// proceeds in two passes:
+//
+//   - Pass 1: for every pair, call client.Store for each fact WITHOUT evaluating
+//     (ingest all facts into a single growing store).
+//   - Pass 2: for every pair, call client.Recall and score the result.
+//
+// Accumulate mode measures recall against a fully-populated shared store and sets
+// summary.Mode = "accumulate".  Per-pair-reset mode sets summary.Mode = "per-pair-reset".
+func Run(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
 	pairs := Dataset()
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 	recallFailures := 0
 
+	if accumulate {
+		// Single reset at the start.
+		if err := client.Reset(ctx); err != nil {
+			return nil, fmt.Errorf("longmemeval: reset failed at start of accumulate run (aborting): %w", err)
+		}
+
+		// Pass 1: ingest all facts.
+		// Any store failure aborts the run: partial ingestion produces silently
+		// deflated scores against an incomplete shared store.
+		for i := range pairs {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("longmemeval: context canceled during accumulate pass-1 store: %w", err)
+			}
+			qp := &pairs[i]
+			for j := range qp.Facts {
+				fact := &qp.Facts[j]
+				if err := client.Store(ctx, fact.Content); err != nil {
+					return nil, fmt.Errorf("longmemeval: ingest fact failed for %s (fact %d) during accumulate pass-1: %w", qp.ID, j, err)
+				}
+			}
+		}
+
+		// Pass 2: recall and score each pair.
+		for i := range pairs {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("longmemeval: context canceled before completing all pairs: %w", err)
+			}
+			qp := &pairs[i]
+
+			memories, err := client.Recall(ctx, qp.Question, k)
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil, fmt.Errorf("longmemeval: context canceled during recall for %s (recall error: %v): %w", qp.ID, err, ctx.Err())
+				}
+				recallFailures++
+				fmt.Fprintf(os.Stderr, "[longmemeval] warn: recall failed for %s: %v\n", qp.ID, err)
+				memories = nil
+			}
+
+			best := ""
+			if len(memories) > 0 {
+				best = runner.BestCandidate(memories, qp.GroundTruth)
+			}
+
+			result := runner.BenchmarkResult{
+				QuestionID:  qp.ID,
+				Question:    qp.Question,
+				GroundTruth: qp.GroundTruth,
+				Retrieved:   best,
+				ExactMatch:  runner.ExactMatch(best, qp.GroundTruth),
+				F1Score:     runner.TokenF1(best, qp.GroundTruth),
+				RecalledAtK: runner.RecallAtK(memories, qp.GroundTruth, k),
+			}
+			results = append(results, result)
+		}
+
+		if recallFailures == len(pairs) && len(pairs) > 0 {
+			return nil, fmt.Errorf("longmemeval: all %d recall calls failed — check binary path and Memgraph/Ollama connectivity", len(pairs))
+		}
+		summary := runner.Summarize(benchmarkName, results, k, recallFailures)
+		summary.Mode = "accumulate"
+		return summary, nil
+	}
+
+	// Per-pair-reset mode (default / backward-compatible).
 	for i := range pairs {
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("longmemeval: context canceled before completing all pairs: %w", err)
@@ -93,5 +167,54 @@ func Run(ctx context.Context, client runner.Client, k int) (*runner.BenchmarkSum
 	if recallFailures == len(pairs) && len(pairs) > 0 {
 		return nil, fmt.Errorf("longmemeval: all %d recall calls failed — check binary path and Memgraph/Ollama connectivity", len(pairs))
 	}
-	return runner.Summarize(benchmarkName, results, k, recallFailures), nil
+	summary := runner.Summarize(benchmarkName, results, k, recallFailures)
+	summary.Mode = "per-pair-reset"
+	return summary, nil
+}
+
+// CategoryBreakdown returns ExactMatch accuracy broken down by QA category.
+func CategoryBreakdown(summary *runner.BenchmarkSummary) map[string]float64 {
+	pairs := Dataset()
+	idToCategory := make(map[string]string, len(pairs))
+	for i := range pairs {
+		idToCategory[pairs[i].ID] = pairs[i].Category
+	}
+
+	counts := map[string]int{}
+	hits := map[string]int{}
+	for i := range summary.Results {
+		r := &summary.Results[i]
+		cat := idToCategory[r.QuestionID]
+		if cat == "" {
+			cat = "unknown"
+		}
+		counts[cat]++
+		if r.ExactMatch {
+			hits[cat]++
+		}
+	}
+
+	breakdown := make(map[string]float64, len(counts))
+	for cat, total := range counts {
+		if total > 0 {
+			breakdown[cat] = float64(hits[cat]) / float64(total)
+		}
+	}
+	return breakdown
+}
+
+// FormatCategoryTable renders a small markdown table of per-category results.
+func FormatCategoryTable(breakdown map[string]float64) string {
+	var sb strings.Builder
+	sb.WriteString("| Category         | Exact Match |\n")
+	sb.WriteString("|------------------|-------------|\n")
+	categories := []string{"temporal", "multi-hop", "knowledge-update"}
+	for _, cat := range categories {
+		acc, ok := breakdown[cat]
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(&sb, "| %-16s | %10.1f%% |\n", cat, acc*100)
+	}
+	return sb.String()
 }

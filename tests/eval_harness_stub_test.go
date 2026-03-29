@@ -13,6 +13,10 @@ import (
 // recallErrs controls per-call Recall behavior: index i maps to call i.
 // A nil entry means success (recallResp is returned); a non-nil entry means
 // that call returns the error. Calls beyond len(recallErrs) succeed.
+//
+// resetCount, storeCount, and recallCount are incremented on each respective
+// call and can be inspected after Run() returns to verify call ordering and
+// multiplicity (e.g., accumulate mode asserts resetCount == 1).
 type stubHarnessClient struct {
 	resetErr   error
 	storeErr   error
@@ -22,13 +26,27 @@ type stubHarnessClient struct {
 	// mutex because all harness Run() functions are single-threaded: they call
 	// Reset → Store* → Recall for each pair in a plain for-loop with no goroutines.
 	callIdx int
+
+	// Call counters — incremented on every invocation regardless of error.
+	resetCount  int
+	storeCount  int
+	recallCount int
 }
 
 var _ runner.Client = (*stubHarnessClient)(nil)
 
-func (s *stubHarnessClient) Reset(_ context.Context) error           { return s.resetErr }
-func (s *stubHarnessClient) Store(_ context.Context, _ string) error { return s.storeErr }
+func (s *stubHarnessClient) Reset(_ context.Context) error {
+	s.resetCount++
+	return s.resetErr
+}
+
+func (s *stubHarnessClient) Store(_ context.Context, _ string) error {
+	s.storeCount++
+	return s.storeErr
+}
+
 func (s *stubHarnessClient) Recall(_ context.Context, _ string, _ int) ([]string, error) {
+	s.recallCount++
 	idx := s.callIdx
 	s.callIdx++
 	if idx < len(s.recallErrs) && s.recallErrs[idx] != nil {

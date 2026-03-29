@@ -171,7 +171,7 @@ func TestLongMemEvalRunHappyPath(t *testing.T) {
 	stub := &stubHarnessClient{
 		recallResp: []string{"answer content"},
 	}
-	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	summary, err := longmemeval.Run(context.Background(), stub, 5, false)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	require.Equal(t, len(pairs), summary.TotalQuestions)
@@ -184,7 +184,7 @@ func TestLongMemEvalRunResetFailure(t *testing.T) {
 	stub := &stubHarnessClient{
 		resetErr: errors.New("stub: reset failed"),
 	}
-	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	summary, err := longmemeval.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "reset failed")
@@ -197,7 +197,7 @@ func TestLongMemEvalRunAllRecallFail(t *testing.T) {
 	stub := &stubHarnessClient{
 		recallErrs: recallErrors(len(pairs)),
 	}
-	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	summary, err := longmemeval.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "recall calls failed")
@@ -215,7 +215,7 @@ func TestLongMemEvalRunPartialRecallFail(t *testing.T) {
 		recallErrs: errs,
 		recallResp: []string{"answer content"},
 	}
-	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	summary, err := longmemeval.Run(context.Background(), stub, 5, false)
 	require.NoError(t, err)
 	require.NotNil(t, summary)
 	require.Equal(t, len(pairs)-1, summary.RecallFailures)
@@ -227,7 +227,7 @@ func TestLongMemEvalRunStoreFailure(t *testing.T) {
 	stub := &stubHarnessClient{
 		storeErr: errors.New("stub: store failed"),
 	}
-	summary, err := longmemeval.Run(context.Background(), stub, 5)
+	summary, err := longmemeval.Run(context.Background(), stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "ingest fact failed")
@@ -241,8 +241,95 @@ func TestLongMemEvalRunContextCancel(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before calling Run
-	summary, err := longmemeval.Run(ctx, stub, 5)
+	summary, err := longmemeval.Run(ctx, stub, 5, false)
 	require.Error(t, err)
 	require.Nil(t, summary)
 	require.ErrorContains(t, err, "context canceled")
+}
+
+// TestLongMemEval_AccumulateMode_TwoPass verifies the accumulate=true protocol:
+//   - Reset is called exactly once (at the start).
+//   - Store is called once per fact across ALL pairs (pass 1) before any Recall call.
+//   - Recall is called once per pair (pass 2).
+//   - summary.Mode is set to "accumulate".
+func TestLongMemEval_AccumulateMode_TwoPass(t *testing.T) {
+	pairs := longmemeval.Dataset()
+
+	// Count total facts across all pairs (expected Store calls in pass 1).
+	totalFacts := 0
+	for i := range pairs {
+		totalFacts += len(pairs[i].Facts)
+	}
+
+	stub := &stubHarnessClient{
+		recallResp: []string{"answer content"},
+	}
+
+	summary, err := longmemeval.Run(context.Background(), stub, 5, true)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+
+	// Exactly one Reset at the start of the accumulate run.
+	require.Equal(t, 1, stub.resetCount, "accumulate mode must call Reset exactly once")
+
+	// Store called once per fact (pass 1), before any Recall.
+	require.Equal(t, totalFacts, stub.storeCount,
+		"accumulate mode must store all facts in pass 1")
+
+	// Recall called once per pair (pass 2).
+	require.Equal(t, len(pairs), stub.recallCount,
+		"accumulate mode must recall once per pair in pass 2")
+
+	// Mode field set correctly.
+	require.Equal(t, "accumulate", summary.Mode)
+	require.Equal(t, len(pairs), summary.TotalQuestions)
+}
+
+// TestLongMemEval_CategoryBreakdown verifies that CategoryBreakdown returns correct
+// per-category ExactMatch accuracy for all three LongMemEval categories.
+func TestLongMemEval_CategoryBreakdown(t *testing.T) {
+	pairs := longmemeval.Dataset()
+
+	// Build results: mark every pair's ExactMatch as true.
+	results := make([]runner.BenchmarkResult, len(pairs))
+	for i := range pairs {
+		results[i] = runner.BenchmarkResult{
+			QuestionID: pairs[i].ID,
+			ExactMatch: true,
+		}
+	}
+	summary := runner.Summarize("LongMemEval", results, 5, 0)
+
+	breakdown := longmemeval.CategoryBreakdown(summary)
+
+	// All three categories must appear and have accuracy 1.0.
+	for _, cat := range []string{"temporal", "multi-hop", "knowledge-update"} {
+		acc, ok := breakdown[cat]
+		if !ok {
+			t.Errorf("category %q missing from breakdown", cat)
+			continue
+		}
+		if acc != 1.0 {
+			t.Errorf("category %q accuracy = %.2f, want 1.0 (all ExactMatch=true)", cat, acc)
+		}
+	}
+}
+
+// TestLongMemEval_FormatCategoryTable verifies that FormatCategoryTable renders all
+// three LongMemEval categories in the output string.
+func TestLongMemEval_FormatCategoryTable(t *testing.T) {
+	breakdown := map[string]float64{
+		"temporal":         1.0,
+		"multi-hop":        0.667,
+		"knowledge-update": 0.333,
+	}
+	table := longmemeval.FormatCategoryTable(breakdown)
+	if table == "" {
+		t.Error("FormatCategoryTable returned empty string")
+	}
+	for _, cat := range []string{"temporal", "multi-hop", "knowledge-update"} {
+		if !strings.Contains(table, cat) {
+			t.Errorf("table missing category %q", cat)
+		}
+	}
 }
