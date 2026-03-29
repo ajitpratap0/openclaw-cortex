@@ -62,9 +62,9 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			// For simplicity, we use the initial count as the authoritative number of
 			// memories to fix and re-embed exactly that many (first zeroCount found).
 			var (
-				cursor   string
-				fixed    int64
-				skipped  int64
+				cursor  string
+				fixed   int64
+				skipped int64
 			)
 
 			for fixed < zeroCount {
