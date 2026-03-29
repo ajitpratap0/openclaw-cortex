@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolveEnv } from "./index.ts";
+import { parseStoreOutput } from "./index.ts";
 
 describe("resolveEnv", () => {
   const empty: Record<string, string | undefined> = {};
@@ -79,5 +80,53 @@ describe("resolveEnv", () => {
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
     // anthropicApiKey provides the active LLM path
     expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-fallback");
+  });
+});
+
+describe("parseStoreOutput", () => {
+  const uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
+  it('returns action "created" for "Stored memory <UUID> [type/scope]"', () => {
+    const result = parseStoreOutput(`Stored memory ${uuid} [fact/permanent]`);
+    expect(result).toEqual({ id: uuid, action: "created" });
+  });
+
+  it('returns action "created" and extracts UUID without the trailing [type/scope] annotation', () => {
+    const result = parseStoreOutput(`Stored memory ${uuid} [rule/project]`);
+    expect(result?.id).toBe(uuid);
+    expect(result?.action).toBe("created");
+  });
+
+  it('returns action "updated" for dedup richer-content message', () => {
+    const result = parseStoreOutput(
+      `duplicate detected: updated existing memory ${uuid} with richer content (note: --tags/--confidence/--scope flags were not applied; use --skip-dedup to replace fully)`,
+    );
+    expect(result).toEqual({ id: uuid, action: "updated" });
+  });
+
+  it('returns action "updated" even when the trailing note is absent', () => {
+    const result = parseStoreOutput(
+      `duplicate detected: updated existing memory ${uuid} with richer content`,
+    );
+    expect(result).toEqual({ id: uuid, action: "updated" });
+  });
+
+  it('returns action "skipped" for dedup already-covers message', () => {
+    const result = parseStoreOutput(
+      `duplicate detected: memory ${uuid} already covers this content (skipped)`,
+    );
+    expect(result).toEqual({ id: uuid, action: "skipped" });
+  });
+
+  it("returns null for unrecognised output (true failure)", () => {
+    expect(parseStoreOutput("")).toBeNull();
+    expect(parseStoreOutput("some unexpected binary error")).toBeNull();
+    expect(parseStoreOutput("stored memory abc123")).toBeNull(); // wrong case
+  });
+
+  it("does not match 'Stored memory' mid-line (anchored to start)", () => {
+    // A line that has 'Stored memory' but NOT at the start should not match
+    const result = parseStoreOutput(`prefix Stored memory ${uuid} [fact/permanent]`);
+    expect(result).toBeNull();
   });
 });

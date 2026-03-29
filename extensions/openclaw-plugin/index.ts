@@ -129,6 +129,39 @@ export function resolveEnv(
 }
 
 // ============================================================================
+// Store output parser (exported for unit testing)
+// ============================================================================
+
+/**
+ * Parse the stdout line(s) emitted by `openclaw-cortex store` and return a
+ * structured result.  Returns null when the output matches none of the known
+ * patterns (indicating a true failure).
+ *
+ * Known patterns (from cmd/openclaw-cortex/cmd_store.go):
+ *   "Stored memory <UUID> [type/scope]"
+ *   "duplicate detected: updated existing memory <UUID> with richer content ..."
+ *   "duplicate detected: memory <UUID> already covers this content (skipped)"
+ */
+export function parseStoreOutput(
+  out: string,
+): { id: string; action: "created" | "updated" | "skipped" } | null {
+  // "Stored memory <UUID> [type/scope]"
+  const createdMatch = out.match(/^Stored memory ([0-9a-f-]+)/);
+  if (createdMatch) return { id: createdMatch[1], action: "created" };
+  // "duplicate detected: updated existing memory <UUID> with richer content ..."
+  const updatedMatch = out.match(
+    /^duplicate detected: updated existing memory ([0-9a-f-]+) with richer content/,
+  );
+  if (updatedMatch) return { id: updatedMatch[1], action: "updated" };
+  // "duplicate detected: memory <UUID> already covers this content (skipped)"
+  const skippedMatch = out.match(
+    /^duplicate detected: memory ([0-9a-f-]+) already covers this content/,
+  );
+  if (skippedMatch) return { id: skippedMatch[1], action: "skipped" };
+  return null;
+}
+
+// ============================================================================
 // Cortex CLI Wrapper (uses execFile — no shell injection risk)
 // ============================================================================
 
@@ -192,7 +225,7 @@ class CortexClient {
     scope?: MemoryScope;
     tags?: string[];
     project?: string;
-  }): Promise<string | null> {
+  }): Promise<{ id: string; action: "created" | "updated" | "skipped" } | null> {
     const args = ["store", content];
     if (opts?.type) args.push("--type", opts.type);
     if (opts?.scope) args.push("--scope", opts.scope);
@@ -202,8 +235,7 @@ class CortexClient {
 
     try {
       const out = await this.run(args);
-      const match = out.match(/Stored memory ([0-9a-f-]+)/);
-      return match ? match[1] : null;
+      return parseStoreOutput(out);
     } catch {
       return null;
     }
@@ -516,18 +548,33 @@ const memoryCortexPlugin = {
           const scope = (params.scope as MemoryScope) || "permanent";
           const tags = params.tags as string[] | undefined;
 
-          const id = await cortex.store(content, { type, scope, tags });
+          const result = await cortex.store(content, { type, scope, tags });
 
-          if (!id) {
+          if (!result) {
             return {
-              content: [{ type: "text", text: "Failed to store memory (may be a duplicate)." }],
+              content: [{ type: "text", text: "Failed to store memory." }],
               details: { action: "failed" },
             };
           }
 
+          if (result.action === "created") {
+            return {
+              content: [{ type: "text", text: `Stored [${type}/${scope}]: "${content.slice(0, 80)}..."` }],
+              details: { action: "created", id: result.id, type, scope },
+            };
+          }
+
+          if (result.action === "updated") {
+            return {
+              content: [{ type: "text", text: `Updated existing memory ${result.id} with richer content: "${content.slice(0, 80)}..."` }],
+              details: { action: "updated", id: result.id, type, scope },
+            };
+          }
+
+          // action === "skipped" — dedup determined existing memory already covers this; not a failure
           return {
-            content: [{ type: "text", text: `Stored [${type}/${scope}]: "${content.slice(0, 80)}..."` }],
-            details: { action: "created", id, type, scope },
+            content: [{ type: "text", text: `Memory already covered by ${result.id} (skipped).` }],
+            details: { action: "skipped", id: result.id },
           };
         },
       },
