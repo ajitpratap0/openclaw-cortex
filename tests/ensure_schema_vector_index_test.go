@@ -179,9 +179,9 @@ func TestBuildEntityVectorIndexDDL_IndexAndPropertyNames(t *testing.T) {
 // creation, including "already defined" which is used for vector indexes.
 func TestIsAlreadyExistsErr_MatchesVectorIndexDuplicate(t *testing.T) {
 	tests := []struct {
-		name    string
-		err     error
-		want    bool
+		name string
+		err  error
+		want bool
 	}{
 		{name: "nil error", err: nil, want: false},
 		{name: "unrelated error", err: errors.New("connection refused"), want: false},
