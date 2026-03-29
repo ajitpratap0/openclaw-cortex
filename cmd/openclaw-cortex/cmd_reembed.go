@@ -123,9 +123,14 @@ Use --batch to control how many memories are fetched per page (default 50).`,
 			}
 
 			if dryRun {
-				fmt.Printf("Re-embedded %d memories (dry run — no changes applied)\n", fixed)
+				fmt.Printf("Found %d memor%s to re-embed (dry run — no changes applied)\n",
+					fixed, map[bool]string{true: "y", false: "ies"}[fixed == 1])
 			} else {
 				fmt.Printf("Re-embedded %d memories (%d skipped as already embedded, %d errored)\n", fixed, skipped, errored)
+			}
+			if !dryRun && errored > 0 {
+				return fmt.Errorf("reembed: %d memor%s failed to re-embed (see warnings above)",
+					errored, map[bool]string{true: "y", false: "ies"}[errored == 1])
 			}
 			return nil
 		},
