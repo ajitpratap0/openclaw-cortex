@@ -1041,7 +1041,10 @@ func (s *MemgraphStore) CountZeroEmbeddingMemories(ctx context.Context) (int64, 
 		if nextErr != nil {
 			return 0, fmt.Errorf("count zero-embedding memories: %w", nextErr)
 		}
-		n, _ := rec.Get("n")
+		n, ok := rec.Get("n")
+		if !ok {
+			return 0, fmt.Errorf("count zero-embedding memories: record missing key \"n\"")
+		}
 		return n, nil
 	})
 	if err != nil {
