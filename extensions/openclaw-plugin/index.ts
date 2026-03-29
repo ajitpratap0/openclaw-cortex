@@ -397,10 +397,15 @@ const memoryCortexPlugin = {
       cfg.anthropicApiKey,
     );
     // Distinguish plugin-provided credentials from ambient env vars in the log.
-    const pluginSetGateway = gatewayUrl && gatewayToken;
+    // Compare resolved values to plugin values — resolveEnv may have kept env vars
+    // instead of plugin values due to the atomic-pair guard.
+    const gatewayFromPlugin =
+      resolvedEnv.OPENCLAW_GATEWAY_URL === gatewayUrl &&
+      resolvedEnv.OPENCLAW_GATEWAY_TOKEN === gatewayToken &&
+      Boolean(gatewayUrl && gatewayToken);
     const llmMode =
       resolvedEnv.OPENCLAW_GATEWAY_URL && resolvedEnv.OPENCLAW_GATEWAY_TOKEN
-        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL}${pluginSetGateway ? "" : ", from env"})`
+        ? `gateway (${resolvedEnv.OPENCLAW_GATEWAY_URL}${gatewayFromPlugin ? "" : ", from env"})`
         : resolvedEnv.ANTHROPIC_API_KEY
           ? `direct API key${cfg.anthropicApiKey ? "" : " (from env)"}`
           : "none";
