@@ -135,7 +135,7 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 			effectiveThreshold := cfg.Memory.DedupThreshold
 			if cmd.Flags().Changed("dedup-threshold") {
 				if dedupThreshold <= 0 || dedupThreshold > 1 {
-					return fmt.Errorf("store-batch: --dedup-threshold %g out of range [0.0, 1.0]", dedupThreshold)
+					return fmt.Errorf("store-batch: --dedup-threshold %g out of range (0.0, 1.0]", dedupThreshold)
 				}
 				effectiveThreshold = dedupThreshold
 			}
@@ -227,6 +227,6 @@ Output is a JSON array of results with id and status ("created", "duplicate", "u
 
 	cmd.Flags().StringVar(&project, "project", "", "project name for all memories in this batch")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memories)")
-	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range 0.0–1.0; omit to use config default)")
+	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range (0.0, 1.0]; omit to use config default)")
 	return cmd
 }

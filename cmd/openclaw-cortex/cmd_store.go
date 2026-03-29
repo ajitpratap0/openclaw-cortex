@@ -82,7 +82,7 @@ func storeCmd() *cobra.Command {
 			effectiveThreshold := cfg.Memory.DedupThreshold
 			if cmd.Flags().Changed("dedup-threshold") {
 				if dedupThreshold <= 0 || dedupThreshold > 1 {
-					return fmt.Errorf("store: --dedup-threshold %g out of range [0.0, 1.0]", dedupThreshold)
+					return fmt.Errorf("store: --dedup-threshold %g out of range (0.0, 1.0]", dedupThreshold)
 				}
 				effectiveThreshold = dedupThreshold
 			}
@@ -184,7 +184,7 @@ func storeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&validUntil, "valid-until", "", "validity duration from now (e.g. 24h, 7d)")
 	cmd.Flags().BoolVar(&extractEntities, "extract-entities", false, "extract entities and facts from content (requires LLM)")
 	cmd.Flags().BoolVar(&skipDedup, "skip-dedup", false, "bypass store-time dedup check (always store as new memory)")
-	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range 0.0–1.0; omit to use config default)")
+	cmd.Flags().Float64Var(&dedupThreshold, "dedup-threshold", 0, "override cosine similarity dedup threshold for this call (range (0.0, 1.0]; omit to use config default)")
 	return cmd
 }
 
