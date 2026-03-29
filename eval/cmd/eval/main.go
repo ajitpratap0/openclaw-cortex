@@ -1,4 +1,4 @@
-// Command eval runs LoCoMo and/or LongMemEval benchmarks against a live
+// Command eval runs LoCoMo, LongMemEval, and/or DMR benchmarks against a live
 // openclaw-cortex instance and reports results as JSON and a markdown table.
 //
 // Usage:
@@ -7,13 +7,14 @@
 //
 // Flags:
 //
-//	--benchmark   string   Which benchmark to run: locomo, longmemeval, all (default: all)
-//	--binary      string   Path to openclaw-cortex binary (default: openclaw-cortex)
-//	--k           int      k for recall@k metric (default: 5)
-//	--output      string   Output file path for JSON results (default: stdout)
-//	--config      string   Path to openclaw-cortex config file (optional)
-//	--timeout     int      Total timeout in seconds (default: 300)
-//	--accumulate  bool     Use accumulate mode: single reset, ingest all then recall all (default: false)
+//	--benchmark      string   Which benchmark to run: locomo, longmemeval, dmr, all (default: all)
+//	--binary         string   Path to openclaw-cortex binary (default: openclaw-cortex)
+//	--k              int      k for recall@k metric (default: 5)
+//	--output         string   Output file path for JSON results (default: stdout)
+//	--config         string   Path to openclaw-cortex config file (optional)
+//	--timeout        int      Total timeout in seconds (default: 300)
+//	--accumulate     bool     Use accumulate mode: single reset, ingest all then recall all (default: false)
+//	--dataset-path   string   Path to a downloaded dataset file; when set, loads from file instead of synthetic data (default: "")
 package main
 
 import (
@@ -25,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajitpratap0/openclaw-cortex/eval/dmr"
 	"github.com/ajitpratap0/openclaw-cortex/eval/locomo"
 	"github.com/ajitpratap0/openclaw-cortex/eval/longmemeval"
 	"github.com/ajitpratap0/openclaw-cortex/eval/runner"
@@ -38,13 +40,14 @@ func main() {
 }
 
 func run() error {
-	benchmark := flag.String("benchmark", "all", "Which benchmark to run: locomo, longmemeval, all")
+	benchmark := flag.String("benchmark", "all", "Which benchmark to run: locomo, longmemeval, dmr, all")
 	binary := flag.String("binary", "openclaw-cortex", "Path to openclaw-cortex binary")
 	k := flag.Int("k", 5, "k for recall@k metric")
 	output := flag.String("output", "", "Output file path for JSON results (default: stdout)")
 	configPath := flag.String("config", "", "Path to openclaw-cortex config file")
 	timeout := flag.Int("timeout", 300, "Total timeout in seconds (default: 300)")
 	accumulate := flag.Bool("accumulate", false, "Use accumulate mode: single reset, two-pass ingest-then-recall (default: false)")
+	datasetPath := flag.String("dataset-path", "", "Path to a downloaded dataset file; when set, loads from file instead of synthetic data")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -67,21 +70,28 @@ func run() error {
 
 	switch strings.ToLower(*benchmark) {
 	case "locomo":
-		s, err := runLocomo(ctx, client, *k, *accumulate)
+		s, err := runLocomo(ctx, client, *k, *accumulate, *datasetPath)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)
 		}
 		summaries = append(summaries, s)
 
 	case "longmemeval":
-		s, err := runLongMemEval(ctx, client, *k, *accumulate)
+		s, err := runLongMemEval(ctx, client, *k, *accumulate, *datasetPath)
 		if err != nil {
 			return fmt.Errorf("running LongMemEval: %w", err)
 		}
 		summaries = append(summaries, s)
 
+	case "dmr":
+		s, err := runDMR(ctx, client, *k, *accumulate, *datasetPath)
+		if err != nil {
+			return fmt.Errorf("running DMR: %w", err)
+		}
+		summaries = append(summaries, s)
+
 	case "all":
-		s1, err := runLocomo(ctx, client, *k, *accumulate)
+		s1, err := runLocomo(ctx, client, *k, *accumulate, *datasetPath)
 		if err != nil {
 			return fmt.Errorf("running LoCoMo: %w", err)
 		}
@@ -96,14 +106,24 @@ func run() error {
 			return fmt.Errorf("inter-benchmark reset failed (aborting to prevent contamination): %w", resetErr)
 		}
 
-		s2, err := runLongMemEval(ctx, client, *k, *accumulate)
+		s2, err := runLongMemEval(ctx, client, *k, *accumulate, *datasetPath)
 		if err != nil {
 			return fmt.Errorf("running LongMemEval: %w", err)
 		}
 		summaries = append(summaries, s2)
 
+		if resetErr := client.Reset(ctx); resetErr != nil {
+			return fmt.Errorf("inter-benchmark reset failed before DMR (aborting to prevent contamination): %w", resetErr)
+		}
+
+		s3, err := runDMR(ctx, client, *k, *accumulate, *datasetPath)
+		if err != nil {
+			return fmt.Errorf("running DMR: %w", err)
+		}
+		summaries = append(summaries, s3)
+
 	default:
-		return fmt.Errorf("unknown benchmark %q — choose locomo, longmemeval, or all", *benchmark)
+		return fmt.Errorf("unknown benchmark %q — choose locomo, longmemeval, dmr, or all", *benchmark)
 	}
 
 	// Encode results as JSON.
@@ -148,18 +168,45 @@ func run() error {
 			if len(bd) > 0 {
 				fmt.Fprintf(os.Stderr, "\nLongMemEval category breakdown:\n%s", longmemeval.FormatCategoryTable(bd))
 			}
+		case "DMR":
+			bd := dmr.CategoryBreakdown(s)
+			if len(bd) > 0 {
+				fmt.Fprintf(os.Stderr, "\nDMR category breakdown:\n%s", dmr.FormatCategoryTable(bd))
+			}
 		}
 	}
 
 	return nil
 }
 
-func runLocomo(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
+func runLocomo(ctx context.Context, client runner.Client, k int, accumulate bool, datasetPath string) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LoCoMo benchmark...")
+	if datasetPath != "" {
+		pairs, err := locomo.LoadDataset(datasetPath)
+		if err != nil {
+			return nil, fmt.Errorf("load dataset: %w", err)
+		}
+		return locomo.RunFromPairs(ctx, client, pairs, k, accumulate)
+	}
 	return locomo.Run(ctx, client, k, accumulate)
 }
 
-func runLongMemEval(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
+func runLongMemEval(ctx context.Context, client runner.Client, k int, accumulate bool, datasetPath string) (*runner.BenchmarkSummary, error) {
 	fmt.Fprintln(os.Stderr, "Running LongMemEval benchmark...")
+	if datasetPath != "" {
+		pairs, err := longmemeval.LoadDataset(datasetPath)
+		if err != nil {
+			return nil, fmt.Errorf("load dataset: %w", err)
+		}
+		return longmemeval.RunFromPairs(ctx, client, pairs, k, accumulate)
+	}
 	return longmemeval.Run(ctx, client, k, accumulate)
+}
+
+func runDMR(ctx context.Context, client runner.Client, k int, accumulate bool, datasetPath string) (*runner.BenchmarkSummary, error) {
+	fmt.Fprintln(os.Stderr, "Running DMR benchmark...")
+	if datasetPath != "" {
+		return dmr.RunFromFile(ctx, client, datasetPath, k, accumulate)
+	}
+	return dmr.Run(ctx, client, k, accumulate)
 }

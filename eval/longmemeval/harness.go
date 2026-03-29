@@ -12,6 +12,13 @@ import (
 
 const benchmarkName = "LongMemEval"
 
+// RunFromPairs is identical to Run but operates on a caller-supplied slice of
+// QAPairs instead of the synthetic dataset. Use this when loading from a file
+// via LoadDataset.
+func RunFromPairs(ctx context.Context, client runner.Client, pairs []QAPair, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
+	return runPairs(ctx, client, pairs, k, accumulate)
+}
+
 // Run ingests all synthetic LongMemEval facts and evaluates all QA pairs.
 // It returns a BenchmarkSummary with individual and aggregate results.
 //
@@ -28,7 +35,11 @@ const benchmarkName = "LongMemEval"
 // Accumulate mode measures recall against a fully-populated shared store and sets
 // summary.Mode = "accumulate".  Per-pair-reset mode sets summary.Mode = "per-pair-reset".
 func Run(ctx context.Context, client runner.Client, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
-	pairs := Dataset()
+	return runPairs(ctx, client, Dataset(), k, accumulate)
+}
+
+// runPairs is the shared implementation used by Run and RunFromPairs.
+func runPairs(ctx context.Context, client runner.Client, pairs []QAPair, k int, accumulate bool) (*runner.BenchmarkSummary, error) {
 	results := make([]runner.BenchmarkResult, 0, len(pairs))
 	recallFailures := 0
 
