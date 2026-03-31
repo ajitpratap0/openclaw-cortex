@@ -381,7 +381,7 @@ const memoryCortexPlugin = {
     // Always connect to 127.0.0.1 — 0.0.0.0 is a bind address, not a valid connect target.
     const gatewayUrl = gwPort ? `http://127.0.0.1:${gwPort}` : undefined;
     const rawToken = typeof gwAuth?.token === "string" ? gwAuth.token.trim() : undefined;
-    const gatewayToken = rawToken ? rawToken : undefined;
+    const gatewayToken = rawToken || undefined;
     // Group both gateway misconfiguration warnings together, before construction.
     if (!gatewayUrl && gatewayToken) {
       api.logger.warn("memory-cortex: gateway.auth.token is set but gateway.port is missing — gateway LLM mode unavailable");
