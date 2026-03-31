@@ -38,8 +38,8 @@ const footerLinks = {
       href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/LICENSE",
       external: true,
     },
-    { label: "Privacy", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/PRIVACY.md", external: true },
-    { label: "Terms", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/TERMS.md", external: true },
+    { label: "Security", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/SECURITY.md", external: true },
+    { label: "Code of Conduct", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/CODE_OF_CONDUCT.md", external: true },
   ],
 };
 
