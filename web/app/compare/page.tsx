@@ -8,7 +8,7 @@ import ComparisonTable from "@/components/comparison-table";
 import Button from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Compare — OpenClaw Cortex",
+  title: "Compare",
   description:
     "See how OpenClaw Cortex compares to mem0, Zep, LangChain Memory, and raw vector databases.",
 };
