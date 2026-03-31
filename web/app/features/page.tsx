@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import FeaturesNav from "./features-nav";
 
 export const metadata: Metadata = {
-  title: "Features — OpenClaw Cortex",
+  title: "Features",
   description:
     "Deep dive into OpenClaw Cortex features: 8-factor recall scoring, graph traversal, temporal versioning, contradiction detection, episodic memory, and smart capture.",
 };

@@ -54,7 +54,7 @@ export default function Hero() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-zinc-50 leading-tight mb-6 tracking-tight">
-            Memory that
+            Memory that{" "}
             <br />
             <span className="bg-gradient-to-r from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
               understands context
