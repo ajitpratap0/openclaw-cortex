@@ -6,7 +6,7 @@ const footerLinks = {
     { label: "Features", href: "/#features" },
     { label: "Playground", href: "/playground" },
     { label: "Compare", href: "/compare" },
-    { label: "Changelog", href: "/changelog" },
+    { label: "Changelog", href: "https://github.com/ajitpratap0/openclaw-cortex/releases", external: true },
   ],
   Documentation: [
     { label: "Getting Started", href: "/docs/getting-started" },
@@ -38,8 +38,8 @@ const footerLinks = {
       href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/LICENSE",
       external: true,
     },
-    { label: "Privacy", href: "/privacy" },
-    { label: "Terms", href: "/terms" },
+    { label: "Security", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/SECURITY.md", external: true },
+    { label: "Code of Conduct", href: "https://github.com/ajitpratap0/openclaw-cortex/blob/main/CODE_OF_CONDUCT.md", external: true },
   ],
 };
 

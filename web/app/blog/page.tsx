@@ -5,7 +5,7 @@ import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 
 export const metadata: Metadata = {
-  title: "Blog — OpenClaw Cortex",
+  title: "Blog",
   description: "Release notes and technical deep dives from the OpenClaw Cortex team.",
 };
 
