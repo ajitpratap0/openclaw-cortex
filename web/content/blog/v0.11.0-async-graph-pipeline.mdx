@@ -1,0 +1,70 @@
+---
+title: "v0.11.0: Async Graph Pipeline & Graph-Aware Recall"
+date: "2026-04-07"
+tags: ["release", "graph", "recall", "performance", "benchmarks"]
+excerpt: "Capture is now fast. A Graphiti-style WAL queue decouples LLM extraction from the user hot path, while graph-proximity ranking adds a 9th signal to recall scoring."
+author: "Ajit Pratap Singh"
+readingTime: "6 min"
+---
+
+Capture used to be slow. Every `capture` call synchronously called Claude Haiku twice — once to extract memories, once to extract entities and facts — then wrote everything to Memgraph before returning. On a typical multi-turn conversation, that pushed user-visible latency into the multi-second range. Fine for a demo. Unacceptable for a hook that runs on every turn.
+
+v0.11.0 rewrites capture around a persistent work queue, adds graph-aware scoring as a first-class recall signal, and ships a full-scale benchmark suite so we can prove regressions never ship.
+
+## Async Graph Pipeline
+
+Capture now has two paths. The **fast path** embeds the raw content, writes the memory to Memgraph with deduplication, and returns. That's the whole user-visible work. The **slow path** — entity extraction, fact extraction, contradiction detection, graph linking — runs asynchronously through a write-ahead log.
+
+The WAL queue is a small durable log (Memgraph-backed) with a bounded worker pool draining it. Crashes don't lose work: on startup, the worker replays anything that was in-flight. Backpressure is handled by the worker pool's concurrency limit, not by blocking the caller.
+
+This is [Graphiti](https://github.com/getzep/graphiti)'s architectural insight: the graph is eventually consistent, not synchronously consistent. Recall queries that hit a memory before its entities are extracted will still work — they just won't benefit from graph traversal for that memory yet. A few seconds later, the entities land and the next recall picks them up.
+
+The result: capture latency dropped from ~2–4s to ~200–400ms on typical content. The user no longer waits for the LLM to finish its graph bookkeeping.
+
+## Graph-Proximity Ranking
+
+Recall scoring is now a 9-factor weighted sum:
+
+```
+0.45 × similarity
++ 0.08 × recency
++ 0.05 × frequency
++ 0.10 × typeBoost
++ 0.08 × scopeBoost
++ 0.07 × confidence
++ 0.07 × reinforcement
++ 0.05 × tagAffinity
++ 0.05 × graph_proximity   ← new
+```
+
+Graph proximity measures how close a candidate memory is to the query's entities via typed relationship edges. If you ask about "Alice's framework preferences" and the query extracts the entity `Alice`, memories one hop away on a `PREFERS` or `USES` edge get a boost over memories that share only lexical similarity.
+
+Typed relationship labels replace the previous generic `RELATES_TO` edges — facts now carry their predicate (`WORKS_AT`, `BUILT_BY`, `DEPRECATED_BY`, etc.) and graph traversal can filter by relationship type. Subgraph retrieval walks the neighborhood around seed entities, then RRF-merges those results with vector search.
+
+For the admin command crowd: `cortex graph-admin communities` runs Memgraph's MAGE community detection over the entity graph, producing clusters you can use for tag suggestions or topic summaries.
+
+## Benchmark Suite
+
+None of this matters unless we can prove it doesn't regress. v0.11.0 ships a real evaluation harness:
+
+- **LoCoMo + LongMemEval + DMR** dataset loaders with synthetic + real variants
+- **Accumulate mode** — all prior turns are written to the store before each question, matching how agents actually use Cortex
+- **CI eval job** — runs on every PR, fails if Token-F1 or Recall@K drops below the recorded baseline
+- **`eval-compare`** — a comparison tool that diffs two result JSON files and prints per-dataset deltas
+
+The v0.10.0 baseline (LoCoMo 100% EM, LongMemEval 80% EM on synthetic per-pair isolation) is the floor we refuse to drop below.
+
+## Smaller wins
+
+- **`reembed` command** — rebuild embeddings after model changes or corruption; pairs with a zero-embedding health check that flags stale vectors
+- **Schema validation** — `EnsureSchema` now verifies the vector index property dimension and drops+recreates on mismatch, preventing the silent-index-mismatch class of bugs
+- **Plugin gateway auto-wire** — the OpenClaw plugin now detects a running gateway and wires LLM credentials automatically (Max plan users no longer need to manage API keys manually)
+- **Store-time entity extraction** is on by default — `cortex store` now produces entities and facts, not just the memory
+- **Temporal recall filters** — `--valid-before` / `--valid-after` let you query what was true at a point in time without round-tripping through the history API
+- **`recall --format json` / `--limit N`** — machine-readable output for scripting
+
+## Upgrade notes
+
+No breaking changes. Binary and plugin both ship as `0.11.0`. If you maintain a running deployment, restart the binary to pick up the new schema validation — it'll drop and recreate the vector index if it finds a dimension mismatch, which means a one-time reindex. If you rely on synchronous capture (anything that expects entities to exist immediately after `capture` returns), set `--sync-capture` on the capture command to opt back into the old behavior.
+
+Full changelog: [CHANGELOG.md](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CHANGELOG.md). Benchmarks, plans for v0.12.0, and the roadmap live at [ROADMAP.md](https://github.com/ajitpratap0/openclaw-cortex/blob/main/ROADMAP.md).
