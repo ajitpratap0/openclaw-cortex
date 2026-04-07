@@ -60,7 +60,7 @@ OpenClaw Cortex follows a milestone-based release cadence. Features ship when st
 
 v0.9.0 was not tagged; all work from this cycle was consolidated into v0.10.0.
 
-## v0.10.0 — Current (Eval Framework, Admin UI, Resilience, Security Hardening)
+## v0.10.0 — Eval Framework, Admin UI, Resilience, Security Hardening
 
 - [x] LoCoMo + LongMemEval benchmark harness (`eval/` package) with Token-F1, Recall@K, CSV/JSON reports
 - [x] `ResettableStore` interface + `openclaw-cortex reset --yes` command for benchmark isolation
@@ -75,7 +75,23 @@ v0.9.0 was not tagged; all work from this cycle was consolidated into v0.10.0.
 - [x] Memgraph DDL: vector dimension injected from config; SearchEntities Cypher dialect fix
 - [x] Test coverage raised from 56.7 % to 85.3 %
 
-## v0.11.0 — Planned
+## v0.11.0 — Current (Async Graph Pipeline, Graph-Aware Recall, Benchmarks)
+
+- [x] Async graph pipeline — Graphiti-style WAL queue + worker pool; fast-capture path
+- [x] Typed relationship labels, subgraph retrieval, graph-proximity ranking (9th recall factor)
+- [x] MAGE community detection admin command
+- [x] Full-scale benchmark suite — accumulate mode, DMR, dataset loaders, CI eval job, comparison tool
+- [x] `reembed` command + zero-embedding health check
+- [x] Schema validation in `EnsureSchema` — verifies vector index, drops+recreates on mismatch
+- [x] Plugin auto-wires OpenClaw gateway for LLM access
+- [x] Entity + fact extraction in `store` command (enabled by default)
+- [x] Fact-text embeddings for semantic search over relationship triples
+- [x] `recall --valid-before` / `--valid-after` temporal filters
+- [x] `recall --format json` / `--limit` flags
+- [x] `--dedup-threshold` flag + min content-length guard in store
+- [x] `internal/timeutil` extracted
+
+## v0.12.0 — Planned
 
 - [ ] Multi-model embedder support (Cohere, Gemini, OpenAI-compatible endpoints)
 - [ ] Streaming recall (SSE endpoint for progressive context injection)

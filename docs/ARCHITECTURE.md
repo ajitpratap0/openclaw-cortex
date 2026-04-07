@@ -257,27 +257,27 @@ The central struct is `models.Memory` in `internal/models/memory.go`.
 
 ## Recall Scoring
 
-The multi-factor scoring formula combines eight weighted signals plus two multiplicative penalties:
+The multi-factor scoring formula combines nine weighted signals plus two multiplicative penalties:
 
 ### Weighted Components (sum = 1.0)
 
 ```
-weightedSum = 0.35 * similarity + 0.15 * recency + 0.10 * frequency
-            + 0.10 * typeBoost  + 0.08 * scopeBoost + 0.10 * confidence
-            + 0.07 * reinforcement + 0.05 * tagAffinity
+weightedSum = 0.45 * similarity + 0.08 * recency + 0.05 * frequency
+            + 0.10 * typeBoost  + 0.08 * scopeBoost + 0.07 * confidence
+            + 0.07 * reinforcement + 0.05 * tagAffinity + 0.05 * graphProximity
 
 finalScore = weightedSum * supersessionPenalty * conflictPenalty
 ```
 
-**Similarity** (35%): Cosine similarity from Memgraph vector index. The primary signal.
+**Similarity** (45%): Cosine similarity from Memgraph vector index. The primary signal.
 
-**Recency** (15%): Exponential decay with a 7-day half-life:
+**Recency** (8%): Exponential decay with a 7-day half-life:
 
 ```
 recency = exp(-ln(2) * hoursSinceAccess / 168)
 ```
 
-**Frequency** (10%): Log₂-scale access count, capped at 1.0:
+**Frequency** (5%): Log₂-scale access count, capped at 1.0:
 
 ```
 frequency = min(1.0, log2(1 + accessCount) / 10)
@@ -287,7 +287,7 @@ frequency = min(1.0, log2(1 + accessCount) / 10)
 
 **Scope boost** (8%): Normalized multiplier. Project-scoped memories whose project matches the query receive a score of 1.0 (vs. 0.67 for `permanent`-scope and 0.53 for `session`/`ttl`).
 
-**Confidence** (10%): Uses the memory's `Confidence` field directly (0.0-1.0). Legacy memories with `Confidence < 0.01` are treated as "unknown" and substituted with 0.7.
+**Confidence** (7%): Uses the memory's `Confidence` field directly (0.0-1.0). Legacy memories with `Confidence < 0.01` are treated as "unknown" and substituted with 0.7.
 
 **Reinforcement** (7%): Log-scaled reinforcement count, saturating at ~32 reinforcements:
 
@@ -296,6 +296,8 @@ reinforcement = min(1.0, log2(reinforcedCount + 1) / 5.0)
 ```
 
 **Tag affinity** (5%): Fraction of the memory's tags that match query words (case-insensitive, exact word match).
+
+**Graph proximity** (5%): Distance from the memory to entities extracted from the query, measured by hop count along typed relationship edges in the Memgraph entity graph. Memories one hop from a query entity score higher than memories reached only through lexical similarity.
 
 ### Multiplicative Penalties
 

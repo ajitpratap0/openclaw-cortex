@@ -4,11 +4,11 @@ import PlaygroundLoader from "@/components/playground-loader";
 export const metadata: Metadata = {
   title: "Interactive Playground",
   description:
-    "See how the 8-factor recall ranking works on sample memories. A live demo using the same scoring algorithm as the real openclaw-cortex engine.",
+    "See how the 9-factor recall ranking works on sample memories. A live demo using the same scoring algorithm as the real openclaw-cortex engine.",
   openGraph: {
     title: "Try the Recall Engine | OpenClaw Cortex",
     description:
-      "Interactive demo of 8-factor memory ranking. See similarity, recency, frequency, and more applied in real time.",
+      "Interactive demo of 9-factor memory ranking. See similarity, recency, frequency, graph proximity, and more applied in real time.",
   },
 };
 
@@ -42,7 +42,7 @@ export default function PlaygroundPage() {
                 Try the Recall Engine
               </h1>
               <p className="text-zinc-300 max-w-2xl leading-relaxed">
-                See how 8-factor ranking works on sample memories. This is a
+                See how 9-factor ranking works on sample memories. This is a
                 simulated demo using the same scoring algorithm as the real
                 engine — running entirely in your browser, no server required.
               </p>
@@ -55,9 +55,9 @@ export default function PlaygroundPage() {
               Scoring Formula
             </p>
             <code className="text-xs text-indigo-300 font-mono leading-relaxed break-all">
-              0.35×similarity + 0.15×recency + 0.10×frequency + 0.10×typeBoost
-              + 0.08×scopeBoost + 0.10×confidence + 0.07×reinforcement +
-              0.05×tagAffinity
+              0.45×similarity + 0.08×recency + 0.05×frequency + 0.10×typeBoost
+              + 0.08×scopeBoost + 0.07×confidence + 0.07×reinforcement +
+              0.05×tagAffinity + 0.05×graphProximity
             </code>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-600">
               <span>Superseded memories receive a ×0.3 penalty</span>

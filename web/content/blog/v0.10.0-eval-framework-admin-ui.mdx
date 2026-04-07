@@ -1,0 +1,63 @@
+---
+title: "v0.10.0: Eval Framework, Admin UI, and Production Hardening"
+date: "2026-03-23"
+tags: ["release", "eval", "admin", "resilience", "security"]
+excerpt: "LoCoMo and LongMemEval benchmarks, a standalone Next.js admin app for browsing memories and resolving conflicts, and a ResilientClient that keeps LLM calls from taking down your agent."
+author: "Ajit Pratap Singh"
+readingTime: "6 min"
+---
+
+v0.9.0 was skipped. Everything that would have gone into 0.9 landed in 0.10, which turned into the biggest release since the Memgraph migration. Three themes: **we can finally measure ourselves**, **you can finally see what's in the store**, and **the LLM layer stops being a single point of failure**.
+
+## Benchmarks That Actually Run
+
+Cortex now ships an evaluation harness (`eval/` package) that runs LoCoMo and LongMemEval end-to-end against a live binary. It loads synthetic or real datasets, writes conversation turns into the store, asks questions, and scores answers with Token-F1 and Recall@K. Results go to CSV or JSON so you can diff runs.
+
+The harness is brutal on purpose. Per-pair isolation (reset the store between pairs) exposes recall bugs that accumulate-mode hides. We found two real regressions that way during 0.10's development and shipped fixes before tagging.
+
+A new `openclaw-cortex reset --yes` command wipes the store. It's behind a required flag because forgetting it on a populated instance is unrecoverable. The flag is also why the new `ResettableStore` interface exists — we wanted the reset contract to live on a narrow interface that mocks can implement cleanly.
+
+Baseline numbers, v0.10.0 on the synthetic per-pair isolation runs:
+
+- **LoCoMo: 100% EM**
+- **LongMemEval: 80% EM**
+
+These are the floor. CI blocks merges that drop below them.
+
+## Admin UI
+
+Until 0.10, the only way to inspect what Cortex knew was `recall` queries and Cypher shell. That doesn't scale past a few thousand memories and it doesn't help at all with conflict resolution.
+
+`apps/admin/` is a standalone Next.js 15 app that connects directly to Memgraph and shows you:
+
+- **Memories** with pagination, filtering by type/scope/project, and full-text search
+- **Entities** with their relationship neighborhoods
+- **Conflict groups** — when contradiction detection flags two memories as mutually exclusive, the admin UI surfaces them side-by-side with an inline "mark resolved" action
+
+It's deliberately separate from the marketing site. Admin has database access. Marketing doesn't. They never share a runtime.
+
+## ResilientClient
+
+Every LLM call in Cortex now goes through `internal/llm/ResilientClient`, which wraps any `LLMClient` with three protections:
+
+1. **Circuit breaker** — after N consecutive failures, the client fails fast for a cooldown period instead of hammering a dead provider
+2. **Retry with exponential back-off** — transient errors get N retries with jitter
+3. **Bounded worker pool** — caps concurrent LLM calls so a burst of captures can't exhaust the provider's rate limit in one flush
+
+This matters because the async graph pipeline (coming in 0.11) was going to multiply LLM pressure. Shipping resilience first meant the pipeline rewrite didn't become a capacity incident.
+
+## Smaller wins
+
+- **LM Studio embedder** — new provider for fully local embeddings. The OpenAI embedder was removed; use Ollama, LM Studio, or the planned multi-provider work in v0.12
+- **Per-user memory namespacing** — `UserID` field on `Memory` and `SearchFilters`. Set it and memories are scoped per user
+- **Sentry integration** — error tracking and performance tracing wired into every CLI command and hot path
+- **Marketing site** — `web/` now has a proper landing page, hero, architecture diagram, and feature list
+- **Parallel PostTurnHook** — per-memory embed+upsert pipeline runs concurrently with a semaphore-bounded worker pool
+- **HTTP API security** — `--unsafe-no-auth` is now required to disable auth, per-IP rate limiting, TLS flags
+- **Test coverage** raised from 56.7% to 85.3%
+
+## Upgrade notes
+
+No breaking changes in the binary, but `DeleteAllMemories` moved from `MemgraphClient` to the new `ResettableStore` interface. If you were calling it directly, either assert to `ResettableStore` or embed the interface. The eval harness depends on this so the indirection pays for itself.
+
+Full changelog: [CHANGELOG.md](https://github.com/ajitpratap0/openclaw-cortex/blob/main/CHANGELOG.md).

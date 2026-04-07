@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.10.0"><img src="https://img.shields.io/github/v/release/ajitpratap0/openclaw-cortex?label=release" alt="Release v0.10.0"></a>
+  <a href="https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.11.0"><img src="https://img.shields.io/github/v/release/ajitpratap0/openclaw-cortex?label=release" alt="Release v0.11.0"></a>
   <a href="https://github.com/ajitpratap0/openclaw-cortex/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ajitpratap0/openclaw-cortex/ci.yml?branch=main&label=CI" alt="CI"></a>
   <a href="https://goreportcard.com/report/github.com/ajitpratap0/openclaw-cortex"><img src="https://goreportcard.com/badge/github.com/ajitpratap0/openclaw-cortex" alt="Go Report Card"></a>
 </p>
@@ -21,14 +21,14 @@
 
 OpenClaw Cortex is a self-hosted memory layer for AI agents. It captures structured memories from conversations using Claude Haiku, stores them in Memgraph (a graph database with native vector search), and retrieves the most relevant context for each new turn — trimmed to fit your token budget.
 
-It replaces naive conversation history with an **8-factor ranked, graph-aware recall engine** that gets smarter over time: access patterns reinforce confidence, contradictions are detected and surfaced, and outdated memories decay automatically.
+It replaces naive conversation history with a **9-factor ranked, graph-aware recall engine** that gets smarter over time: access patterns reinforce confidence, contradictions are detected and surfaced, and outdated memories decay automatically.
 
 ---
 
 ## Features
 
 - **Hybrid graph + vector recall** — Memgraph provides both 768-dim vector search and graph traversal in a single store; results are fused with Reciprocal Rank Fusion (RRF)
-- **8-factor scoring** — similarity, recency, frequency, type boost, scope boost, confidence, reinforcement, and tag affinity — all configurable weights
+- **9-factor scoring** — similarity, recency, frequency, type boost, scope boost, confidence, reinforcement, tag affinity, and graph proximity — all configurable weights
 - **Smart capture** — Claude Haiku extracts structured memories, entities, and relationship facts from conversation turns; prompt injection is prevented via XML escaping
 - **Temporal versioning** — `valid_from`/`valid_to` on every fact; `as-of` point-in-time queries
 - **Conflict detection** — contradicting memories are tagged, penalised in recall (×0.8), and resolved during consolidation

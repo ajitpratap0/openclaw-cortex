@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-07
+
+### Added
+
+- **Async graph pipeline** — Graphiti-style WAL queue + worker pool; fast-capture path decouples LLM entity/fact extraction from the user hot path ([#114])
+- **Typed relationship labels, subgraph retrieval, and graph-proximity ranking** — 9th scoring factor added to recall; MAGE community detection admin command ([#113])
+- **Full-scale benchmark suite** — accumulate mode, DMR dataset, dataset loaders, CI eval job, and a comparison tool for regressions ([#115])
+- **`reembed` command** and zero-embedding health check for detecting and repairing missing embeddings ([#112])
+- **Schema validation in `EnsureSchema`** — verifies the vector index property and drops+recreates on mismatch ([#109])
+- **OpenClaw gateway auto-wiring in plugin** — LLM credentials are auto-configured from the local gateway when available ([#105], [#116])
+- **Entity + fact extraction in `store` command**, enabled by default
+- **Fact-text embeddings** for semantic search over relationship triples
+- **`recall --valid-before` / `--valid-after`** temporal filters
+- **`recall --format json` / `--limit N`** flags ([#93])
+- **Store content guard + `--dedup-threshold` flag** — min content-length enforced, dedup threshold now configurable ([#111])
+- **Next.js marketing website** — polished footer, hero copy fixes, and working external links to Security / Code of Conduct / Changelog ([#118])
+
+### Fixed
+
+- **Ranking quality + store-time dedup** ([#102])
+- **Lucene special-char sanitization** in `text_search.search_all` query ([#101])
+- **Read-back race in `LinkMemoryToEntity`**; `MockStore` `ErrNotFound` wrapping fixed ([#99])
+- **Health check** now exercises real LLM credentials with a ping call ([#98])
+- **Plugin `store()` return** distinguishes dedup-update from failure ([#110])
+- **Web footer** — replaced broken `/privacy` and `/terms` with real Security / Code of Conduct links; Changelog points to GitHub releases
+- **Web page metadata** — removed duplicated `— OpenClaw Cortex` suffix (layout template was causing `"X — OpenClaw Cortex | OpenClaw Cortex"`)
+- **Web hero H1** — restored missing space in "Memory that understands context" for screen readers
+- **npm audit** — lockfile-only update for `picomatch` and `yaml` CVEs
+
+### Changed
+
+- **`internal/timeutil` package** extracted — `ParseDuration` / `ParseTimeFlag` consolidated from scattered call sites
+
+[#93]: https://github.com/ajitpratap0/openclaw-cortex/pull/93
+[#98]: https://github.com/ajitpratap0/openclaw-cortex/pull/98
+[#99]: https://github.com/ajitpratap0/openclaw-cortex/pull/99
+[#101]: https://github.com/ajitpratap0/openclaw-cortex/pull/101
+[#102]: https://github.com/ajitpratap0/openclaw-cortex/pull/102
+[#105]: https://github.com/ajitpratap0/openclaw-cortex/pull/105
+[#109]: https://github.com/ajitpratap0/openclaw-cortex/pull/109
+[#110]: https://github.com/ajitpratap0/openclaw-cortex/pull/110
+[#111]: https://github.com/ajitpratap0/openclaw-cortex/pull/111
+[#112]: https://github.com/ajitpratap0/openclaw-cortex/pull/112
+[#113]: https://github.com/ajitpratap0/openclaw-cortex/pull/113
+[#114]: https://github.com/ajitpratap0/openclaw-cortex/pull/114
+[#115]: https://github.com/ajitpratap0/openclaw-cortex/pull/115
+[#116]: https://github.com/ajitpratap0/openclaw-cortex/pull/116
+[#118]: https://github.com/ajitpratap0/openclaw-cortex/pull/118
+
 ## [0.10.0] - 2026-03-23
 
 > Note: v0.9.0 was skipped; all post-v0.8.0 work is consolidated here.
@@ -210,7 +259,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Comprehensive test suite with mocked Qdrant
 - golangci-lint configuration
 
-[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.8.0...v0.10.0
 [0.8.0]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/ajitpratap0/openclaw-cortex/compare/v0.7.1...v0.7.2
