@@ -1,0 +1,1849 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/plans/2026-03-17-track3-features/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Track 3 — Features (User Namespacing, Streaming Recall, Batch Capture) Implementation Plan - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#track-3-features-user-namespacing-streaming-recall-batch-capture-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Track 3 — Features (User Namespacing, Streaming Recall, Batch Capture) Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="track-3-features-user-namespacing-streaming-recall-batch-capture-implementation-plan">Track 3 — Features (User Namespacing, Streaming Recall, Batch Capture) Implementation Plan</h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Ship three user-facing features: multi-user namespace isolation (<code>user_id</code> field throughout), server-sent events streaming for <code>/v1/recall</code>, and a <code>capture-batch</code> CLI command for bulk JSONL import.</p>
+<p><strong>Architecture:</strong> Three PRs serialized by dependency. PR 3.1 (user namespacing) changes the <code>Store</code> interface and <code>models.Memory</code> — all subsequent PRs depend on it. PR 3.2 (streaming recall) and PR 3.3 (batch capture) are independent of each other but must follow 3.1. PR 3.1 is split into 3.1a (model + store layer, ~8 files) and 3.1b (propagation to API/MCP/CLI, ~22 files).</p>
+<p><strong>Prerequisite:</strong> Track 1 PRs merged (especially 1.4 which changes <code>NewServer</code> and <code>SearchEntities</code> signatures).</p>
+<p><strong>Tech Stack:</strong> Go 1.25, <code>net/http</code> (SSE via <code>http.Flusher</code>), golangci-lint v2, black-box tests in <code>tests/</code></p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-03-17-v0.9.0-architecture-security-review-design.md</code></p>
+<hr />
+<h2 id="pr-31a-featuser-namespacing-model-store-layer">PR 3.1a — <code>feat/user-namespacing</code> (model + store layer)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>internal/models/memory.go</code>
+- Modify: <code>internal/models/entity.go</code>
+- Modify: <code>internal/store/store.go</code>
+- Modify: <code>internal/store/mock_store.go</code>
+- Modify: <code>internal/memgraph/store.go</code>
+- Modify: <code>internal/memgraph/graph.go</code>
+- Modify: <code>internal/config/config.go</code>
+- Modify: <code>cmd/openclaw-cortex/cmd_migrate.go</code>
+- Test: <code>tests/user_isolation_test.go</code> (new)</p>
+<hr />
+<h3 id="task-1-add-userid-to-models-and-store-interface">Task 1: Add <code>UserID</code> to models and store interface</h3>
+<ul>
+<li>[ ] <strong>Step 1: Write failing isolation test in <code>tests/user_isolation_test.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;context&quot;
+    &quot;testing&quot;
+    &quot;time&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func TestUserIsolation_UserACannotRecallUserBMemories(t *testing.T) {
+    ctx := context.Background()
+    st := newTestStore(t) // helper that returns a MockStore
+
+    userA := &quot;alice&quot;
+    userB := &quot;bob&quot;
+
+    memA := models.Memory{
+        ID:           &quot;mem-a&quot;,
+        UserID:       userA,
+        Content:      &quot;Alice's secret project details&quot;,
+        Type:         models.MemoryTypeFact,
+        Scope:        models.ScopeSession,
+        Confidence:   0.9,
+        CreatedAt:    time.Now(),
+        UpdatedAt:    time.Now(),
+        LastAccessed: time.Now(),
+    }
+
+    if err := st.Upsert(ctx, memA, make([]float32, 768)); err != nil {
+        t.Fatalf(&quot;upsert: %v&quot;, err)
+    }
+
+    // Search as userB — should not find userA's memory
+    filterB := &amp;store.SearchFilters{UserID: &amp;userB}
+    results, err := st.Search(ctx, make([]float32, 768), 10, filterB)
+    if err != nil {
+        t.Fatalf(&quot;search: %v&quot;, err)
+    }
+    for _, r := range results {
+        if r.Memory.UserID == userA {
+            t.Fatalf(&quot;user B received user A's memory: %s&quot;, r.Memory.ID)
+        }
+    }
+}
+
+func TestUserIsolation_SameUserCanRecallOwnMemories(t *testing.T) {
+    ctx := context.Background()
+    st := newTestStore(t)
+
+    userA := &quot;alice&quot;
+    mem := models.Memory{
+        ID:           &quot;mem-aa&quot;,
+        UserID:       userA,
+        Content:      &quot;Alice remembers this&quot;,
+        Type:         models.MemoryTypeFact,
+        Scope:        models.ScopeSession,
+        Confidence:   0.9,
+        CreatedAt:    time.Now(),
+        UpdatedAt:    time.Now(),
+        LastAccessed: time.Now(),
+    }
+    _ = st.Upsert(ctx, mem, make([]float32, 768))
+
+    filterA := &amp;store.SearchFilters{UserID: &amp;userA}
+    results, err := st.Search(ctx, make([]float32, 768), 10, filterA)
+    if err != nil {
+        t.Fatalf(&quot;search: %v&quot;, err)
+    }
+    found := false
+    for _, r := range results {
+        if r.Memory.ID == &quot;mem-aa&quot; {
+            found = true
+        }
+    }
+    if !found {
+        t.Fatal(&quot;expected to find alice's own memory, did not&quot;)
+    }
+}
+
+// newTestStore returns a MockStore for unit tests.
+func newTestStore(t *testing.T) store.Store {
+    t.Helper()
+    return store.NewMockStore()
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run to confirm failure</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestUserIsolation ./tests/ -v -count=1
+</code></pre>
+<p>Expected: FAIL — <code>models.Memory</code> has no <code>UserID</code> field, <code>store.SearchFilters</code> has no <code>UserID</code> field.</p>
+<hr />
+<h3 id="task-2-add-userid-to-models">Task 2: Add <code>UserID</code> to models</h3>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>UserID string</code> to <code>models.Memory</code> in <code>internal/models/memory.go</code></strong></li>
+</ul>
+<p>Add the field after <code>Project</code>:</p>
+<pre><code class="language-go">// UserID is the owner of this memory. Used for namespace isolation.
+// Empty string means the memory belongs to the default user (&quot;default&quot;).
+UserID string `json:&quot;user_id,omitempty&quot;`
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Add <code>UserID string</code> to <code>models.Entity</code> in <code>internal/models/entity.go</code></strong></li>
+</ul>
+<pre><code class="language-go">UserID string `json:&quot;user_id,omitempty&quot;`
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Add <code>UserID *string</code> to <code>store.SearchFilters</code> in <code>internal/store/store.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// UserID filters results to a specific user namespace.
+// nil means no user filter (returns results for all users).
+UserID *string `json:&quot;user_id,omitempty&quot;`
+</code></pre>
+<hr />
+<h3 id="task-3-update-mockstore-to-enforce-user-isolation">Task 3: Update MockStore to enforce user isolation</h3>
+<ul>
+<li>[ ] <strong>Step 6: Update <code>internal/store/mock_store.go</code> <code>Search</code> and <code>List</code> to filter by <code>UserID</code></strong></li>
+</ul>
+<p>In <code>MockStore.Search</code>, after existing filters, add:</p>
+<pre><code class="language-go">if filters != nil &amp;&amp; filters.UserID != nil {
+    var filtered []models.SearchResult
+    for _, r := range results {
+        if r.Memory.UserID == *filters.UserID {
+            filtered = append(filtered, r)
+        }
+    }
+    results = filtered
+}
+</code></pre>
+<p>Apply the same pattern to <code>MockStore.List</code>.</p>
+<ul>
+<li>[ ] <strong>Step 7: Run isolation tests</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestUserIsolation -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<hr />
+<h3 id="task-4-update-memgraphstore-to-filter-by-userid">Task 4: Update MemgraphStore to filter by <code>UserID</code></h3>
+<ul>
+<li>[ ] <strong>Step 8: Update <code>buildWhereClause</code> in <code>internal/memgraph/store.go</code></strong> to handle <code>UserID</code> filter</li>
+</ul>
+<p>In <code>buildWhereClause(filters *store.SearchFilters, alias string)</code>:</p>
+<pre><code class="language-go">if filters.UserID != nil {
+    clauses = append(clauses, fmt.Sprintf(&quot;%s.user_id = $user_id&quot;, alias))
+    params[&quot;user_id&quot;] = *filters.UserID
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 9: Update <code>memoryToParams</code> to include <code>user_id</code></strong></li>
+</ul>
+<pre><code class="language-go">params[&quot;user_id&quot;] = memory.UserID
+</code></pre>
+<p>Add <code>m.user_id = $user_id</code> to the <code>SET</code> clause in <code>Upsert</code>.</p>
+<ul>
+<li>[ ] <strong>Step 10: Update Memgraph schema</strong> in <code>internal/memgraph/graph.go</code> — add user_id index:</li>
+</ul>
+<pre><code class="language-go">&quot;CREATE INDEX ON :Memory(user_id)&quot;,
+&quot;CREATE INDEX ON :Entity(user_id)&quot;,
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 11: Update entity upsert/search</strong> in <code>MemgraphStore</code> to persist and filter <code>UserID</code>.</li>
+</ul>
+<hr />
+<h3 id="task-5-config-migration">Task 5: Config + migration</h3>
+<ul>
+<li>[ ] <strong>Step 12: Add default user config in <code>internal/config/config.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// UserConfig holds user identity settings.
+type UserConfig struct {
+    DefaultUserID string `mapstructure:&quot;default_user_id&quot;`
+}
+</code></pre>
+<p>Add <code>User UserConfig</code> to <code>Config</code> struct.</p>
+<p>In <code>Load()</code>:</p>
+<pre><code class="language-go">v.SetDefault(&quot;user.default_user_id&quot;, &quot;default&quot;)
+_ = v.BindEnv(&quot;user.default_user_id&quot;, &quot;OPENCLAW_CORTEX_USER_ID&quot;)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 13: Add <code>--add-user-id</code> migration subcommand to <code>cmd/openclaw-cortex/cmd_migrate.go</code></strong></li>
+</ul>
+<pre><code class="language-go">// migrateAddUserIDCmd backfills user_id = &quot;default&quot; on all Memory and Entity nodes
+// that have no user_id set.
+var migrateAddUserIDCmd = &amp;cobra.Command{
+    Use:   &quot;add-user-id&quot;,
+    Short: &quot;Backfill user_id='default' on all memories and entities without one&quot;,
+    RunE: func(cmd *cobra.Command, args []string) error {
+        // Run Cypher:
+        // MATCH (m:Memory) WHERE m.user_id IS NULL OR m.user_id = &quot;&quot;
+        // SET m.user_id = &quot;default&quot;
+        // MATCH (e:Entity) WHERE e.user_id IS NULL OR e.user_id = &quot;&quot;
+        // SET e.user_id = &quot;default&quot;
+        logger := newLogger()
+        ctx := cmd.Context()
+        st, err := newMemgraphStore(ctx, logger)
+        if err != nil {
+            return fmt.Errorf(&quot;migrate: %w&quot;, err)
+        }
+        defer func() { _ = st.Close() }()
+        return st.MigrateAddUserID(ctx)
+    },
+}
+</code></pre>
+<p>Add <code>MigrateAddUserID(ctx context.Context) error</code> to <code>MemgraphStore</code>.</p>
+<ul>
+<li>[ ] <strong>Step 14: Run full test suite</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Step 15: Commit 3.1a</strong></li>
+</ul>
+<pre><code class="language-bash">git checkout -b feat/user-namespacing
+git add internal/models/ internal/store/ internal/memgraph/ internal/config/config.go \
+        cmd/openclaw-cortex/cmd_migrate.go tests/user_isolation_test.go
+git commit -m &quot;feat(user-namespacing) 3.1a: add UserID to models, store, Memgraph
+
+Adds UserID field to Memory and Entity models.
+Adds UserID filter to SearchFilters.
+MockStore and MemgraphStore enforce user isolation on Search and List.
+Memgraph schema gains user_id index on Memory and Entity.
+Migration: cortex migrate add-user-id backfills user_id='default'.
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="pr-31b-featuser-namespacing-apimcpcli-propagation">PR 3.1b — <code>feat/user-namespacing</code> (API/MCP/CLI propagation)</h2>
+<p><strong>Prerequisite:</strong> 3.1a committed on same branch.</p>
+<p><strong>Files:</strong>
+- Modify: <code>internal/api/server.go</code>
+- Modify: <code>internal/mcp/server.go</code>
+- Modify: <code>internal/hooks/hooks.go</code>
+- Modify: all <code>cmd/openclaw-cortex/cmd_*.go</code> (add <code>--user</code> flag)
+- Modify: <code>cmd/openclaw-cortex/main.go</code>
+- Test: <code>tests/api_user_test.go</code> (new)</p>
+<hr />
+<h3 id="task-6-http-api-user-propagation">Task 6: HTTP API user propagation</h3>
+<ul>
+<li>[ ] <strong>Step 1: Write failing API test in <code>tests/api_user_test.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;bytes&quot;
+    &quot;encoding/json&quot;
+    &quot;net/http&quot;
+    &quot;net/http/httptest&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/api&quot;
+    // ... imports
+)
+
+func TestAPIRemember_StoresUserID(t *testing.T) {
+    st := store.NewMockStore()
+    srv := api.NewServer(st, nil, newTestEmbedder(t), newTestLogger(), &quot;&quot;, &quot;&quot;)
+    handler := srv.Handler()
+
+    body, _ := json.Marshal(map[string]any{
+        &quot;content&quot;: &quot;test memory&quot;,
+        &quot;type&quot;:    &quot;fact&quot;,
+    })
+    req := httptest.NewRequest(http.MethodPost, &quot;/v1/remember&quot;, bytes.NewReader(body))
+    req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+    req.Header.Set(&quot;X-User-ID&quot;, &quot;test-user&quot;)
+
+    rr := httptest.NewRecorder()
+    handler.ServeHTTP(rr, req)
+
+    if rr.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200, got %d: %s&quot;, rr.Code, rr.Body.String())
+    }
+
+    // Verify the memory was stored with the correct user_id
+    memories, _, _ := st.List(context.Background(), &amp;store.SearchFilters{}, 10, &quot;&quot;)
+    if len(memories) == 0 {
+        t.Fatal(&quot;no memories stored&quot;)
+    }
+    if memories[0].UserID != &quot;test-user&quot; {
+        t.Fatalf(&quot;expected user_id 'test-user', got %q&quot;, memories[0].UserID)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run to confirm failure</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestAPIRemember_StoresUserID ./tests/ -v -count=1
+</code></pre>
+<p>Expected: FAIL — HTTP handler ignores <code>X-User-ID</code> header.</p>
+<ul>
+<li>[ ] <strong>Step 3: Update <code>internal/api/server.go</code> to read <code>X-User-ID</code></strong></li>
+</ul>
+<p>Add a helper:</p>
+<pre><code class="language-go">// userIDFromRequest extracts the user ID from X-User-ID header.
+// Falls back to the server's configured default user ID.
+func (s *Server) userIDFromRequest(r *http.Request) string {
+    if uid := r.Header.Get(&quot;X-User-ID&quot;); uid != &quot;&quot; {
+        return uid
+    }
+    return s.defaultUserID
+}
+</code></pre>
+<p>Add <code>defaultUserID string</code> to <code>Server</code> struct and <code>NewServer</code> parameters.</p>
+<p>Update <code>handleRemember</code>, <code>handleRecall</code>, <code>handleSearch</code>, <code>handleList</code>, <code>handleUpdate</code>, <code>handleDeleteMemory</code>, <code>handleGetMemory</code> to call <code>s.userIDFromRequest(r)</code> and pass the user ID into the memory or filter.</p>
+<ul>
+<li>[ ] <strong>Step 4: Run API user test</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestAPIRemember_StoresUserID -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<hr />
+<h3 id="task-7-mcp-and-cli-propagation">Task 7: MCP and CLI propagation</h3>
+<ul>
+<li>[ ] <strong>Step 5: Add <code>defaultUserID</code> to the MCP server struct and constructor in <code>internal/mcp/server.go</code></strong></li>
+</ul>
+<p>Read <code>internal/mcp/server.go</code> to find the <code>Server</code> struct and <code>NewMCPServer</code> (or <code>New</code>) function. Add the field and update the constructor:</p>
+<pre><code class="language-go">type Server struct {
+    // ... existing fields ...
+    defaultUserID string
+}
+
+// NewMCPServer (or the existing constructor) gains a defaultUserID parameter.
+func NewMCPServer(/* existing params */, defaultUserID string) *Server {
+    return &amp;Server{
+        // ... existing assignments ...
+        defaultUserID: defaultUserID,
+    }
+}
+</code></pre>
+<p>Update the call site in <code>cmd/openclaw-cortex/cmd_mcp.go</code> to pass <code>cfg.User.DefaultUserID</code> (added in Task 5 / 3.1a).</p>
+<p>Then add the optional <code>user_id</code> parameter to <code>remember</code>, <code>recall</code>, <code>search</code>, <code>forget</code> tool definitions:</p>
+<pre><code class="language-go">mcpgo.WithString(&quot;user_id&quot;,
+    mcpgo.Description(&quot;User namespace for memory isolation (default: configured default)&quot;),
+),
+</code></pre>
+<p>In each handler, read: <code>userID := req.GetString("user_id", s.defaultUserID)</code> and pass it into the memory or filter.</p>
+<ul>
+<li>[ ] <strong>Step 6: Add <code>--user</code> flag to all CLI commands</strong></li>
+</ul>
+<p>In <code>cmd/openclaw-cortex/main.go</code>, add a persistent flag on the root command:</p>
+<pre><code class="language-go">var globalUserID string
+rootCmd.PersistentFlags().StringVar(&amp;globalUserID, &quot;user&quot;, &quot;&quot;, &quot;User ID for namespace isolation (default: from config)&quot;)
+</code></pre>
+<p>In <code>PersistentPreRunE</code>, after config load:</p>
+<pre><code class="language-go">if globalUserID == &quot;&quot; {
+    globalUserID = cfg.User.DefaultUserID
+}
+</code></pre>
+<p>Each command's <code>RunE</code> uses <code>globalUserID</code> when constructing memories or search filters.</p>
+<ul>
+<li>[ ] <strong>Step 7: Update <code>internal/hooks/hooks.go</code></strong> to set <code>UserID</code> on memories from <code>PreTurnInput.SessionID</code>:</li>
+</ul>
+<pre><code class="language-go">// Use session_id as user namespace when no explicit user set.
+userID := input.UserID
+if userID == &quot;&quot; {
+    userID = input.SessionID
+}
+</code></pre>
+<p>Add <code>UserID string</code> to <code>PreTurnInput</code> and <code>PostTurnInput</code>.</p>
+<ul>
+<li>[ ] <strong>Step 8: Run full test suite</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Step 9: Commit 3.1b</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/api/server.go internal/mcp/server.go internal/hooks/hooks.go \
+        cmd/openclaw-cortex/ tests/api_user_test.go
+git commit -m &quot;feat(user-namespacing) 3.1b: propagate UserID through API, MCP, CLI, hooks
+
+HTTP API reads X-User-ID header; falls back to server default user.
+MCP tools accept optional user_id parameter.
+CLI commands accept --user flag; falls back to config user.default_user_id.
+Hooks use session_id as user namespace when no explicit user is set.
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="pr-32-featstreaming-recall">PR 3.2 — <code>feat/streaming-recall</code></h2>
+<p><strong>Prerequisite:</strong> PR 3.1b merged.</p>
+<p><strong>Files:</strong>
+- Modify: <code>internal/api/server.go</code>
+- Modify: <code>internal/recall/recall.go</code>
+- Test: <code>tests/streaming_recall_test.go</code> (new)</p>
+<hr />
+<h3 id="task-8-streaming-recall-endpoint">Task 8: Streaming recall endpoint</h3>
+<ul>
+<li>[ ] <strong>Step 0: Verify <code>recall.Recaller</code> method signatures before writing the test</strong></li>
+</ul>
+<p>Before writing the streaming handler, read <code>internal/recall/recall.go</code> to find the method that takes scored results and returns ranked <code>[]models.SearchResult</code>. If it is named differently from <code>RecallWithGraph</code>, use the actual method name throughout Task 9. If no such synchronous method exists yet, add one:</p>
+<pre><code class="language-go">// RankResults applies multi-factor scoring and RRF graph merge to the given
+// search results for query message/vec and returns them sorted by score.
+// This is the synchronous variant used by the streaming SSE handler.
+func (r *Recaller) RankResults(ctx context.Context, message string, vec []float32, results []models.SearchResult, project string) []models.SearchResult {
+    // Delegate to existing internal scoring logic.
+    // If the existing Recall method already does this, export its internals
+    // or refactor to share the scoring pipeline.
+}
+</code></pre>
+<p>Commit any changes to <code>internal/recall/recall.go</code> as part of this PR (it is already in the Files list for PR 3.2).</p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing test in <code>tests/streaming_recall_test.go</code></strong></li>
+</ul>
+<p>Note: Several test helpers must be defined in the <code>tests/</code> package. Add them to a shared test file (e.g. <code>tests/helpers_test.go</code>). Create the file if it does not exist:</p>
+<pre><code class="language-go">// tests/helpers_test.go
+package tests
+
+import (
+    &quot;log/slog&quot;
+    &quot;os&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/capture&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/classifier&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/embedder&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/recall&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func newTestLogger() *slog.Logger {
+    return slog.New(slog.NewTextHandler(os.Stderr, &amp;slog.HandlerOptions{Level: slog.LevelError}))
+}
+
+func newTestEmbedder(t *testing.T) embedder.Embedder {
+    t.Helper()
+    // Returns a no-op embedder that always returns a zero vector.
+    // If a stub/mock embedder already exists in internal/embedder/, use that.
+    return embedder.NewNoOpEmbedder(768)
+}
+
+func newTestCapturer(t *testing.T) capture.Capturer {
+    t.Helper()
+    // Returns a stub capturer. If capture.NewStubCapturer exists, use it;
+    // otherwise check if capture.ClaudeCapturer can be constructed with a nil
+    // LLM client for tests that never call Extract (dry-run / structural tests).
+    // Consult internal/capture/capture.go for the constructor signature.
+    return capture.NewStubCapturer() // or capture.NewCapturer(nil, &quot;&quot;, newTestLogger())
+}
+
+func newTestClassifier(t *testing.T) classifier.Classifier {
+    t.Helper()
+    return classifier.New() // heuristic classifier; no external dependencies
+}
+
+func newTestRecaller(t *testing.T) *recall.Recaller {
+    t.Helper()
+    // Consult internal/recall/recall.go for the NewRecaller constructor signature.
+    return recall.NewRecaller(store.NewMockStore(), nil, nil)
+}
+</code></pre>
+<p><strong>Before writing the test:</strong> read <code>internal/recall/recall.go</code>, <code>internal/embedder/embedder.go</code>, and <code>internal/capture/capture.go</code> to confirm constructor signatures and adjust the helpers above accordingly. If a <code>NoOpEmbedder</code> or <code>StubCapturer</code> does not already exist, create minimal implementations in the appropriate <code>internal/</code> package.</p>
+<p>Also note: <code>api.NewServer</code> gains a <code>recall *recall.Recaller</code> parameter in PR 3.1b (Task 6, Step 3). Ensure the test matches that updated signature — <code>NewServer(st, rec, emb, logger, authToken, defaultUserID)</code>.</p>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;bufio&quot;
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;net/http&quot;
+    &quot;net/http/httptest&quot;
+    &quot;strings&quot;
+    &quot;testing&quot;
+    &quot;time&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/api&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func TestStreamingRecall_ReturnsSSEEvents(t *testing.T) {
+    st := store.NewMockStore()
+    // Seed a memory
+    _ = st.Upsert(context.Background(), models.Memory{
+        ID: &quot;m1&quot;, UserID: &quot;u1&quot;, Content: &quot;test content&quot;,
+        Type: models.MemoryTypeFact, Scope: models.ScopeSession,
+        Confidence: 0.9, CreatedAt: time.Now(), UpdatedAt: time.Now(), LastAccessed: time.Now(),
+    }, make([]float32, 768))
+
+    srv := api.NewServer(st, newTestRecaller(t), newTestEmbedder(t), newTestLogger(), &quot;&quot;, &quot;u1&quot;)
+    handler := srv.Handler()
+
+    req := httptest.NewRequest(http.MethodGet, &quot;/v1/recall/stream?message=test&amp;budget=2000&quot;, nil)
+    req.Header.Set(&quot;Accept&quot;, &quot;text/event-stream&quot;)
+    req.Header.Set(&quot;X-User-ID&quot;, &quot;u1&quot;)
+
+    rr := httptest.NewRecorder()
+    handler.ServeHTTP(rr, req)
+
+    if rr.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200, got %d: %s&quot;, rr.Code, rr.Body.String())
+    }
+    if ct := rr.Header().Get(&quot;Content-Type&quot;); !strings.Contains(ct, &quot;text/event-stream&quot;) {
+        t.Fatalf(&quot;expected text/event-stream, got %q&quot;, ct)
+    }
+
+    // Parse SSE events
+    scanner := bufio.NewScanner(rr.Body)
+    eventCount := 0
+    for scanner.Scan() {
+        line := scanner.Text()
+        if strings.HasPrefix(line, &quot;data: &quot;) {
+            var mem map[string]any
+            if err := json.Unmarshal([]byte(strings.TrimPrefix(line, &quot;data: &quot;)), &amp;mem); err != nil {
+                t.Fatalf(&quot;invalid SSE data JSON: %v&quot;, err)
+            }
+            eventCount++
+        }
+    }
+    if eventCount == 0 {
+        t.Fatal(&quot;expected at least one SSE event&quot;)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run to confirm failure</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestStreamingRecall ./tests/ -v -count=1
+</code></pre>
+<p>Expected: FAIL — <code>/v1/recall/stream</code> route doesn't exist.</p>
+<hr />
+<h3 id="task-9-implement-streaming-recall">Task 9: Implement streaming recall</h3>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>handleStreamRecall</code> to <code>internal/api/server.go</code></strong></li>
+</ul>
+<p>Register the route in <code>Handler()</code>:</p>
+<pre><code class="language-go">mux.HandleFunc(&quot;GET /v1/recall/stream&quot;, s.auth(s.handleStreamRecall))
+</code></pre>
+<p>Implement the handler:</p>
+<pre><code class="language-go">func (s *Server) handleStreamRecall(w http.ResponseWriter, r *http.Request) {
+    flusher, ok := w.(http.Flusher)
+    if !ok {
+        s.writeError(w, http.StatusInternalServerError, &quot;streaming not supported&quot;)
+        return
+    }
+
+    message := r.URL.Query().Get(&quot;message&quot;)
+    if message == &quot;&quot; {
+        s.writeError(w, http.StatusBadRequest, &quot;message is required&quot;)
+        return
+    }
+
+    budgetStr := r.URL.Query().Get(&quot;budget&quot;)
+    budget := 2000
+    if budgetStr != &quot;&quot; {
+        if b, err := strconv.Atoi(budgetStr); err == nil &amp;&amp; b &gt; 0 {
+            budget = b
+        }
+    }
+
+    project := r.URL.Query().Get(&quot;project&quot;)
+    userID := s.userIDFromRequest(r)
+
+    vec, err := s.embedder.Embed(r.Context(), message)
+    if err != nil {
+        s.writeError(w, http.StatusInternalServerError, &quot;embedding failed&quot;)
+        return
+    }
+
+    var filters *store.SearchFilters
+    filters = &amp;store.SearchFilters{UserID: &amp;userID}
+    if project != &quot;&quot; {
+        filters.Project = &amp;project
+    }
+
+    results, err := s.store.Search(r.Context(), vec, 50, filters)
+    if err != nil {
+        s.writeError(w, http.StatusInternalServerError, &quot;search failed&quot;)
+        return
+    }
+
+    // Use the method verified in Step 0 (RankResults or the actual method name).
+    ranked := s.recall.RankResults(r.Context(), message, vec, results, project)
+
+    w.Header().Set(&quot;Content-Type&quot;, &quot;text/event-stream&quot;)
+    w.Header().Set(&quot;Cache-Control&quot;, &quot;no-cache&quot;)
+    w.Header().Set(&quot;Connection&quot;, &quot;keep-alive&quot;)
+    w.WriteHeader(http.StatusOK)
+
+    remaining := budget
+    for i := range ranked {
+        if remaining &lt;= 0 {
+            break
+        }
+        content := ranked[i].Memory.Content
+        tokens := tokenizer.EstimateTokens(content)
+        if tokens &gt; remaining {
+            break
+        }
+        remaining -= tokens
+
+        data, encErr := json.Marshal(map[string]any{
+            &quot;id&quot;:      ranked[i].Memory.ID,
+            &quot;content&quot;: content,
+            &quot;score&quot;:   ranked[i].Score,
+        })
+        if encErr != nil {
+            continue
+        }
+        fmt.Fprintf(w, &quot;data: %s\n\n&quot;, data)
+        flusher.Flush()
+
+        // Update access metadata
+        if accessErr := s.store.UpdateAccessMetadata(r.Context(), ranked[i].Memory.ID); accessErr != nil {
+            s.logger.Warn(&quot;handleStreamRecall: UpdateAccessMetadata&quot;, &quot;id&quot;, ranked[i].Memory.ID, &quot;error&quot;, accessErr)
+        }
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run streaming tests</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestStreamingRecall -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<ul>
+<li>[ ] <strong>Step 5: Run full suite and lint</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git checkout -b feat/streaming-recall
+git add internal/api/server.go tests/streaming_recall_test.go
+git commit -m &quot;feat(api): add GET /v1/recall/stream SSE endpoint
+
+Server-sent events endpoint that flushes each ranked memory as it's
+scored, allowing clients to start rendering before all candidates
+are processed. Respects token budget; updates access metadata.
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="pr-33-featbatch-capture">PR 3.3 — <code>feat/batch-capture</code></h2>
+<p><strong>Prerequisite:</strong> PR 3.1b merged. PR 3.2 is independent.</p>
+<p><strong>Relationship to existing <code>store-batch</code>:</strong> <code>store-batch</code> (<code>cmd_store_batch.go</code>) bulk-upserts pre-formed memory records with no LLM extraction. <code>capture-batch</code> runs the full extraction pipeline on raw conversation turns (user/assistant messages). They serve different use cases and both are kept.</p>
+<p><strong>Files:</strong>
+- Create: <code>internal/capture/batch.go</code>
+- Create: <code>cmd/openclaw-cortex/cmd_capture_batch.go</code>
+- Modify: <code>cmd/openclaw-cortex/main.go</code>
+- Test: <code>tests/batch_capture_test.go</code> (new)</p>
+<hr />
+<h3 id="task-10-batchcapturer">Task 10: BatchCapturer</h3>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests in <code>tests/batch_capture_test.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;bytes&quot;
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;strings&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/capture&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func TestBatchCapturer_ProcessesTurns(t *testing.T) {
+    lines := []capture.BatchTurn{
+        {User: &quot;What is Go?&quot;, Assistant: &quot;Go is a statically typed language.&quot;, Project: &quot;test&quot;, UserID: &quot;u1&quot;},
+        {User: &quot;Who made it?&quot;, Assistant: &quot;Google created Go in 2009.&quot;, Project: &quot;test&quot;, UserID: &quot;u1&quot;},
+    }
+
+    var buf bytes.Buffer
+    for _, l := range lines {
+        b, _ := json.Marshal(l)
+        buf.Write(b)
+        buf.WriteByte('\n')
+    }
+
+    st := store.NewMockStore()
+    bc := capture.NewBatchCapturer(newTestCapturer(t), newTestEmbedder(t), newTestClassifier(t), st, newTestLogger())
+
+    stats, err := bc.Run(context.Background(), &amp;buf, capture.BatchOptions{
+        Concurrency: 2,
+        DryRun:      false,
+    })
+    if err != nil {
+        t.Fatalf(&quot;Run: %v&quot;, err)
+    }
+    if stats.ProcessedLines != 2 {
+        t.Fatalf(&quot;expected 2 processed lines, got %d&quot;, stats.ProcessedLines)
+    }
+}
+
+func TestBatchCapturer_DryRunDoesNotWrite(t *testing.T) {
+    line := capture.BatchTurn{User: &quot;test&quot;, Assistant: &quot;answer&quot;, Project: &quot;p&quot;, UserID: &quot;u&quot;}
+    var buf bytes.Buffer
+    b, _ := json.Marshal(line)
+    buf.Write(b)
+    buf.WriteByte('\n')
+
+    st := store.NewMockStore()
+    bc := capture.NewBatchCapturer(newTestCapturer(t), newTestEmbedder(t), newTestClassifier(t), st, newTestLogger())
+
+    _, err := bc.Run(context.Background(), &amp;buf, capture.BatchOptions{
+        Concurrency: 1,
+        DryRun:      true,
+    })
+    if err != nil {
+        t.Fatalf(&quot;Run: %v&quot;, err)
+    }
+
+    memories, _, _ := st.List(context.Background(), nil, 100, &quot;&quot;)
+    if len(memories) != 0 {
+        t.Fatalf(&quot;dry-run: expected 0 memories stored, got %d&quot;, len(memories))
+    }
+}
+
+func TestBatchCapturer_SkipsMalformedLines(t *testing.T) {
+    input := strings.NewReader(&quot;not-valid-json\n{\&quot;user\&quot;:\&quot;hi\&quot;,\&quot;assistant\&quot;:\&quot;hello\&quot;}\n&quot;)
+
+    st := store.NewMockStore()
+    bc := capture.NewBatchCapturer(newTestCapturer(t), newTestEmbedder(t), newTestClassifier(t), st, newTestLogger())
+
+    stats, err := bc.Run(context.Background(), input, capture.BatchOptions{Concurrency: 1})
+    if err != nil {
+        t.Fatalf(&quot;Run: %v&quot;, err)
+    }
+    if stats.SkippedLines != 1 {
+        t.Fatalf(&quot;expected 1 skipped line, got %d&quot;, stats.SkippedLines)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run to confirm failure</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestBatchCapturer ./tests/ -v -count=1
+</code></pre>
+<p>Expected: FAIL — <code>capture.BatchCapturer</code> does not exist.</p>
+<hr />
+<h3 id="task-11-implement-internalcapturebatchgo">Task 11: Implement <code>internal/capture/batch.go</code></h3>
+<ul>
+<li>[ ] <strong>Step 3: Create <code>internal/capture/batch.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package capture
+
+import (
+    &quot;bufio&quot;
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;io&quot;
+    &quot;log/slog&quot;
+    &quot;sync&quot;
+    &quot;time&quot;
+
+    &quot;github.com/google/uuid&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/classifier&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/embedder&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+// BatchTurn is one line of JSONL input for capture-batch.
+type BatchTurn struct {
+    User      string `json:&quot;user&quot;`
+    Assistant string `json:&quot;assistant&quot;`
+    Project   string `json:&quot;project,omitempty&quot;`
+    UserID    string `json:&quot;user_id,omitempty&quot;`
+}
+
+// BatchOptions controls batch processing behaviour.
+type BatchOptions struct {
+    Concurrency int
+    DryRun      bool
+}
+
+// BatchStats summarizes the result of a batch run.
+type BatchStats struct {
+    ProcessedLines int
+    StoredMemories int
+    SkippedLines   int
+    Errors         int
+}
+
+// BatchCapturer runs the capture pipeline over a stream of JSONL conversation turns.
+type BatchCapturer struct {
+    capturer   Capturer
+    embedder   embedder.Embedder
+    classifier classifier.Classifier
+    store      store.Store
+    logger     *slog.Logger
+}
+
+// NewBatchCapturer creates a BatchCapturer.
+func NewBatchCapturer(cap Capturer, emb embedder.Embedder, cls classifier.Classifier, st store.Store, logger *slog.Logger) *BatchCapturer {
+    return &amp;BatchCapturer{
+        capturer:   cap,
+        embedder:   emb,
+        classifier: cls,
+        store:      st,
+        logger:     logger,
+    }
+}
+
+// Run reads JSONL from r and runs the capture pipeline on each turn.
+// Progress is logged; errors on individual lines are non-fatal.
+func (b *BatchCapturer) Run(ctx context.Context, r io.Reader, opts BatchOptions) (BatchStats, error) {
+    concurrency := opts.Concurrency
+    if concurrency &lt;= 0 {
+        concurrency = 4
+    }
+    if concurrency &gt; 16 {
+        concurrency = 16
+    }
+
+    type work struct {
+        lineNum int
+        turn    BatchTurn
+    }
+
+    workCh := make(chan work, concurrency*2)
+    var stats BatchStats
+    var mu sync.Mutex
+
+    var wg sync.WaitGroup
+    for i := 0; i &lt; concurrency; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for w := range workCh {
+                stored, err := b.processTurn(ctx, w.turn, opts.DryRun)
+                mu.Lock()
+                stats.ProcessedLines++
+                if err != nil {
+                    b.logger.Warn(&quot;batch capture: line failed&quot;, &quot;line&quot;, w.lineNum, &quot;error&quot;, err)
+                    stats.Errors++
+                } else {
+                    stats.StoredMemories += stored
+                }
+                mu.Unlock()
+            }
+        }()
+    }
+
+    scanner := bufio.NewScanner(r)
+    lineNum := 0
+    for scanner.Scan() {
+        lineNum++
+        line := scanner.Bytes()
+        var turn BatchTurn
+        if err := json.Unmarshal(line, &amp;turn); err != nil {
+            b.logger.Warn(&quot;batch capture: skipping malformed line&quot;, &quot;line&quot;, lineNum, &quot;error&quot;, err)
+            mu.Lock()
+            stats.SkippedLines++
+            mu.Unlock()
+            continue
+        }
+        if turn.User == &quot;&quot; || turn.Assistant == &quot;&quot; {
+            mu.Lock()
+            stats.SkippedLines++
+            mu.Unlock()
+            continue
+        }
+        workCh &lt;- work{lineNum: lineNum, turn: turn}
+    }
+    close(workCh)
+    wg.Wait()
+
+    return stats, scanner.Err()
+}
+
+func (b *BatchCapturer) processTurn(ctx context.Context, turn BatchTurn, dryRun bool) (int, error) {
+    memories, err := b.capturer.Extract(ctx, turn.User, turn.Assistant)
+    if err != nil {
+        return 0, fmt.Errorf(&quot;extract: %w&quot;, err)
+    }
+
+    if dryRun {
+        return len(memories), nil
+    }
+
+    stored := 0
+    for _, m := range memories {
+        vec, embErr := b.embedder.Embed(ctx, m.Content)
+        if embErr != nil {
+            return stored, fmt.Errorf(&quot;embed: %w&quot;, embErr)
+        }
+        now := time.Now().UTC()
+        mem := models.Memory{
+            ID:           uuid.NewString(),
+            Type:         models.MemoryType(m.Type),
+            Scope:        models.ScopeSession,
+            Content:      m.Content,
+            Confidence:   m.Confidence,
+            Tags:         m.Tags,
+            Source:       &quot;batch&quot;,
+            Project:      turn.Project,
+            UserID:       turn.UserID,
+            CreatedAt:    now,
+            UpdatedAt:    now,
+            LastAccessed: now,
+        }
+        if upsertErr := b.store.Upsert(ctx, mem, vec); upsertErr != nil {
+            return stored, fmt.Errorf(&quot;upsert: %w&quot;, upsertErr)
+        }
+        stored++
+    }
+    return stored, nil
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run batch capturer tests</strong></li>
+</ul>
+<pre><code class="language-bash">go test -run TestBatchCapturer -race -count=1 ./tests/ -v
+</code></pre>
+<p>Expected: PASS.</p>
+<hr />
+<h3 id="task-12-add-capture-batch-cli-command">Task 12: Add <code>capture-batch</code> CLI command</h3>
+<ul>
+<li>[ ] <strong>Step 5: Create <code>cmd/openclaw-cortex/cmd_capture_batch.go</code></strong></li>
+</ul>
+<pre><code class="language-go">package main
+
+import (
+    &quot;encoding/json&quot;
+    &quot;fmt&quot;
+    &quot;os&quot;
+
+    &quot;github.com/spf13/cobra&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/capture&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/classifier&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/llm&quot;
+)
+
+func captureBatchCmd() *cobra.Command {
+    var concurrency int
+    var dryRun bool
+    var printStats bool
+
+    cmd := &amp;cobra.Command{
+        Use:   &quot;capture-batch&quot;,
+        Short: &quot;Capture memories from JSONL conversation turns read from stdin&quot;,
+        Long: `Reads JSONL from stdin. Each line must be: {&quot;user&quot;:&quot;...&quot;,&quot;assistant&quot;:&quot;...&quot;,&quot;project&quot;:&quot;...&quot;,&quot;user_id&quot;:&quot;...&quot;}.
+Runs the full capture pipeline (LLM extraction, embedding, upsert) on each turn.
+See store-batch for bulk-upsert of pre-formed memory records without LLM extraction.`,
+        RunE: func(cmd *cobra.Command, args []string) error {
+            logger := newLogger()
+            ctx := cmd.Context()
+
+            st, err := newMemgraphStore(ctx, logger)
+            if err != nil {
+                return cmdErr(&quot;capture-batch: connecting to store&quot;, err)
+            }
+            defer func() { _ = st.Close() }()
+
+            llmClient := llm.NewClient(cfg.Claude)
+            cap := capture.NewCapturer(llmClient, cfg.Claude.Model, logger)
+            emb := newEmbedder(logger)
+            cls := classifier.New()
+
+            bc := capture.NewBatchCapturer(cap, emb, cls, st, logger)
+            stats, err := bc.Run(ctx, os.Stdin, capture.BatchOptions{
+                Concurrency: concurrency,
+                DryRun:      dryRun,
+            })
+            if err != nil {
+                return cmdErr(&quot;capture-batch: run&quot;, err)
+            }
+
+            fmt.Fprintf(os.Stderr, &quot;processed %d lines, stored %d memories, skipped %d, errors %d\n&quot;,
+                stats.ProcessedLines, stats.StoredMemories, stats.SkippedLines, stats.Errors)
+
+            if printStats {
+                b, _ := json.Marshal(stats)
+                fmt.Println(string(b))
+            }
+            return nil
+        },
+    }
+
+    cmd.Flags().IntVar(&amp;concurrency, &quot;concurrency&quot;, 4, &quot;Number of concurrent workers (max 16)&quot;)
+    cmd.Flags().BoolVar(&amp;dryRun, &quot;dry-run&quot;, false, &quot;Extract memories but do not write to store (use --stats to see counts)&quot;)
+    cmd.Flags().BoolVar(&amp;printStats, &quot;stats&quot;, false, &quot;Print JSON summary to stdout on completion&quot;)
+    return cmd
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 6: Register the command in <code>cmd/openclaw-cortex/main.go</code></strong></li>
+</ul>
+<p>Add <code>captureBatchCmd()</code> to <code>rootCmd.AddCommand(...)</code>.</p>
+<ul>
+<li>[ ] <strong>Step 7: Run full test suite</strong></li>
+</ul>
+<pre><code class="language-bash">go test -short -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Step 8: Smoke test</strong></li>
+</ul>
+<pre><code class="language-bash">go build -o bin/openclaw-cortex ./cmd/openclaw-cortex
+
+echo '{&quot;user&quot;:&quot;What is Go?&quot;,&quot;assistant&quot;:&quot;Go is a compiled language.&quot;}' | \
+  ./bin/openclaw-cortex capture-batch --dry-run --stats
+# Expected: stats JSON to stdout; &quot;stored 0 memories&quot; (dry-run)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 9: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git checkout -b feat/batch-capture
+git add internal/capture/batch.go cmd/openclaw-cortex/cmd_capture_batch.go cmd/openclaw-cortex/main.go \
+        tests/batch_capture_test.go
+git commit -m &quot;feat(cli): add capture-batch command for JSONL bulk import
+
+Reads JSONL from stdin (user/assistant/project/user_id per line).
+Runs full capture pipeline: LLM extraction, embedding, upsert.
+Worker pool (default 4, max 16); --dry-run and --stats flags.
+Malformed lines are skipped; processing continues on errors.
+
+Distinct from store-batch which upserts pre-formed records without LLM.
+
+Co-Authored-By: Claude Sonnet 4.6 &lt;noreply@anthropic.com&gt;&quot;
+</code></pre>
+<hr />
+<h2 id="final-track-3-verification">Final Track 3 Verification</h2>
+<ul>
+<li>[ ] <strong>Run all tests</strong></li>
+</ul>
+<pre><code class="language-bash">go build ./...
+go test -race -count=1 ./...
+golangci-lint run ./...
+</code></pre>
+<p>Expected: green.</p>
+<ul>
+<li>[ ] <strong>Smoke test user isolation</strong></li>
+</ul>
+<pre><code class="language-bash">OPENCLAW_CORTEX_API_AUTH_TOKEN=secret ./bin/openclaw-cortex serve &amp;
+
+# Store memory as alice
+curl -s -X POST http://localhost:8080/v1/remember \
+  -H &quot;Authorization: Bearer secret&quot; \
+  -H &quot;X-User-ID: alice&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;content&quot;:&quot;Alice secret&quot;,&quot;type&quot;:&quot;fact&quot;}'
+
+# Recall as bob — should get 0 memories
+curl -s -X POST http://localhost:8080/v1/recall \
+  -H &quot;Authorization: Bearer secret&quot; \
+  -H &quot;X-User-ID: bob&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;message&quot;:&quot;Alice secret&quot;,&quot;budget&quot;:2000}'
+# Expected: {&quot;context&quot;:&quot;&quot;,&quot;memory_count&quot;:0,&quot;tokens_used&quot;:0}
+</code></pre>
+<ul>
+<li>[ ] <strong>Smoke test streaming recall</strong></li>
+</ul>
+<pre><code class="language-bash">curl -s -N \
+  -H &quot;Authorization: Bearer secret&quot; \
+  -H &quot;Accept: text/event-stream&quot; \
+  -H &quot;X-User-ID: alice&quot; \
+  &quot;http://localhost:8080/v1/recall/stream?message=secret&amp;budget=2000&quot;
+# Expected: SSE events with data: {...} lines
+</code></pre>
+<ul>
+<li>[ ] <strong>Smoke test batch capture</strong></li>
+</ul>
+<pre><code class="language-bash">printf '{&quot;user&quot;:&quot;What is TDD?&quot;,&quot;assistant&quot;:&quot;TDD is test-driven development.&quot;}\n{&quot;user&quot;:&quot;Why use it?&quot;,&quot;assistant&quot;:&quot;It reduces bugs.&quot;}\n' | \
+  ./bin/openclaw-cortex capture-batch --stats
+# Expected: stored N memories (N &gt;= 0), no errors
+</code></pre>
+<ul>
+<li>[ ] <strong>Create PRs</strong></li>
+</ul>
+<pre><code class="language-bash">gh pr create --base main --head feat/user-namespacing --title &quot;feat: multi-user namespace isolation (user_id field)&quot;
+gh pr create --base feat/user-namespacing --head feat/streaming-recall --title &quot;feat(api): SSE streaming for /v1/recall&quot;
+gh pr create --base feat/user-namespacing --head feat/batch-capture --title &quot;feat(cli): capture-batch JSONL bulk import&quot;
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

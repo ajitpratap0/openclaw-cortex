@@ -1,0 +1,2254 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/plans/2026-03-14-entity-graph-integration/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Native Entity-Relationship Graph Integration — Implementation Plan - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#native-entity-relationship-graph-integration-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Native Entity-Relationship Graph Integration — Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="native-entity-relationship-graph-integration-implementation-plan">Native Entity-Relationship Graph Integration — Implementation Plan</h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Add a native entity-relationship graph layer using Neo4j + Claude Haiku with bi-temporal facts, three-stage entity resolution, and hybrid search with RRF fusion.</p>
+<p><strong>Architecture:</strong> Phase 1 wires the existing orphaned <code>EntityExtractor</code> into the capture pipeline and exposes entities via API/MCP. Phase 2 adds a new <code>internal/graph/</code> package with Neo4j Bolt driver, fact extraction, entity resolution, fact resolution, and hybrid graph search integrated into recall.</p>
+<p><strong>Tech Stack:</strong> Go 1.23+, Neo4j 5.13+ (Bolt via <code>neo4j-go-driver/v5</code>), Claude Haiku (Anthropic SDK), Ollama nomic-embed-text (768-dim), Cobra/Viper CLI</p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-03-14-graphiti-entity-graph-design.md</code></p>
+<hr />
+<h2 id="file-structure">File Structure</h2>
+<h3 id="phase-1-wire-entity-pipeline-modify-existing-files">Phase 1 — Wire Entity Pipeline (modify existing files)</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/models/entity.go</code></td>
+<td>Add <code>Project</code>, <code>Summary</code>, <code>NameEmbedding</code>, <code>CommunityID</code> fields</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_capture.go</code></td>
+<td>Wire EntityExtractor after Capturer.Extract()</td>
+</tr>
+<tr>
+<td><code>internal/api/server.go</code></td>
+<td>Add <code>GET /v1/entities</code> and <code>GET /v1/entities/{id}</code> routes</td>
+</tr>
+<tr>
+<td><code>internal/mcp/server.go</code></td>
+<td>Add <code>entity_search</code> and <code>entity_get</code> MCP tools</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_stats.go</code></td>
+<td>Add entity count to stats output</td>
+</tr>
+<tr>
+<td><code>tests/entity_pipeline_test.go</code></td>
+<td>Capture + entity extraction integration test</td>
+</tr>
+<tr>
+<td><code>tests/entity_api_test.go</code></td>
+<td>Entity API endpoint tests</td>
+</tr>
+<tr>
+<td><code>tests/entity_mcp_test.go</code></td>
+<td>Entity MCP tool tests</td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-2-native-graph-layer-new-internalgraph-package">Phase 2 — Native Graph Layer (new <code>internal/graph/</code> package)</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/models/fact.go</code></td>
+<td><code>Fact</code> struct with bi-temporal fields</td>
+</tr>
+<tr>
+<td><code>internal/graph/types.go</code></td>
+<td><code>FactAction</code>, <code>EntityResult</code>, <code>FactResult</code> shared types</td>
+</tr>
+<tr>
+<td><code>internal/graph/client.go</code></td>
+<td><code>Client</code> interface (storage operations only)</td>
+</tr>
+<tr>
+<td><code>internal/graph/mock_client.go</code></td>
+<td><code>MockGraphClient</code> for tests</td>
+</tr>
+<tr>
+<td><code>internal/graph/neo4j.go</code></td>
+<td><code>Neo4jClient</code> — Bolt driver, schema, CRUD, search queries</td>
+</tr>
+<tr>
+<td><code>internal/graph/entity_resolver.go</code></td>
+<td>Three-stage entity resolution (fulltext → similarity → Claude)</td>
+</tr>
+<tr>
+<td><code>internal/graph/fact_extractor.go</code></td>
+<td>Claude Haiku fact extraction from conversation text</td>
+</tr>
+<tr>
+<td><code>internal/graph/fact_resolver.go</code></td>
+<td>Fact dedup + contradiction detection</td>
+</tr>
+<tr>
+<td><code>internal/graph/search.go</code></td>
+<td>Hybrid search (BM25 + cosine + BFS) with RRF fusion</td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Add <code>GraphConfig</code> struct + defaults</td>
+</tr>
+<tr>
+<td><code>internal/recall/recall.go</code></td>
+<td>Graph recall merge: Qdrant + graph → dedup → Rank()</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/main.go</code></td>
+<td>Wire <code>graph.Client</code> when <code>graph.enabled</code></td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_capture.go</code></td>
+<td>Add fact extraction + graph write when graph enabled</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_health.go</code></td>
+<td>Report Neo4j health as optional service</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>Add Neo4j service (commented out)</td>
+</tr>
+<tr>
+<td><code>tests/graph_client_test.go</code></td>
+<td>MockGraphClient contract tests</td>
+</tr>
+<tr>
+<td><code>tests/entity_resolution_test.go</code></td>
+<td>Three-stage resolution tests</td>
+</tr>
+<tr>
+<td><code>tests/fact_extraction_test.go</code></td>
+<td>Fact extractor tests</td>
+</tr>
+<tr>
+<td><code>tests/fact_resolution_test.go</code></td>
+<td>Fact resolution + invalidation tests</td>
+</tr>
+<tr>
+<td><code>tests/graph_search_test.go</code></td>
+<td>Hybrid search + RRF tests</td>
+</tr>
+<tr>
+<td><code>tests/graph_recall_merge_test.go</code></td>
+<td>Recall merge + dedup tests</td>
+</tr>
+<tr>
+<td><code>tests/graph_degradation_test.go</code></td>
+<td>Graceful degradation tests</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="chunk-1-phase-1-entity-pipeline">Chunk 1: Phase 1 — Entity Pipeline</h2>
+<h3 id="task-1-extend-entity-model">Task 1: Extend Entity Model</h3>
+<p><strong>Files:</strong>
+- Modify: <code>internal/models/entity.go</code>
+- Test: <code>tests/entity_pipeline_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add new fields to Entity struct</strong></li>
+</ul>
+<p>In <code>internal/models/entity.go</code>, add four fields after <code>Metadata</code>:</p>
+<pre><code class="language-go">type Entity struct {
+    ID        string         `json:&quot;id&quot;`
+    Name      string         `json:&quot;name&quot;`
+    Type      EntityType     `json:&quot;type&quot;`
+    Aliases   []string       `json:&quot;aliases,omitempty&quot;`
+    MemoryIDs []string       `json:&quot;memory_ids,omitempty&quot;`
+    CreatedAt time.Time      `json:&quot;created_at&quot;`
+    UpdatedAt time.Time      `json:&quot;updated_at&quot;`
+    Metadata  map[string]any `json:&quot;metadata,omitempty&quot;`
+
+    // Graph integration fields (v0.5.0)
+    Project       string    `json:&quot;project,omitempty&quot;`
+    Summary       string    `json:&quot;summary,omitempty&quot;`
+    NameEmbedding []float32 `json:&quot;name_embedding,omitempty&quot;`
+    CommunityID   string    `json:&quot;community_id,omitempty&quot;`
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify tests still pass</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: All tests pass (additive change, no breakage)</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/models/entity.go
+git commit -m &quot;feat(models): add Project, Summary, NameEmbedding, CommunityID to Entity&quot;
+</code></pre>
+<hr />
+<h3 id="task-2-wire-entityextractor-into-capture-command">Task 2: Wire EntityExtractor into Capture Command</h3>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/openclaw-cortex/cmd_capture.go</code>
+- Ref: <code>internal/capture/entity_extractor.go</code> (existing, read-only)</p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/entity_pipeline_test.go</code>:</p>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;context&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/capture&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+// TestCaptureWithEntityExtraction verifies that when entity extraction
+// is wired into the capture flow, entities are upserted and linked.
+// This is a unit test using MockStore — no live services needed.
+func TestCaptureWithEntityExtraction(t *testing.T) {
+    if testing.Short() {
+        t.Skip(&quot;skipping entity pipeline test in short mode&quot;)
+    }
+
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    // Simulate what cmd_capture.go does after Capturer.Extract():
+    // 1. Upsert memory
+    mem := models.Memory{
+        ID:      &quot;mem-1&quot;,
+        Content: &quot;Alice from Acme Corp prefers Go for backend services&quot;,
+        Type:    models.MemoryTypeFact,
+        Scope:   models.ScopePermanent,
+    }
+    vec := make([]float32, 768)
+    if err := ms.Upsert(ctx, mem, vec); err != nil {
+        t.Fatalf(&quot;upsert memory: %v&quot;, err)
+    }
+
+    // 2. Simulate entity extraction results (would come from EntityExtractor)
+    entities := []models.Entity{
+        {ID: &quot;ent-1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson},
+        {ID: &quot;ent-2&quot;, Name: &quot;Acme Corp&quot;, Type: models.EntityTypeProject},
+    }
+
+    // 3. Wire: upsert entities and link to memory
+    for i := range entities {
+        if err := ms.UpsertEntity(ctx, entities[i]); err != nil {
+            t.Fatalf(&quot;upsert entity %s: %v&quot;, entities[i].Name, err)
+        }
+        if err := ms.LinkMemoryToEntity(ctx, entities[i].ID, mem.ID); err != nil {
+            t.Fatalf(&quot;link entity %s to memory: %v&quot;, entities[i].Name, err)
+        }
+    }
+
+    // Verify entities were stored
+    found, err := ms.SearchEntities(ctx, &quot;Alice&quot;)
+    if err != nil {
+        t.Fatalf(&quot;search entities: %v&quot;, err)
+    }
+    if len(found) != 1 {
+        t.Fatalf(&quot;expected 1 entity for 'Alice', got %d&quot;, len(found))
+    }
+    if found[0].Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected entity name 'Alice', got %q&quot;, found[0].Name)
+    }
+
+    // Verify memory link
+    ent, err := ms.GetEntity(ctx, &quot;ent-1&quot;)
+    if err != nil {
+        t.Fatalf(&quot;get entity: %v&quot;, err)
+    }
+    if len(ent.MemoryIDs) != 1 || ent.MemoryIDs[0] != &quot;mem-1&quot; {
+        t.Errorf(&quot;expected entity linked to mem-1, got %v&quot;, ent.MemoryIDs)
+    }
+
+    _ = capture.NewEntityExtractor // ensure import compiles (real test needs API key)
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run test to verify it passes (mock-only test)</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestCaptureWithEntityExtraction ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Add entity extraction to cmd_capture.go</strong></li>
+</ul>
+<p>In <code>cmd/openclaw-cortex/cmd_capture.go</code>, after the dedup/upsert loop, add entity extraction. Import <code>capture</code> package (already imported). Add a <code>--entities</code> flag (default true for CLI, skipped in hooks):</p>
+<p>After the <code>for i := range memories</code> loop that upserts each memory, add:</p>
+<pre><code class="language-go">// Entity extraction (optional, skipped in hook mode for latency)
+if cfg.Claude.APIKey != &quot;&quot; {
+    extractor := capture.NewEntityExtractor(cfg.Claude.APIKey, cfg.Claude.Model, logger)
+    for i := range memories {
+        entities, extractErr := extractor.Extract(ctx, memories[i].Content)
+        if extractErr != nil {
+            logger.Warn(&quot;entity extraction failed, skipping&quot;, &quot;error&quot;, extractErr)
+            continue
+        }
+        for j := range entities {
+            if upsertErr := s.UpsertEntity(ctx, entities[j]); upsertErr != nil {
+                logger.Warn(&quot;upsert entity failed&quot;, &quot;entity&quot;, entities[j].Name, &quot;error&quot;, upsertErr)
+                continue
+            }
+            if linkErr := s.LinkMemoryToEntity(ctx, entities[j].ID, storedIDs[i]); linkErr != nil {
+                logger.Warn(&quot;link entity to memory failed&quot;, &quot;entity&quot;, entities[j].Name, &quot;error&quot;, linkErr)
+            }
+        }
+    }
+}
+</code></pre>
+<p>Note: <code>storedIDs</code> is a <code>[]string</code> that must be collected during the upsert loop. Add <code>storedIDs := make([]string, 0, len(memories))</code> before the loop and <code>storedIDs = append(storedIDs, id)</code> inside it for each successfully upserted memory.</p>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add cmd/openclaw-cortex/cmd_capture.go tests/entity_pipeline_test.go
+git commit -m &quot;feat(capture): wire EntityExtractor into capture command&quot;
+</code></pre>
+<hr />
+<h3 id="task-3-add-entity-api-endpoints">Task 3: Add Entity API Endpoints</h3>
+<p><strong>Files:</strong>
+- Modify: <code>internal/api/server.go</code>
+- Create: <code>tests/entity_api_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/entity_api_test.go</code>:</p>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;net/http&quot;
+    &quot;net/http/httptest&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/api&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func TestEntitySearchEndpoint(t *testing.T) {
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    // Seed entities
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson})
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e2&quot;, Name: &quot;Bob&quot;, Type: models.EntityTypePerson})
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e3&quot;, Name: &quot;Acme&quot;, Type: models.EntityTypeProject})
+
+    srv := api.NewServer(ms, nil, nil, nil, &quot;test-token&quot;)
+    handler := srv.Handler()
+
+    // Search for &quot;Alice&quot;
+    req := httptest.NewRequest(http.MethodGet, &quot;/v1/entities?query=Alice&quot;, nil)
+    req.Header.Set(&quot;Authorization&quot;, &quot;Bearer test-token&quot;)
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+
+    if rec.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200, got %d: %s&quot;, rec.Code, rec.Body.String())
+    }
+
+    var result struct {
+        Entities []models.Entity `json:&quot;entities&quot;`
+    }
+    if err := json.NewDecoder(rec.Body).Decode(&amp;result); err != nil {
+        t.Fatalf(&quot;decode response: %v&quot;, err)
+    }
+    if len(result.Entities) != 1 {
+        t.Fatalf(&quot;expected 1 entity, got %d&quot;, len(result.Entities))
+    }
+    if result.Entities[0].Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected 'Alice', got %q&quot;, result.Entities[0].Name)
+    }
+}
+
+func TestEntitySearchWithTypeFilter(t *testing.T) {
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson})
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e2&quot;, Name: &quot;Alice Project&quot;, Type: models.EntityTypeProject})
+
+    srv := api.NewServer(ms, nil, nil, nil, &quot;test-token&quot;)
+    handler := srv.Handler()
+
+    req := httptest.NewRequest(http.MethodGet, &quot;/v1/entities?query=Alice&amp;type=person&quot;, nil)
+    req.Header.Set(&quot;Authorization&quot;, &quot;Bearer test-token&quot;)
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+
+    if rec.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200, got %d&quot;, rec.Code)
+    }
+
+    var result struct {
+        Entities []models.Entity `json:&quot;entities&quot;`
+    }
+    json.NewDecoder(rec.Body).Decode(&amp;result)
+    if len(result.Entities) != 1 {
+        t.Fatalf(&quot;expected 1 entity (type-filtered), got %d&quot;, len(result.Entities))
+    }
+}
+
+func TestEntityGetEndpoint(t *testing.T) {
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson})
+
+    srv := api.NewServer(ms, nil, nil, nil, &quot;test-token&quot;)
+    handler := srv.Handler()
+
+    req := httptest.NewRequest(http.MethodGet, &quot;/v1/entities/e1&quot;, nil)
+    req.Header.Set(&quot;Authorization&quot;, &quot;Bearer test-token&quot;)
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+
+    if rec.Code != http.StatusOK {
+        t.Fatalf(&quot;expected 200, got %d: %s&quot;, rec.Code, rec.Body.String())
+    }
+
+    var entity models.Entity
+    json.NewDecoder(rec.Body).Decode(&amp;entity)
+    if entity.Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected 'Alice', got %q&quot;, entity.Name)
+    }
+}
+
+func TestEntityGetNotFound(t *testing.T) {
+    ms := store.NewMockStore()
+    srv := api.NewServer(ms, nil, nil, nil, &quot;test-token&quot;)
+    handler := srv.Handler()
+
+    req := httptest.NewRequest(http.MethodGet, &quot;/v1/entities/nonexistent&quot;, nil)
+    req.Header.Set(&quot;Authorization&quot;, &quot;Bearer test-token&quot;)
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+
+    if rec.Code != http.StatusNotFound {
+        t.Fatalf(&quot;expected 404, got %d&quot;, rec.Code)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestEntity ./tests/</code>
+Expected: FAIL (routes don't exist yet)</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement entity endpoints in server.go</strong></li>
+</ul>
+<p>In <code>internal/api/server.go</code>, add two new routes in <code>Handler()</code>:</p>
+<pre><code class="language-go">mux.HandleFunc(&quot;GET /v1/entities/{id}&quot;, s.auth(s.handleGetEntity))
+mux.HandleFunc(&quot;GET /v1/entities&quot;, s.auth(s.handleSearchEntities))
+</code></pre>
+<p>Add handler implementations:</p>
+<pre><code class="language-go">func (s *Server) handleSearchEntities(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query().Get(&quot;query&quot;)
+    typeFilter := r.URL.Query().Get(&quot;type&quot;)
+    limitStr := r.URL.Query().Get(&quot;limit&quot;)
+
+    limit := 10
+    if limitStr != &quot;&quot; {
+        if parsed, err := strconv.Atoi(limitStr); err == nil &amp;&amp; parsed &gt; 0 {
+            if parsed &gt; 100 {
+                parsed = 100
+            }
+            limit = parsed
+        }
+    }
+
+    entities, err := s.store.SearchEntities(r.Context(), query)
+    if err != nil {
+        http.Error(w, fmt.Sprintf(`{&quot;error&quot;: &quot;search failed: %s&quot;}`, err), http.StatusInternalServerError)
+        return
+    }
+
+    // In-process type filtering (store.SearchEntities has no type param)
+    if typeFilter != &quot;&quot; {
+        filtered := make([]models.Entity, 0, len(entities))
+        for i := range entities {
+            if string(entities[i].Type) == typeFilter {
+                filtered = append(filtered, entities[i])
+            }
+        }
+        entities = filtered
+    }
+
+    // Truncate to limit
+    if len(entities) &gt; limit {
+        entities = entities[:limit]
+    }
+
+    w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+    json.NewEncoder(w).Encode(map[string]any{&quot;entities&quot;: entities})
+}
+
+func (s *Server) handleGetEntity(w http.ResponseWriter, r *http.Request) {
+    id := r.PathValue(&quot;id&quot;)
+    entity, err := s.store.GetEntity(r.Context(), id)
+    if err != nil {
+        http.Error(w, `{&quot;error&quot;: &quot;entity not found&quot;}`, http.StatusNotFound)
+        return
+    }
+    w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+    json.NewEncoder(w).Encode(entity)
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestEntity ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/api/server.go tests/entity_api_test.go
+git commit -m &quot;feat(api): add entity search and get endpoints&quot;
+</code></pre>
+<hr />
+<h3 id="task-4-add-entity-mcp-tools">Task 4: Add Entity MCP Tools</h3>
+<p><strong>Files:</strong>
+- Modify: <code>internal/mcp/server.go</code>
+- Create: <code>tests/entity_mcp_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/entity_mcp_test.go</code> testing the MCP tool handler functions directly (following existing MCP test patterns):</p>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;context&quot;
+    &quot;encoding/json&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/mcp&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/store&quot;
+)
+
+func TestMCPEntitySearch(t *testing.T) {
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson})
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e2&quot;, Name: &quot;Bob&quot;, Type: models.EntityTypePerson})
+
+    srv := mcp.NewServer(ms, nil, nil, nil)
+    result, err := srv.HandleEntitySearch(ctx, map[string]any{&quot;query&quot;: &quot;Alice&quot;})
+    if err != nil {
+        t.Fatalf(&quot;entity search: %v&quot;, err)
+    }
+
+    var entities []models.Entity
+    if jsonErr := json.Unmarshal([]byte(result), &amp;entities); jsonErr != nil {
+        t.Fatalf(&quot;parse result: %v&quot;, jsonErr)
+    }
+    if len(entities) != 1 || entities[0].Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected [Alice], got %v&quot;, entities)
+    }
+}
+
+func TestMCPEntityGet(t *testing.T) {
+    ms := store.NewMockStore()
+    ctx := context.Background()
+
+    ms.UpsertEntity(ctx, models.Entity{ID: &quot;e1&quot;, Name: &quot;Alice&quot;, Type: models.EntityTypePerson})
+
+    srv := mcp.NewServer(ms, nil, nil, nil)
+    result, err := srv.HandleEntityGet(ctx, map[string]any{&quot;id&quot;: &quot;e1&quot;})
+    if err != nil {
+        t.Fatalf(&quot;entity get: %v&quot;, err)
+    }
+
+    var entity models.Entity
+    if jsonErr := json.Unmarshal([]byte(result), &amp;entity); jsonErr != nil {
+        t.Fatalf(&quot;parse result: %v&quot;, jsonErr)
+    }
+    if entity.Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected Alice, got %q&quot;, entity.Name)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestMCPEntity ./tests/</code>
+Expected: FAIL (HandleEntitySearch/HandleEntityGet don't exist)</p>
+<ul>
+<li>[ ] <strong>Step 3: Add entity tools to MCP server</strong></li>
+</ul>
+<p>In <code>internal/mcp/server.go</code>, register two new tools in <code>NewServer()</code> and add handler methods <code>HandleEntitySearch</code> and <code>HandleEntityGet</code>. Follow the exact pattern of existing tools (parameter definitions, <code>toolResultJSON</code> helper, graceful nil-check on store).</p>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestMCPEntity ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Run all tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/mcp/server.go tests/entity_mcp_test.go
+git commit -m &quot;feat(mcp): add entity_search and entity_get tools&quot;
+</code></pre>
+<hr />
+<h3 id="task-5-add-entity-count-to-stats">Task 5: Add Entity Count to Stats</h3>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/openclaw-cortex/cmd_stats.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add entity count to stats output</strong></li>
+</ul>
+<p>In <code>cmd/openclaw-cortex/cmd_stats.go</code>, after fetching <code>stats</code> from <code>s.Stats(ctx)</code>, add:</p>
+<pre><code class="language-go">// Entity count (Phase 1: count via SearchEntities with empty query)
+entities, entErr := s.SearchEntities(ctx, &quot;&quot;)
+entityCount := 0
+if entErr == nil {
+    entityCount = len(entities)
+}
+</code></pre>
+<p>In the text output section, add a line:</p>
+<pre><code class="language-go">fmt.Fprintf(w, &quot;Entities:      %d\n&quot;, entityCount)
+</code></pre>
+<p>In the JSON output, add <code>"entity_count"</code> field.</p>
+<ul>
+<li>[ ] <strong>Step 2: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add cmd/openclaw-cortex/cmd_stats.go
+git commit -m &quot;feat(stats): add entity count to stats output&quot;
+</code></pre>
+<hr />
+<h3 id="task-6-phase-1-lint-final-verification">Task 6: Phase 1 Lint + Final Verification</h3>
+<ul>
+<li>[ ] <strong>Step 1: Run linter</strong></li>
+</ul>
+<p>Run: <code>golangci-lint run ./...</code>
+Expected: Clean (no new warnings)</p>
+<ul>
+<li>[ ] <strong>Step 2: Run full test suite</strong></li>
+</ul>
+<p>Run: <code>go test -short -race -count=1 ./...</code>
+Expected: All PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit any lint fixes</strong></li>
+</ul>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;fix: lint cleanup for Phase 1 entity pipeline&quot;
+</code></pre>
+<hr />
+<h2 id="chunk-2-phase-2-foundation-models-interface-config-mock">Chunk 2: Phase 2 Foundation — Models, Interface, Config, Mock</h2>
+<h3 id="task-7-create-modelsfact-struct">Task 7: Create <code>models.Fact</code> Struct</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/models/fact.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create fact.go</strong></li>
+</ul>
+<pre><code class="language-go">package models
+
+import &quot;time&quot;
+
+// Fact represents a relationship between two entities with bi-temporal validity.
+// Inspired by Graphiti's EntityEdge — facts are first-class search units with
+// their own embeddings, enabling semantic search over relationships.
+type Fact struct {
+    ID             string  `json:&quot;id&quot;`
+    SourceEntityID string  `json:&quot;source_entity_id&quot;`
+    TargetEntityID string  `json:&quot;target_entity_id&quot;`
+    RelationType   string  `json:&quot;relation_type&quot;`
+    Fact           string  `json:&quot;fact&quot;`
+    FactEmbedding  []float32 `json:&quot;fact_embedding,omitempty&quot;`
+
+    // Bi-temporal fields: system time vs world time
+    CreatedAt time.Time  `json:&quot;created_at&quot;`
+    ExpiredAt *time.Time `json:&quot;expired_at,omitempty&quot;`
+    ValidAt   *time.Time `json:&quot;valid_at,omitempty&quot;`
+    InvalidAt *time.Time `json:&quot;invalid_at,omitempty&quot;`
+
+    // Provenance
+    SourceMemoryIDs []string `json:&quot;source_memory_ids,omitempty&quot;`
+    Episodes        []string `json:&quot;episodes,omitempty&quot;`
+    Confidence      float64  `json:&quot;confidence&quot;`
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify it compiles</strong></li>
+</ul>
+<p>Run: <code>go build ./internal/models/</code>
+Expected: Success</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/models/fact.go
+git commit -m &quot;feat(models): add Fact struct with bi-temporal fields&quot;
+</code></pre>
+<hr />
+<h3 id="task-8-create-internalgraphtypesgo">Task 8: Create <code>internal/graph/types.go</code></h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/types.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create types.go</strong></li>
+</ul>
+<pre><code class="language-go">package graph
+
+// FactAction represents the resolution outcome for a new fact.
+type FactAction int
+
+const (
+    FactActionInsert     FactAction = iota // new fact, no duplicates
+    FactActionSkip                         // exact duplicate, append episode
+    FactActionInvalidate                   // contradicts existing, invalidate old
+)
+
+// EntityResult is a search result from the graph entity index.
+type EntityResult struct {
+    ID    string  `json:&quot;id&quot;`
+    Name  string  `json:&quot;name&quot;`
+    Type  string  `json:&quot;type&quot;`
+    Score float64 `json:&quot;score&quot;`
+}
+
+// FactResult is a search result from the graph fact index.
+type FactResult struct {
+    ID              string   `json:&quot;id&quot;`
+    Fact            string   `json:&quot;fact&quot;`
+    SourceEntityID  string   `json:&quot;source_entity_id&quot;`
+    TargetEntityID  string   `json:&quot;target_entity_id&quot;`
+    SourceMemoryIDs []string `json:&quot;source_memory_ids&quot;`
+    Score           float64  `json:&quot;score&quot;`
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify it compiles</strong></li>
+</ul>
+<p>Run: <code>go build ./internal/graph/</code>
+Expected: Success</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/types.go
+git commit -m &quot;feat(graph): add shared types (FactAction, EntityResult, FactResult)&quot;
+</code></pre>
+<hr />
+<h3 id="task-9-create-internalgraphclientgo-interface">Task 9: Create <code>internal/graph/client.go</code> Interface</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/client.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create client.go</strong></li>
+</ul>
+<pre><code class="language-go">package graph
+
+import (
+    &quot;context&quot;
+    &quot;time&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+)
+
+// Client defines the interface for graph storage operations.
+// Resolution logic lives in EntityResolver and FactResolver (separate types),
+// matching the pattern where ConflictDetector is separate from Store.
+type Client interface {
+    // EnsureSchema creates indexes and constraints if they don't exist.
+    EnsureSchema(ctx context.Context) error
+
+    // UpsertEntity creates or updates an entity node.
+    UpsertEntity(ctx context.Context, entity models.Entity) error
+
+    // SearchEntities finds entities by fulltext + embedding similarity.
+    SearchEntities(ctx context.Context, query string, embedding []float32, project string, limit int) ([]EntityResult, error)
+
+    // GetEntity retrieves a single entity by ID.
+    GetEntity(ctx context.Context, id string) (*models.Entity, error)
+
+    // UpsertFact creates a RELATES_TO edge between two entities.
+    UpsertFact(ctx context.Context, fact models.Fact) error
+
+    // SearchFacts finds facts by hybrid search (BM25 + cosine + BFS).
+    SearchFacts(ctx context.Context, query string, embedding []float32, limit int) ([]FactResult, error)
+
+    // InvalidateFact sets ExpiredAt and InvalidAt on a fact (never deletes).
+    InvalidateFact(ctx context.Context, id string, expiredAt, invalidAt time.Time) error
+
+    // GetFactsBetween returns all active facts between two entities.
+    GetFactsBetween(ctx context.Context, sourceID, targetID string) ([]models.Fact, error)
+
+    // GetFactsForEntity returns all active facts involving an entity.
+    GetFactsForEntity(ctx context.Context, entityID string) ([]models.Fact, error)
+
+    // AppendEpisode adds an episode/session ID to a fact's episodes list.
+    AppendEpisode(ctx context.Context, factID, episodeID string) error
+
+    // AppendMemoryToFact adds a memory ID to a fact's source_memory_ids.
+    AppendMemoryToFact(ctx context.Context, factID, memoryID string) error
+
+    // GetMemoryFacts returns all facts derived from a given memory.
+    GetMemoryFacts(ctx context.Context, memoryID string) ([]models.Fact, error)
+
+    // RecallByGraph returns memory IDs relevant to a query via graph traversal.
+    RecallByGraph(ctx context.Context, query string, embedding []float32, limit int) ([]string, error)
+
+    // Healthy returns true if the graph database is reachable.
+    Healthy(ctx context.Context) bool
+
+    // Close releases resources.
+    Close() error
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify it compiles</strong></li>
+</ul>
+<p>Run: <code>go build ./internal/graph/</code>
+Expected: Success</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/client.go
+git commit -m &quot;feat(graph): add Client interface for graph storage operations&quot;
+</code></pre>
+<hr />
+<h3 id="task-10-create-internalgraphmock_clientgo">Task 10: Create <code>internal/graph/mock_client.go</code></h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/mock_client.go</code>
+- Create: <code>tests/graph_client_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/graph_client_test.go</code>:</p>
+<pre><code class="language-go">package tests
+
+import (
+    &quot;context&quot;
+    &quot;testing&quot;
+    &quot;time&quot;
+
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/graph&quot;
+    &quot;github.com/ajitpratap0/openclaw-cortex/internal/models&quot;
+)
+
+func TestMockGraphClient_EntityCRUD(t *testing.T) {
+    c := graph.NewMockGraphClient()
+    ctx := context.Background()
+
+    entity := models.Entity{
+        ID:   &quot;e1&quot;,
+        Name: &quot;Alice&quot;,
+        Type: models.EntityTypePerson,
+    }
+
+    if err := c.UpsertEntity(ctx, entity); err != nil {
+        t.Fatalf(&quot;upsert: %v&quot;, err)
+    }
+
+    got, err := c.GetEntity(ctx, &quot;e1&quot;)
+    if err != nil {
+        t.Fatalf(&quot;get: %v&quot;, err)
+    }
+    if got.Name != &quot;Alice&quot; {
+        t.Errorf(&quot;expected Alice, got %q&quot;, got.Name)
+    }
+}
+
+func TestMockGraphClient_FactCRUD(t *testing.T) {
+    c := graph.NewMockGraphClient()
+    ctx := context.Background()
+
+    fact := models.Fact{
+        ID:             &quot;f1&quot;,
+        SourceEntityID: &quot;e1&quot;,
+        TargetEntityID: &quot;e2&quot;,
+        RelationType:   &quot;WORKS_AT&quot;,
+        Fact:           &quot;Alice works at Acme&quot;,
+        CreatedAt:      time.Now(),
+        Confidence:     0.9,
+    }
+
+    if err := c.UpsertFact(ctx, fact); err != nil {
+        t.Fatalf(&quot;upsert fact: %v&quot;, err)
+    }
+
+    facts, err := c.GetFactsBetween(ctx, &quot;e1&quot;, &quot;e2&quot;)
+    if err != nil {
+        t.Fatalf(&quot;get facts: %v&quot;, err)
+    }
+    if len(facts) != 1 {
+        t.Fatalf(&quot;expected 1 fact, got %d&quot;, len(facts))
+    }
+    if facts[0].Fact != &quot;Alice works at Acme&quot; {
+        t.Errorf(&quot;unexpected fact text: %q&quot;, facts[0].Fact)
+    }
+}
+
+func TestMockGraphClient_InvalidateFact(t *testing.T) {
+    c := graph.NewMockGraphClient()
+    ctx := context.Background()
+
+    now := time.Now()
+    fact := models.Fact{
+        ID:             &quot;f1&quot;,
+        SourceEntityID: &quot;e1&quot;,
+        TargetEntityID: &quot;e2&quot;,
+        Fact:           &quot;Alice works at Acme&quot;,
+        CreatedAt:      now,
+    }
+    c.UpsertFact(ctx, fact)
+
+    expiry := now.Add(time.Hour)
+    if err := c.InvalidateFact(ctx, &quot;f1&quot;, expiry, expiry); err != nil {
+        t.Fatalf(&quot;invalidate: %v&quot;, err)
+    }
+
+    // Active facts should be empty after invalidation
+    facts, _ := c.GetFactsBetween(ctx, &quot;e1&quot;, &quot;e2&quot;)
+    if len(facts) != 0 {
+        t.Errorf(&quot;expected 0 active facts after invalidation, got %d&quot;, len(facts))
+    }
+}
+
+func TestMockGraphClient_Healthy(t *testing.T) {
+    c := graph.NewMockGraphClient()
+    if !c.Healthy(context.Background()) {
+        t.Error(&quot;mock client should always be healthy&quot;)
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestMockGraphClient ./tests/</code>
+Expected: FAIL (NewMockGraphClient doesn't exist)</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement MockGraphClient</strong></li>
+</ul>
+<p>Create <code>internal/graph/mock_client.go</code> implementing all <code>Client</code> interface methods with in-memory maps. Follow the same pattern as <code>internal/store/mock_store.go</code>:</p>
+<ul>
+<li><code>entities map[string]models.Entity</code></li>
+<li><code>facts map[string]models.Fact</code></li>
+<li>Mutex for thread safety</li>
+<li><code>SearchEntities</code>: name-substring match</li>
+<li><code>SearchFacts</code>: returns all non-expired facts (no actual search in mock)</li>
+<li><code>GetFactsBetween</code>: filter by source+target where <code>ExpiredAt</code> is nil</li>
+<li><code>InvalidateFact</code>: set <code>ExpiredAt</code> and <code>InvalidAt</code></li>
+<li><code>RecallByGraph</code>: return <code>source_memory_ids</code> from all matching facts</li>
+<li>
+<p><code>Healthy</code>: always true</p>
+</li>
+<li>
+<p>[ ] <strong>Step 4: Run tests</strong></p>
+</li>
+</ul>
+<p>Run: <code>go test -v -run TestMockGraphClient ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/mock_client.go tests/graph_client_test.go
+git commit -m &quot;feat(graph): add MockGraphClient with entity/fact CRUD&quot;
+</code></pre>
+<hr />
+<h3 id="task-11-add-graphconfig-to-config">Task 11: Add GraphConfig to Config</h3>
+<p><strong>Files:</strong>
+- Modify: <code>internal/config/config.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add config structs</strong></li>
+</ul>
+<p>In <code>internal/config/config.go</code>, add after the existing config structs:</p>
+<pre><code class="language-go">type GraphConfig struct {
+    Enabled          bool                   `mapstructure:&quot;enabled&quot;`
+    Neo4j            Neo4jConfig            `mapstructure:&quot;neo4j&quot;`
+    EntityResolution EntityResolutionConfig `mapstructure:&quot;entity_resolution&quot;`
+    FactExtraction   FactExtractionConfig   `mapstructure:&quot;fact_extraction&quot;`
+    RecallBudgetMs   int                    `mapstructure:&quot;recall_budget_ms&quot;`
+    RecallBudgetCLIMs int                   `mapstructure:&quot;recall_budget_cli_ms&quot;`
+}
+
+type Neo4jConfig struct {
+    URI      string `mapstructure:&quot;uri&quot;`
+    Username string `mapstructure:&quot;username&quot;`
+    Password string `mapstructure:&quot;password&quot;`
+    Database string `mapstructure:&quot;database&quot;`
+}
+
+type EntityResolutionConfig struct {
+    SimilarityThreshold float64 `mapstructure:&quot;similarity_threshold&quot;`
+    MaxCandidates       int     `mapstructure:&quot;max_candidates&quot;`
+}
+
+type FactExtractionConfig struct {
+    Enabled bool `mapstructure:&quot;enabled&quot;`
+}
+</code></pre>
+<p>Add <code>Graph GraphConfig</code> field to the <code>Config</code> struct.</p>
+<p>In <code>Load()</code>, set defaults:</p>
+<pre><code class="language-go">v.SetDefault(&quot;graph.enabled&quot;, false)
+v.SetDefault(&quot;graph.neo4j.uri&quot;, &quot;bolt://localhost:7687&quot;)
+v.SetDefault(&quot;graph.neo4j.username&quot;, &quot;neo4j&quot;)
+v.SetDefault(&quot;graph.neo4j.password&quot;, &quot;openclaw-cortex&quot;)
+v.SetDefault(&quot;graph.neo4j.database&quot;, &quot;neo4j&quot;)
+v.SetDefault(&quot;graph.entity_resolution.similarity_threshold&quot;, 0.95)
+v.SetDefault(&quot;graph.entity_resolution.max_candidates&quot;, 10)
+v.SetDefault(&quot;graph.fact_extraction.enabled&quot;, true)
+v.SetDefault(&quot;graph.recall_budget_ms&quot;, 50)
+v.SetDefault(&quot;graph.recall_budget_cli_ms&quot;, 500)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/config/config.go
+git commit -m &quot;feat(config): add GraphConfig for Neo4j and entity resolution settings&quot;
+</code></pre>
+<hr />
+<h2 id="chunk-3-phase-2-neo4j-client-resolvers-fact-extraction">Chunk 3: Phase 2 — Neo4j Client, Resolvers, Fact Extraction</h2>
+<h3 id="task-12-create-neo4jclient-implementation">Task 12: Create Neo4jClient Implementation</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/neo4j.go</code>
+- Modify: <code>go.mod</code> (add <code>neo4j-go-driver/v5</code>)</p>
+<ul>
+<li>[ ] <strong>Step 1: Add Neo4j driver dependency</strong></li>
+</ul>
+<p>Run: <code>go get github.com/neo4j/neo4j-go-driver/v5</code></p>
+<ul>
+<li>[ ] <strong>Step 2: Implement Neo4jClient</strong></li>
+</ul>
+<p>Create <code>internal/graph/neo4j.go</code> implementing <code>Client</code> interface. Key patterns:
+- Constructor <code>NewNeo4jClient(ctx, uri, username, password, database, logger)</code> creates <code>neo4j.DriverWithContext</code>
+- <code>EnsureSchema</code>: creates range indexes, fulltext indexes via <code>session.ExecuteWrite</code>
+- All writes use <code>session.ExecuteWrite</code> with explicit transactions
+- All reads use <code>session.ExecuteRead</code>
+- Entity/Fact CRUD maps Go structs to/from Neo4j node/relationship properties
+- <code>SearchFacts</code> runs the three Cypher queries from the spec and merges with RRF (delegate to <code>search.go</code> in Task 15)
+- <code>RecallByGraph</code> wraps <code>SearchFacts</code> and extracts <code>source_memory_ids</code>
+- <code>Healthy</code> calls <code>driver.VerifyConnectivity</code>
+- <code>Close</code> calls <code>driver.Close</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Verify it compiles</strong></li>
+</ul>
+<p>Run: <code>go build ./internal/graph/</code>
+Expected: Success</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/neo4j.go go.mod go.sum
+git commit -m &quot;feat(graph): add Neo4jClient with Bolt driver implementation&quot;
+</code></pre>
+<hr />
+<h3 id="task-13-create-entityresolver-3-stage">Task 13: Create EntityResolver (3-stage)</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/entity_resolver.go</code>
+- Create: <code>tests/entity_resolution_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/entity_resolution_test.go</code> covering:
+- <code>TestEntityResolver_ExactNameMatch</code> — deterministic fast-path
+- <code>TestEntityResolver_AliasMatch</code> — alias resolution
+- <code>TestEntityResolver_NoMatch_NewEntity</code> — no candidates, returns new
+- <code>TestEntityResolver_ClaudeFallback</code> — mock Claude response for LLM resolution
+- <code>TestEntityResolver_ClaudeError_TreatsAsNew</code> — graceful degradation</p>
+<p>All tests use <code>MockGraphClient</code> and mock the Claude API response.</p>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestEntityResolver ./tests/</code>
+Expected: FAIL</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement EntityResolver</strong></li>
+</ul>
+<p>Create <code>internal/graph/entity_resolver.go</code>:</p>
+<pre><code class="language-go">type EntityResolver struct {
+    graph     Client
+    client    *anthropic.Client // Claude Haiku for Stage 3
+    model     string
+    threshold float64 // similarity threshold for fast-path (default 0.95)
+    maxCands  int
+    logger    *slog.Logger
+}
+
+func NewEntityResolver(graph Client, apiKey, model string, threshold float64, maxCands int, logger *slog.Logger) *EntityResolver
+
+// Resolve returns (resolvedID, isNew, err).
+// Stage 1: candidate retrieval via graph.SearchEntities
+// Stage 2: deterministic fast-path (exact name, alias, embedding &gt; threshold)
+// Stage 3: Claude Haiku fallback
+// On any error: treats as new entity (safe default)
+func (r *EntityResolver) Resolve(ctx context.Context, extracted models.Entity, conversationContext string) (string, bool, error)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestEntityResolver ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/entity_resolver.go tests/entity_resolution_test.go
+git commit -m &quot;feat(graph): add three-stage EntityResolver&quot;
+</code></pre>
+<hr />
+<h3 id="task-14-create-factextractor">Task 14: Create FactExtractor</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/fact_extractor.go</code>
+- Create: <code>tests/fact_extraction_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/fact_extraction_test.go</code> covering:
+- <code>TestFactExtractor_ValidFacts</code> — extracts facts from conversation text
+- <code>TestFactExtractor_EmptyResult</code> — no facts to extract
+- <code>TestFactExtractor_MalformedJSON</code> — graceful degradation
+- <code>TestFactExtractor_APIError</code> — returns nil, nil (same as EntityExtractor pattern)</p>
+<p>Mock Claude responses using httptest.Server or test the prompt construction.</p>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestFactExtractor ./tests/</code>
+Expected: FAIL</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement FactExtractor</strong></li>
+</ul>
+<p>Create <code>internal/graph/fact_extractor.go</code>:</p>
+<pre><code class="language-go">type FactExtractor struct {
+    client *anthropic.Client
+    model  string
+    logger *slog.Logger
+}
+
+func NewFactExtractor(apiKey, model string, logger *slog.Logger) *FactExtractor
+
+// Extract extracts relationship facts from conversation text.
+// entityNames is the list of known entity names from the extraction step.
+// On API error: logs warning and returns (nil, nil) for graceful degradation.
+func (e *FactExtractor) Extract(ctx context.Context, content string, entityNames []string) ([]models.Fact, error)
+</code></pre>
+<p>Uses the fact extraction prompt from the spec. XML-escapes content. Parses JSON response. Validates entity names match known list. Generates UUID for each fact.</p>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestFactExtractor ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/fact_extractor.go tests/fact_extraction_test.go
+git commit -m &quot;feat(graph): add FactExtractor with Claude Haiku&quot;
+</code></pre>
+<hr />
+<h3 id="task-15-create-factresolver">Task 15: Create FactResolver</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/fact_resolver.go</code>
+- Create: <code>tests/fact_resolution_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/fact_resolution_test.go</code> covering:
+- <code>TestFactResolver_ExactDuplicate</code> — returns FactActionSkip
+- <code>TestFactResolver_Contradiction</code> — returns FactActionInvalidate
+- <code>TestFactResolver_NewFact</code> — returns FactActionInsert
+- <code>TestFactResolver_ClaudeError_TreatsAsNew</code> — graceful degradation
+- <code>TestFactResolver_DuplicateAndContradicted</code> — both at once</p>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestFactResolver ./tests/</code>
+Expected: FAIL</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement FactResolver</strong></li>
+</ul>
+<p>Create <code>internal/graph/fact_resolver.go</code>:</p>
+<pre><code class="language-go">type FactResolver struct {
+    graph  Client
+    client *anthropic.Client
+    model  string
+    logger *slog.Logger
+}
+
+func NewFactResolver(graph Client, apiKey, model string, logger *slog.Logger) *FactResolver
+
+// Resolve determines if a new fact is a duplicate, contradiction, or new.
+// Returns the action to take plus indices of affected existing facts.
+func (r *FactResolver) Resolve(ctx context.Context, newFact models.Fact, conversationContext string) (FactAction, []string, error)
+</code></pre>
+<p>Follows the 4-step process from the spec: fast path → candidate retrieval → Claude resolution → apply actions.</p>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestFactResolver ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/fact_resolver.go tests/fact_resolution_test.go
+git commit -m &quot;feat(graph): add FactResolver with dedup and contradiction detection&quot;
+</code></pre>
+<hr />
+<h2 id="chunk-4-phase-2-search-recall-integration-wiring">Chunk 4: Phase 2 — Search, Recall Integration, Wiring</h2>
+<h3 id="task-16-create-hybrid-graph-search-with-rrf">Task 16: Create Hybrid Graph Search with RRF</h3>
+<p><strong>Files:</strong>
+- Create: <code>internal/graph/search.go</code>
+- Create: <code>tests/graph_search_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/graph_search_test.go</code> covering:
+- <code>TestRRFMerge</code> — unit test of RRF fusion algorithm with known ranked lists
+- <code>TestGraphSearch_MockClient</code> — search via MockGraphClient returns expected results</p>
+<pre><code class="language-go">func TestRRFMerge(t *testing.T) {
+    // Three result lists with overlapping UUIDs
+    lists := [][]graph.FactResult{
+        {{ID: &quot;a&quot;, Score: 0.9}, {ID: &quot;b&quot;, Score: 0.8}},
+        {{ID: &quot;b&quot;, Score: 0.95}, {ID: &quot;c&quot;, Score: 0.7}},
+        {{ID: &quot;a&quot;, Score: 0.85}, {ID: &quot;c&quot;, Score: 0.6}},
+    }
+
+    merged := graph.RRFMerge(lists, 10)
+
+    // &quot;b&quot; appears in 2 lists at ranks 2,1 → highest RRF score
+    // &quot;a&quot; appears in 2 lists at ranks 1,1 → also high
+    if len(merged) != 3 {
+        t.Fatalf(&quot;expected 3 merged results, got %d&quot;, len(merged))
+    }
+    // Verify deduplication
+    seen := map[string]bool{}
+    for _, r := range merged {
+        if seen[r.ID] {
+            t.Errorf(&quot;duplicate ID in merged results: %s&quot;, r.ID)
+        }
+        seen[r.ID] = true
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestRRF ./tests/</code>
+Expected: FAIL</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement search.go</strong></li>
+</ul>
+<p>Create <code>internal/graph/search.go</code>:</p>
+<pre><code class="language-go">// RRFMerge implements Reciprocal Rank Fusion (k=60) across multiple ranked lists.
+// Each list contains FactResults sorted by their individual method score.
+// Returns merged results sorted by combined RRF score, deduped by ID.
+func RRFMerge(lists [][]FactResult, limit int) []FactResult
+
+// HybridSearch runs BM25 + cosine + BFS in parallel and merges with RRF.
+// This is called by Neo4jClient.SearchFacts and Neo4jClient.RecallByGraph.
+func HybridSearch(ctx context.Context, bm25Fn, cosineFn, bfsFn SearchFunc, limit int) ([]FactResult, error)
+
+// SearchFunc is a function that returns a ranked list of fact results.
+type SearchFunc func(ctx context.Context, limit int) ([]FactResult, error)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestRRF ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/graph/search.go tests/graph_search_test.go
+git commit -m &quot;feat(graph): add hybrid search with RRF fusion&quot;
+</code></pre>
+<hr />
+<h3 id="task-17-integrate-graph-into-recall-pipeline">Task 17: Integrate Graph into Recall Pipeline</h3>
+<p><strong>Files:</strong>
+- Modify: <code>internal/recall/recall.go</code>
+- Create: <code>tests/graph_recall_merge_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/graph_recall_merge_test.go</code>:</p>
+<pre><code class="language-go">func TestRecallWithGraphMerge(t *testing.T) {
+    // Setup: MockStore with 3 memories, MockGraphClient returning 2 memory IDs
+    // (one overlapping with Qdrant results, one graph-only)
+    // Verify: merged results have no duplicates, graph-only memory is included,
+    // all go through 8-factor ranking
+}
+
+func TestRecallWithoutGraph(t *testing.T) {
+    // When graph is nil, recall works exactly as before (Qdrant-only)
+}
+
+func TestRecallGraphTimeout(t *testing.T) {
+    // When graph call exceeds latency budget, Qdrant-only results are used
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestRecallWith ./tests/</code>
+Expected: FAIL</p>
+<ul>
+<li>[ ] <strong>Step 3: Modify Recaller to accept optional graph.Client</strong></li>
+</ul>
+<p>In <code>internal/recall/recall.go</code>, add <code>GraphClient graph.Client</code> field to <code>Recaller</code> struct. Modify <code>Recall()</code> (or create a new method <code>RecallWithGraph()</code>) that:
+1. Runs existing Qdrant search
+2. If <code>GraphClient != nil</code>, calls <code>RecallByGraph</code> with latency budget
+3. Fetches graph-sourced memories via <code>store.Get()</code>
+4. Deduplicates by memory ID
+5. Passes all candidates through <code>Rank()</code></p>
+<ul>
+<li>[ ] <strong>Step 4: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestRecallWith ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Run all tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add internal/recall/recall.go tests/graph_recall_merge_test.go
+git commit -m &quot;feat(recall): integrate graph-based recall with dedup and latency budget&quot;
+</code></pre>
+<hr />
+<h3 id="task-18-wire-graph-client-in-maingo-capture">Task 18: Wire Graph Client in main.go + Capture</h3>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/openclaw-cortex/main.go</code>
+- Modify: <code>cmd/openclaw-cortex/cmd_capture.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add newGraphClient helper to main.go</strong></li>
+</ul>
+<pre><code class="language-go">func newGraphClient(ctx context.Context, logger *slog.Logger) (graph.Client, error) {
+    if !cfg.Graph.Enabled {
+        return nil, nil
+    }
+    client, err := graph.NewNeo4jClient(
+        ctx,
+        cfg.Graph.Neo4j.URI,
+        cfg.Graph.Neo4j.Username,
+        cfg.Graph.Neo4j.Password,
+        cfg.Graph.Neo4j.Database,
+        logger,
+    )
+    if err != nil {
+        return nil, fmt.Errorf(&quot;graph client: %w&quot;, err)
+    }
+    if schemaErr := client.EnsureSchema(ctx); schemaErr != nil {
+        client.Close()
+        return nil, fmt.Errorf(&quot;graph schema: %w&quot;, schemaErr)
+    }
+    return client, nil
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Wire graph into recall and capture commands</strong></li>
+</ul>
+<p>In commands that use recaller (recall, serve, mcp, hook), pass <code>graph.Client</code> to <code>Recaller</code>. In capture command, add Phase 2 fact extraction + graph write when <code>cfg.Graph.Enabled</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add cmd/openclaw-cortex/main.go cmd/openclaw-cortex/cmd_capture.go
+git commit -m &quot;feat(cmd): wire graph.Client into recall and capture pipelines&quot;
+</code></pre>
+<hr />
+<h3 id="task-19-update-docker-compose-health-check">Task 19: Update Docker Compose + Health Check</h3>
+<p><strong>Files:</strong>
+- Modify: <code>docker-compose.yml</code>
+- Modify: <code>cmd/openclaw-cortex/cmd_health.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add Neo4j to docker-compose.yml (commented out)</strong></li>
+</ul>
+<pre><code class="language-yaml">  # Uncomment to enable entity-relationship graph
+  # neo4j:
+  #   image: neo4j:5
+  #   ports:
+  #     - &quot;7474:7474&quot;
+  #     - &quot;7687:7687&quot;
+  #   environment:
+  #     NEO4J_AUTH: neo4j/openclaw-cortex
+  #     NEO4J_PLUGINS: '[]'
+  #   volumes:
+  #     - neo4j_data:/data
+  #   restart: unless-stopped
+</code></pre>
+<p>Add <code>neo4j_data:</code> to the volumes section (also commented).</p>
+<ul>
+<li>[ ] <strong>Step 2: Add Neo4j health check to cmd_health.go</strong></li>
+</ul>
+<p>In <code>cmd/openclaw-cortex/cmd_health.go</code>, add an optional Neo4j check when <code>cfg.Graph.Enabled</code>:</p>
+<pre><code class="language-go">// Neo4j (optional)
+if cfg.Graph.Enabled {
+    gc, gcErr := newGraphClient(ctx, logger)
+    if gcErr != nil {
+        fmt.Fprintf(w, &quot;Neo4j:   FAIL (%v)\n&quot;, gcErr)
+        allOK = false
+    } else {
+        if gc.Healthy(ctx) {
+            fmt.Fprintf(w, &quot;Neo4j:   OK\n&quot;)
+        } else {
+            fmt.Fprintf(w, &quot;Neo4j:   FAIL (unhealthy)\n&quot;)
+            allOK = false
+        }
+        gc.Close()
+    }
+} else {
+    fmt.Fprintf(w, &quot;Neo4j:   SKIP (graph.enabled=false)\n&quot;)
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -short -count=1 ./...</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add docker-compose.yml cmd/openclaw-cortex/cmd_health.go
+git commit -m &quot;feat: add Neo4j to docker-compose and health check&quot;
+</code></pre>
+<hr />
+<h2 id="chunk-5-phase-2-degradation-tests-final-verification">Chunk 5: Phase 2 — Degradation Tests + Final Verification</h2>
+<h3 id="task-20-graceful-degradation-tests">Task 20: Graceful Degradation Tests</h3>
+<p><strong>Files:</strong>
+- Create: <code>tests/graph_degradation_test.go</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write degradation tests</strong></li>
+</ul>
+<pre><code class="language-go">package tests
+
+func TestRecall_GraphNil_UsesQdrantOnly(t *testing.T) {
+    // Recaller with GraphClient=nil should work identically to pre-graph behavior
+}
+
+func TestRecall_GraphTimeout_FallsBackToQdrant(t *testing.T) {
+    // MockGraphClient that blocks for 200ms + 50ms budget → Qdrant-only results
+}
+
+func TestCapture_GraphWriteFailure_MemoryStillStored(t *testing.T) {
+    // MockGraphClient that returns error on UpsertEntity
+    // Memory should still be in MockStore
+}
+
+func TestEntityResolver_ClaudeDown_TreatsAsNew(t *testing.T) {
+    // EntityResolver with invalid API key → should not error, should create new entity
+}
+
+func TestFactExtractor_ClaudeDown_SkipsFacts(t *testing.T) {
+    // FactExtractor with invalid API key → returns nil, nil
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests</strong></li>
+</ul>
+<p>Run: <code>go test -v -run TestRecall_Graph -run TestCapture_Graph -run TestEntityResolver_Claude -run TestFactExtractor_Claude ./tests/</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add tests/graph_degradation_test.go
+git commit -m &quot;test: add graceful degradation tests for graph layer&quot;
+</code></pre>
+<hr />
+<h3 id="task-21-lint-full-verification">Task 21: Lint + Full Verification</h3>
+<ul>
+<li>[ ] <strong>Step 1: Run linter</strong></li>
+</ul>
+<p>Run: <code>golangci-lint run ./...</code>
+Expected: Clean</p>
+<ul>
+<li>[ ] <strong>Step 2: Run full test suite with race detector</strong></li>
+</ul>
+<p>Run: <code>go test -short -race -count=1 ./...</code>
+Expected: All PASS</p>
+<ul>
+<li>[ ] <strong>Step 3: Build binary</strong></li>
+</ul>
+<p>Run: <code>go build -o bin/openclaw-cortex ./cmd/openclaw-cortex</code>
+Expected: Success</p>
+<ul>
+<li>[ ] <strong>Step 4: Fix any issues and commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;fix: lint cleanup and final verification for entity graph integration&quot;
+</code></pre>
+<hr />
+<h3 id="task-22-create-feature-branch-pr">Task 22: Create Feature Branch + PR</h3>
+<ul>
+<li>[ ] <strong>Step 1: Ensure all work is on feature branch</strong></li>
+</ul>
+<p>All work should be on <code>feat/entity-graph-integration</code> branch.</p>
+<ul>
+<li>[ ] <strong>Step 2: Push and create PR</strong></li>
+</ul>
+<pre><code class="language-bash">git push -u origin feat/entity-graph-integration
+gh pr create --title &quot;feat: native entity-relationship graph integration (Phase 1 + 2)&quot; --body &quot;...&quot;
+</code></pre>
+<p>PR body should reference issue #43 and summarize:
+- Phase 1: Entity pipeline wired into capture, API/MCP endpoints
+- Phase 2: Native Neo4j graph layer with bi-temporal facts, 3-stage entity resolution, fact extraction, hybrid search with RRF
+- All Claude Haiku, no OpenAI dependency
+- Graceful degradation throughout</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

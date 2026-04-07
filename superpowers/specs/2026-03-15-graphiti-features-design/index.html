@@ -1,0 +1,1804 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/specs/2026-03-15-graphiti-features-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Graphiti-Inspired Features Design Spec - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#graphiti-inspired-features-design-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Graphiti-Inspired Features Design Spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="graphiti-inspired-features-design-spec">Graphiti-Inspired Features Design Spec</h1>
+<p><strong>Date:</strong> 2026-03-15<br />
+<strong>Version:</strong> draft-1.0<br />
+<strong>Author:</strong> Jarvis (Subagent)<br />
+<strong>Target:</strong> openclaw-cortex v0.8.0  </p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>This spec designs four Graphiti-inspired capabilities for openclaw-cortex: temporal versioning, contradiction detection, episodic→semantic triple extraction, and graph-aware recall. </p>
+<p><strong>Critical finding:</strong> The codebase is further along than the task implies. Several foundations already exist:
+- <code>models.Fact</code> already has bi-temporal fields (<code>ValidAt</code>, <code>InvalidAt</code>, <code>ExpiredAt</code>, <code>CreatedAt</code>)
+- <code>graph.Client</code> has <code>InvalidateFact</code>, <code>RecallByGraph</code>, <code>GetFactsForEntity</code> 
+- <code>graph.FactResolver</code> already does duplicate/contradiction detection via LLM
+- <code>graph.RRFMerge</code> / <code>HybridSearch</code> already merge ranked lists
+- <code>graph.EntityResolver</code> does three-stage entity resolution
+- <code>models.Memory</code> has <code>SupersedesID</code>, <code>ConflictGroupID</code>, <code>ConflictStatus</code></p>
+<p>This means the spec is mostly about <strong>wiring and completing</strong> partially-built systems, not building from scratch. Effort estimates reflect this.</p>
+<hr />
+<h2 id="1-current-architecture-snapshot">1. Current Architecture Snapshot</h2>
+<h3 id="data-model">Data Model</h3>
+<pre><code>Memory (node, :Memory label)
+  uuid, type, scope, visibility, content, confidence, source
+  tags[], project, ttl_seconds
+  created_at, updated_at, last_accessed, access_count
+  reinforced_at, reinforced_count
+  supersedes_id, valid_until
+  conflict_group_id, conflict_status
+  embedding: float[768]
+
+Entity (node, :Entity label)
+  uuid, name, type, aliases[], summary
+  project, community_id
+  name_embedding: float[768]
+
+Fact (edge via :RELATES_TO relationship)
+  id, source_entity_id, target_entity_id
+  relation_type, fact
+  created_at, expired_at, valid_at, invalid_at
+  source_memory_ids[], episodes[]
+  confidence
+  fact_embedding: float[768]
+</code></pre>
+<h3 id="vector-indexes-memgraph">Vector Indexes (Memgraph)</h3>
+<ul>
+<li><code>memory_embedding ON :Memory(embedding)</code> — dim 768, cosine</li>
+<li><code>entity_name_embedding ON :Entity(name_embedding)</code> — dim 768, cosine</li>
+</ul>
+<h3 id="key-interfaces">Key Interfaces</h3>
+<ul>
+<li><code>store.Store</code> — CRUD + vector search for Memory nodes</li>
+<li><code>graph.Client</code> — Entity/Fact graph operations</li>
+<li><code>internal/recall/recall.go</code> — multi-factor ranking engine</li>
+<li><code>internal/capture/</code> — LLM-driven memory extraction from conversations</li>
+<li><code>internal/graph/fact_resolver.go</code> — duplicate/contradiction detection</li>
+<li><code>internal/graph/entity_resolver.go</code> — entity dedup via 3-stage resolution</li>
+</ul>
+<hr />
+<h2 id="2-gap-analysis-vs-graphiti">2. Gap Analysis vs. Graphiti</h2>
+<table>
+<thead>
+<tr>
+<th>Graphiti Feature</th>
+<th>Cortex Status</th>
+<th>Gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Temporal fact validity windows</td>
+<td>✅ <code>Fact.ValidAt/InvalidAt</code> model exists</td>
+<td>Not persisted/queried in Memgraph; Memory nodes lack <code>valid_from/valid_to</code></td>
+</tr>
+<tr>
+<td>Fact invalidation (not deletion)</td>
+<td>✅ <code>graph.Client.InvalidateFact</code> exists</td>
+<td>Not called from store/capture pipeline</td>
+</tr>
+<tr>
+<td>Episode provenance</td>
+<td>✅ <code>Fact.Episodes[]</code> field exists</td>
+<td>Not populated from <code>capture</code> command</td>
+</tr>
+<tr>
+<td>Contradiction detection</td>
+<td>✅ <code>FactResolver.Resolve</code> exists</td>
+<td>Memory-level contradiction (not fact-level) uses ConflictGroupID; wiring incomplete</td>
+</tr>
+<tr>
+<td>Triple extraction from conversations</td>
+<td>✅ <code>FactExtractor</code> + <code>EntityResolver</code> exist</td>
+<td><code>capture</code> command only stores blob Memories, doesn't call graph pipeline</td>
+</tr>
+<tr>
+<td>Graph-aware recall</td>
+<td>✅ <code>graph.Client.RecallByGraph</code> interface exists</td>
+<td>Not implemented in <code>MemgraphStore</code>; recall.go doesn't merge graph results</td>
+</tr>
+<tr>
+<td>Memory temporal versioning</td>
+<td>⚠️ <code>SupersedesID</code> chain exists</td>
+<td>No <code>valid_from/valid_to</code> on Memory nodes; no invalidation on store</td>
+</tr>
+<tr>
+<td>BM25 full-text search for facts</td>
+<td>❌</td>
+<td>Planned (text index exists on :Entity); fact text search uses CONTAINS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-schema-changes">3. Schema Changes</h2>
+<h3 id="31-memory-node-temporal-fields">3.1 Memory Node — Temporal Fields</h3>
+<p>Add two new properties to all <code>:Memory</code> nodes:</p>
+<pre><code class="language-cypher">-- New properties on :Memory
+valid_from: datetime   -- when this memory became valid (= created_at for existing)
+valid_to:   datetime   -- when this memory was superseded (null = currently valid)
+</code></pre>
+<p><strong>Reasoning:</strong> <code>valid_until</code> already exists but means TTL expiry (time-to-live). These new fields mean "worldtime validity" — when did this fact become/stop being true. Keep both distinct.</p>
+<p><strong>New index:</strong></p>
+<pre><code class="language-cypher">CREATE INDEX ON :Memory(valid_from);
+CREATE INDEX ON :Memory(valid_to);
+</code></pre>
+<h3 id="32-fact-edge-persisted-temporal-fields">3.2 Fact Edge — Persisted Temporal Fields</h3>
+<p>The <code>Fact</code> model already has <code>ValidAt/InvalidAt/ExpiredAt</code>. Ensure these are written to the <code>:RELATES_TO</code> edge in Memgraph (currently not confirmed in store.go):</p>
+<pre><code class="language-cypher">-- Ensure :RELATES_TO edges store:
+valid_at:   datetime   -- world-time when relationship became true
+invalid_at: datetime   -- world-time when relationship ended (null = currently true)
+expired_at: datetime   -- system-time when we recorded the invalidation
+</code></pre>
+<p><strong>New index:</strong></p>
+<pre><code class="language-cypher">CREATE INDEX ON :RELATES_TO(valid_at);
+CREATE INDEX ON :RELATES_TO(invalid_at);
+CREATE INDEX ON :RELATES_TO(id);
+</code></pre>
+<p>Note: Memgraph supports relationship property indexes since 2.5.</p>
+<h3 id="33-episode-node-new">3.3 Episode Node (New)</h3>
+<p>Add a lightweight <code>:Episode</code> node to capture conversation provenance:</p>
+<pre><code class="language-cypher">(:Episode {
+  uuid:        string,   -- UUID
+  session_id:  string,   -- OpenClaw session ID
+  user_msg:    string,   -- user message (truncated at 2000 chars)
+  assistant_msg: string, -- assistant response (truncated at 2000 chars)
+  captured_at: datetime,
+  memory_ids:  string[], -- Memory UUIDs derived from this episode
+  fact_ids:    string[]  -- Fact IDs extracted from this episode
+})
+</code></pre>
+<p>Edges:</p>
+<pre><code>(:Episode)-[:PRODUCED]-&gt;(:Memory)
+(:Episode)-[:PRODUCED_FACT]-&gt;(:Memory)  // via :RELATES_TO
+</code></pre>
+<p>This satisfies Graphiti's "episodes as provenance" without changing Memory or Fact models.</p>
+<p><strong>New constraint + index:</strong></p>
+<pre><code class="language-cypher">CREATE CONSTRAINT ON (e:Episode) ASSERT e.uuid IS UNIQUE;
+CREATE INDEX ON :Episode(session_id);
+CREATE INDEX ON :Episode(captured_at);
+</code></pre>
+<h3 id="34-full-schema-ddl-summary-additions-only">3.4 Full Schema DDL Summary (additions only)</h3>
+<pre><code class="language-cypher">-- Temporal indexes on Memory
+CREATE INDEX ON :Memory(valid_from);
+CREATE INDEX ON :Memory(valid_to);
+
+-- Relationship indexes (requires Memgraph 2.5+, we have 2.21)
+CREATE INDEX ON :RELATES_TO(id);
+CREATE INDEX ON :RELATES_TO(invalid_at);
+
+-- Episode nodes
+CREATE CONSTRAINT ON (e:Episode) ASSERT e.uuid IS UNIQUE;
+CREATE INDEX ON :Episode(session_id);
+CREATE INDEX ON :Episode(captured_at);
+
+-- Fact embedding vector index (if not already created)
+CREATE VECTOR INDEX fact_embedding ON :RELATES_TO(fact_embedding) 
+  WITH CONFIG {&quot;dimension&quot;: 768, &quot;metric&quot;: &quot;cos&quot;, &quot;capacity&quot;: 50000};
+</code></pre>
+<hr />
+<h2 id="4-feature-design">4. Feature Design</h2>
+<h3 id="41-temporal-versioning-for-memory-nodes">4.1 Temporal Versioning for Memory Nodes</h3>
+<h4 id="goal">Goal</h4>
+<p>When <code>store memory-update</code> or <code>capture</code> produces a new memory that supersedes an old one, the old memory gets <code>valid_to = now()</code> set. Recall by default returns only <code>valid_to IS NULL</code> memories, with <code>--include-history</code> flag to include expired.</p>
+<h4 id="model-changes">Model Changes</h4>
+<pre><code class="language-go">// internal/models/memory.go — additions
+type Memory struct {
+    // ... existing fields ...
+
+    // ValidFrom is when this memory version became the current truth.
+    // Set to CreatedAt on first write. Immutable after initial store.
+    ValidFrom time.Time `json:&quot;valid_from,omitempty&quot;`
+
+    // ValidTo is set when this memory is superseded. Zero = currently valid.
+    ValidTo *time.Time `json:&quot;valid_to,omitempty&quot;`
+
+    // IsCurrentVersion is derived (not stored): ValidTo == nil
+    // Used for display only.
+    IsCurrentVersion bool `json:&quot;is_current_version,omitempty&quot;`
+}
+</code></pre>
+<h4 id="storestore-interface-changes">store.Store Interface Changes</h4>
+<pre><code class="language-go">// Add to store.Store interface:
+
+// InvalidateMemory sets valid_to on a memory without deleting it.
+// Used when a superseding memory is stored.
+InvalidateMemory(ctx context.Context, id string, validTo time.Time) error
+
+// GetHistory returns all versions of a memory chain, including invalidated ones.
+// Uses SupersedesID chain traversal.
+GetHistory(ctx context.Context, id string) ([]Memory, error)
+</code></pre>
+<h4 id="upsert-logic-change">Upsert Logic Change</h4>
+<p>When <code>store.Upsert</code> is called with <code>memory.SupersedesID != ""</code>:
+1. Set <code>valid_to = now()</code> on the superseded memory (call <code>InvalidateMemory</code>)
+2. Set <code>valid_from = now()</code> on the new memory
+3. Store as normal</p>
+<pre><code class="language-go">// internal/memgraph/store.go — Upsert modification
+func (s *MemgraphStore) Upsert(ctx context.Context, memory models.Memory, vector []float32) error {
+    // ... existing code ...
+
+    // NEW: if this supersedes another memory, invalidate it
+    if memory.SupersedesID != &quot;&quot; {
+        now := time.Now().UTC()
+        if err := s.InvalidateMemory(ctx, memory.SupersedesID, now); err != nil {
+            s.logger.Warn(&quot;failed to invalidate superseded memory&quot;, 
+                &quot;superseded_id&quot;, memory.SupersedesID, &quot;error&quot;, err)
+            // non-fatal: still store the new memory
+        }
+    }
+
+    // Set valid_from if not set
+    if memory.ValidFrom.IsZero() {
+        memory.ValidFrom = time.Now().UTC()
+    }
+}
+</code></pre>
+<h4 id="searchrecall-filtering">Search/Recall Filtering</h4>
+<p>Default behavior: exclude <code>valid_to IS NOT NULL</code> memories from all search/recall results.</p>
+<pre><code class="language-cypher">-- Default recall query addition
+WHERE m.valid_to IS NULL OR m.valid_to &gt; datetime()
+</code></pre>
+<p>Flag: <code>--include-history</code> or filter <code>IncludeInvalidated: true</code> in <code>SearchFilters</code>.</p>
+<pre><code class="language-go">// internal/store/store.go — SearchFilters addition
+type SearchFilters struct {
+    // ... existing fields ...
+
+    // IncludeInvalidated includes memories with valid_to set (historical versions).
+    // Default: false (only return currently-valid memories)
+    IncludeInvalidated bool `json:&quot;include_invalidated,omitempty&quot;`
+
+    // AsOf returns the state of memories valid at a specific point in time.
+    // When set, returns memories where valid_from &lt;= AsOf AND (valid_to IS NULL OR valid_to &gt; AsOf)
+    AsOf *time.Time `json:&quot;as_of,omitempty&quot;`
+}
+</code></pre>
+<h3 id="42-contradiction-detection">4.2 Contradiction Detection</h3>
+<h4 id="current-state">Current State</h4>
+<p><code>FactResolver.Resolve</code> already detects contradictions between <code>Fact</code> edges. <code>ConflictDetector</code> exists for <code>Memory</code> nodes but uses a different mechanism (ConflictGroupID). The gap: capture pipeline doesn't call either consistently.</p>
+<h4 id="design-unified-contradiction-pipeline">Design: Unified Contradiction Pipeline</h4>
+<p><strong>Stage 1: Candidate Retrieval (fast, ~10ms)</strong></p>
+<pre><code>new_memory_content → embed → vector_search(top_20, similarity &gt; 0.75)
+                   + entity_extract → entity_lookup → GetMemoryFacts() for matching entities
+Merge candidates by ID (dedup)
+</code></pre>
+<p><strong>Stage 2: Heuristic Filter (fast, ~2ms)</strong>
+For each candidate memory, check:
+- Same extracted entities (&gt;1 shared entity) AND
+- Conflicting predicate signals (e.g., "works at" → extract org names, check if different)</p>
+<p>Predicate signals are detected via regex patterns on the <code>relation_type</code> field of extracted facts:</p>
+<pre><code class="language-go">// internal/capture/contradiction.go
+var exclusivePairs = map[string]string{
+    &quot;WORKS_AT&quot;:    &quot;WORKS_AT&quot;,
+    &quot;HAS_ROLE&quot;:    &quot;HAS_ROLE&quot;,
+    &quot;LOCATED_IN&quot;:  &quot;LOCATED_IN&quot;,
+    &quot;MARRIED_TO&quot;:  &quot;MARRIED_TO&quot;,
+    &quot;REPORTS_TO&quot;:  &quot;REPORTS_TO&quot;,
+}
+</code></pre>
+<p><strong>Stage 3: LLM Confirmation (optional, ~50-150ms)</strong>
+Only invoked when Stage 2 returns candidates with ambiguous conflict signals.</p>
+<pre><code class="language-go">// Reuse FactResolver pattern:
+type MemoryContradictionChecker struct {
+    client llm.LLMClient
+    model  string
+    logger *slog.Logger
+}
+
+func (c *MemoryContradictionChecker) Check(ctx context.Context, newContent string, candidates []models.Memory) ([]string, error)
+// Returns IDs of memories that are contradicted by newContent
+</code></pre>
+<p><strong>Contradiction Resolution Actions:</strong>
+1. <code>contradicted_ids</code> → set <code>valid_to = now()</code> on each (invalidate, don't delete)
+2. New memory gets <code>valid_from = now()</code>
+3. Link via <code>supersedes_id</code> chain if the contradiction is a direct update</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-yaml"># config.yaml additions
+contradiction:
+  enabled: true
+  similarity_threshold: 0.75    # min cosine similarity to be a candidate
+  max_candidates: 20            # max memories to check
+  llm_confirm_threshold: 0.82   # above this similarity, skip LLM (auto-invalidate)
+  llm_timeout_ms: 150           # skip LLM if over budget
+</code></pre>
+<h4 id="wire-up-in-capture-pipeline">Wire-up in capture pipeline</h4>
+<pre><code class="language-go">// cmd/openclaw-cortex/cmd_capture.go — after Extract(), before Upsert loop
+if cfg.Contradiction.Enabled {
+    detector := capture.NewContradictionDetector(st, emb, llmClient, cfg.Contradiction, logger)
+    for i := range memories {
+        contradicted, err := detector.FindContradictions(ctx, memories[i])
+        for _, cid := range contradicted {
+            _ = st.InvalidateMemory(ctx, cid, time.Now())
+        }
+    }
+}
+</code></pre>
+<h3 id="43-episodic-semantic-triple-extraction">4.3 Episodic → Semantic Triple Extraction</h3>
+<h4 id="current-state_1">Current State</h4>
+<p><code>capture</code> command extracts blob Memories via <code>Capturer.Extract()</code>. Entity and fact extraction exists in <code>graph.EntityResolver</code> and <code>graph.FactExtractor</code> but is NOT called from <code>capture</code>. It appears to be wired somewhere (cmd_hook.go?) but not in cmd_capture.go.</p>
+<h4 id="design-capture-graph-pipeline">Design: Capture → Graph Pipeline</h4>
+<p>The capture command should run a two-phase pipeline:</p>
+<p><strong>Phase 1: Memory blob extraction (existing)</strong></p>
+<pre><code>conversation → Capturer.Extract() → []CapturedMemory → Upsert into Memory nodes
+</code></pre>
+<p><strong>Phase 2: Triple extraction (new wiring)</strong></p>
+<pre><code>conversation → EntityExtractor → []Entity (resolved/deduplicated)
+            → FactExtractor(known_entities) → []rawFact
+            → FactResolver.Resolve() for each fact → insert/skip/invalidate
+            → UpsertFact() with valid_at, episode linkage
+            → Create :Episode node linking Memory IDs and Fact IDs
+</code></pre>
+<p>The key insight: these phases can run <strong>in parallel</strong> since Phase 1 stores Memories and Phase 2 stores Facts independently. They're linked via <code>source_memory_ids</code> on Fact and <code>MemoryIDs</code> on Entity.</p>
+<pre><code class="language-go">// cmd/openclaw-cortex/cmd_capture.go — RunE restructure
+var (
+    memories []models.Memory
+    facts    []models.Fact
+    wg       sync.WaitGroup
+    mu       sync.Mutex
+    errs     []error
+)
+
+// Phase 1: Memory extraction (existing, runs in goroutine)
+wg.Add(1)
+go func() {
+    defer wg.Done()
+    extracted, err := cap.Extract(ctx, userMsg, assistantMsg)
+    mu.Lock()
+    if err != nil { errs = append(errs, err) }
+    memories = extracted
+    mu.Unlock()
+}()
+
+// Phase 2: Triple extraction (new)
+if cfg.Graph.Enabled {
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        extracted, err := extractTriples(ctx, graphClient, emb, llmClient, userMsg, assistantMsg, cfg)
+        mu.Lock()
+        if err != nil { errs = append(errs, fmt.Errorf(&quot;triple extraction (non-fatal): %w&quot;, err)) }
+        facts = extracted
+        mu.Unlock()
+    }()
+}
+
+wg.Wait()
+// ... store memories, store facts, create Episode node
+</code></pre>
+<h4 id="new-function-extracttriples">New function: <code>extractTriples</code></h4>
+<pre><code class="language-go">// internal/capture/triple_extractor.go (new file)
+package capture
+
+type TripleExtractor struct {
+    graph          graph.Client
+    entityResolver *graph.EntityResolver
+    factExtractor  *graph.FactExtractor
+    factResolver   *graph.FactResolver
+    embedder       embed.Embedder
+    logger         *slog.Logger
+}
+
+func (te *TripleExtractor) Extract(ctx context.Context, content string, sessionID string) ([]models.Fact, error) {
+    // 1. Extract entity candidates from content
+    // 2. Resolve each entity (EntityResolver.Resolve) → get/create Entity nodes
+    // 3. Extract facts given known entities (FactExtractor.Extract)
+    // 4. For each fact: FactResolver.Resolve → action (insert/skip/invalidate)
+    // 5. Embed fact strings for fact_embedding
+    // 6. UpsertFact for inserts; InvalidateFact for contradicted old facts
+    // Return []models.Fact of newly created facts
+}
+</code></pre>
+<h4 id="episode-node-creation">Episode Node Creation</h4>
+<p>After both phases complete:</p>
+<pre><code class="language-go">// internal/capture/episode.go (new file)
+type EpisodeStore interface {
+    CreateEpisode(ctx context.Context, ep models.Episode) error
+}
+
+// models/episode.go (new file)
+type Episode struct {
+    UUID         string    `json:&quot;uuid&quot;`
+    SessionID    string    `json:&quot;session_id&quot;`
+    UserMsg      string    `json:&quot;user_msg&quot;`
+    AssistantMsg string    `json:&quot;assistant_msg&quot;`
+    CapturedAt   time.Time `json:&quot;captured_at&quot;`
+    MemoryIDs    []string  `json:&quot;memory_ids&quot;`
+    FactIDs      []string  `json:&quot;fact_ids&quot;`
+}
+</code></pre>
+<p>Episode creation is <strong>best-effort</strong> — failure doesn't fail the capture.</p>
+<h4 id="relation-type-normalization">Relation Type Normalization</h4>
+<p><code>FactExtractor</code> prompts Claude for SCREAMING_SNAKE_CASE relation types. Add a normalization layer with common canonical types to reduce sprawl:</p>
+<pre><code class="language-go">// internal/graph/relation_types.go (new file)
+var canonicalRelations = map[string]string{
+    &quot;EMPLOYED_BY&quot;: &quot;WORKS_AT&quot;,
+    &quot;EMPLOYEE_OF&quot;: &quot;WORKS_AT&quot;,
+    &quot;EMPLOYED_AT&quot;: &quot;WORKS_AT&quot;,
+    &quot;POSITION_AT&quot;: &quot;HAS_ROLE&quot;,
+    &quot;TITLE_AT&quot;:    &quot;HAS_ROLE&quot;,
+    &quot;LOCATED_AT&quot;:  &quot;LOCATED_IN&quot;,
+    &quot;BASED_IN&quot;:    &quot;LOCATED_IN&quot;,
+    // ... ~30 canonical mappings
+}
+
+func NormalizeRelationType(raw string) string {
+    if canon, ok := canonicalRelations[raw]; ok {
+        return canon
+    }
+    return raw
+}
+</code></pre>
+<h3 id="44-graph-aware-recall">4.4 Graph-Aware Recall</h3>
+<h4 id="current-state_2">Current State</h4>
+<p><code>graph.Client.RecallByGraph</code> interface exists. <code>recall.go</code> does vector + multi-factor ranking. They're not connected.</p>
+<h4 id="design-hybrid-recall-pipeline">Design: Hybrid Recall Pipeline</h4>
+<pre><code>query → embed → [parallel]:
+  A) vector_search(Memory nodes, top 30)
+  B) RecallByGraph(Entity nodes + graph traversal, top 20)
+→ merge via RRF
+→ multi-factor re-ranking (existing recall.go weights)
+→ return top N
+</code></pre>
+<p><strong>RecallByGraph Implementation (in MemgraphStore)</strong></p>
+<pre><code class="language-cypher">-- Step 1: Find entities matching query via embedding similarity
+CALL vector_search.search(&quot;entity_name_embedding&quot;, $limit, $query_embedding) 
+YIELD node, similarity
+WHERE similarity &gt; 0.6
+WITH node AS entity, similarity
+
+-- Step 2: BFS from matching entities, 2 hops
+MATCH (entity)-[:RELATES_TO*1..2]-(connected_entity)
+WHERE connected_entity &lt;&gt; entity
+
+-- Step 3: Find Memory nodes linked to these entities  
+MATCH (connected_entity)&lt;-[:MENTIONS]-(m:Memory)
+WHERE m.valid_to IS NULL
+WITH DISTINCT m.uuid AS memory_id, max(similarity) AS entity_score
+
+RETURN memory_id, entity_score
+ORDER BY entity_score DESC
+LIMIT $limit
+</code></pre>
+<p><strong>Note:</strong> This requires <code>:MENTIONS</code> edges from Memory → Entity. These should be created by <code>LinkMemoryToEntity</code> (already exists in <code>store.Store</code>). Verify <code>capture</code> calls this for extracted entities.</p>
+<p><strong>Merge Strategy</strong></p>
+<pre><code class="language-go">// internal/recall/recall.go — new function
+func (r *Ranker) RecallHybrid(ctx context.Context, query string, embedding []float32, opts RecallOptions) ([]RecallResult, error) {
+    var (
+        vectorResults []models.SearchResult
+        graphMemIDs   []string
+        wg            sync.WaitGroup
+        mu            sync.Mutex
+    )
+
+    // Parallel fetch
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        res, err := r.store.Search(ctx, embedding, uint64(opts.Limit*3), opts.Filters)
+        mu.Lock()
+        if err == nil { vectorResults = res }
+        mu.Unlock()
+    }()
+
+    if r.graph != nil &amp;&amp; opts.UseGraph {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            ids, err := r.graph.RecallByGraph(ctx, query, embedding, opts.Limit*2)
+            mu.Lock()
+            if err == nil { graphMemIDs = ids }
+            mu.Unlock()
+        }()
+    }
+
+    wg.Wait()
+
+    // Convert graph IDs to SearchResults (fetch from store)
+    graphResults := r.fetchByIDs(ctx, graphMemIDs)
+
+    // RRF merge
+    merged := rrfMergeMemories(vectorResults, graphResults, opts.Limit*2)
+
+    // Apply multi-factor ranking (existing logic)
+    return r.rank(ctx, merged, embedding, opts), nil
+}
+</code></pre>
+<p><strong>RRF merge for memories:</strong></p>
+<pre><code class="language-go">// internal/recall/rrf.go (new file)
+func rffMergeMemories(lists ...[]models.SearchResult) []models.SearchResult {
+    // Same RRF algorithm as graph.RRFMerge but for SearchResult type
+    // Dedup by Memory.ID, combine scores
+}
+</code></pre>
+<p><strong>Graph Recall Weight in Ranker</strong></p>
+<p>Add a new weight factor: <code>GraphHopScore</code> — bonus for memories reachable via graph traversal from query entities. This rewards contextually-connected memories even when vector similarity is moderate.</p>
+<pre><code class="language-go">type Weights struct {
+    // ... existing ...
+    GraphHop float64 `json:&quot;graph_hop&quot; mapstructure:&quot;graph_hop&quot;` // default: 0.12
+}
+</code></pre>
+<p>Reduce <code>Similarity</code> from 0.35 → 0.28, add <code>GraphHop: 0.12</code> (weights must still sum to ~1.0).</p>
+<hr />
+<h2 id="5-api-changes">5. API Changes</h2>
+<h3 id="51-modified-cli-commands">5.1 Modified CLI Commands</h3>
+<h4 id="recall-new-flags"><code>recall</code> — new flags</h4>
+<pre><code>--include-history       Include invalidated/superseded memories in results
+--as-of &lt;RFC3339&gt;       Recall state at a specific point in time
+--no-graph              Disable graph-aware recall (use vector only)
+--graph-hops &lt;int&gt;      Max BFS hops from entity nodes (default: 2)
+</code></pre>
+<h4 id="store-temporal-behavior-change"><code>store</code> — temporal behavior change</h4>
+<pre><code>--supersedes &lt;id&gt;       Mark this memory as superseding the given ID (auto-invalidates old)
+</code></pre>
+<p>Behavior change: when <code>--supersedes</code> is provided, the superseded memory's <code>valid_to</code> is set automatically (currently only <code>supersedes_id</code> is stored as metadata).</p>
+<h4 id="capture-new-flags"><code>capture</code> — new flags</h4>
+<pre><code>--no-triples            Disable triple extraction (blob memories only)
+--session-id &lt;id&gt;       Explicit session ID for episode provenance
+--episode               Output extracted Episode node summary
+</code></pre>
+<h4 id="history-new-command"><code>history</code> — new command</h4>
+<pre><code>cortex history &lt;memory-id&gt;     Show version chain of a memory
+cortex history --entity &lt;name&gt; Show all facts involving an entity over time
+</code></pre>
+<pre><code class="language-go">// cmd/openclaw-cortex/cmd_history.go (new file)
+// Calls store.GetHistory(id) or graph.GetFactsForEntity(entityID, includeExpired=true)
+</code></pre>
+<h4 id="facts-enhanced-existing-entities-command"><code>facts</code> — enhanced existing <code>entities</code> command</h4>
+<pre><code>cortex entities facts &lt;entity-name&gt;    List all facts for entity (currently active)
+cortex entities facts &lt;entity-name&gt; --history   Include expired facts
+cortex entities facts &lt;entity-name&gt; --as-of &lt;RFC3339&gt;
+</code></pre>
+<h3 id="52-new-storestore-methods">5.2 New store.Store Methods</h3>
+<pre><code class="language-go">// Additions to store.Store interface
+
+// InvalidateMemory sets valid_to without deleting. Used for temporal versioning.
+InvalidateMemory(ctx context.Context, id string, validTo time.Time) error
+
+// SearchWithTemporalFilter is Search but with explicit temporal bounds.
+// When asOf is non-nil, returns memories valid at that time.
+SearchWithTemporalFilter(ctx context.Context, vector []float32, limit uint64, 
+    filters *SearchFilters, asOf *time.Time) ([]SearchResult, error)
+</code></pre>
+<h3 id="53-new-graphclient-methods">5.3 New graph.Client Methods</h3>
+<pre><code class="language-go">// Additions to graph.Client interface
+
+// CreateEpisode persists an Episode node with provenance links.
+CreateEpisode(ctx context.Context, episode models.Episode) error
+
+// GetEpisodesForMemory returns episodes that produced a given memory.
+GetEpisodesForMemory(ctx context.Context, memoryID string) ([]models.Episode, error)
+
+// GetActiveFactsForEntity returns only valid facts (invalid_at IS NULL).
+// Existing GetFactsForEntity returns all.
+GetActiveFactsForEntity(ctx context.Context, entityID string) ([]models.Fact, error)
+</code></pre>
+<hr />
+<h2 id="6-algorithm-details">6. Algorithm Details</h2>
+<h3 id="61-contradiction-detection-algorithm">6.1 Contradiction Detection Algorithm</h3>
+<pre><code>Input: new_memory (content, embedding, extracted_entities)
+Output: []string (IDs of memories to invalidate)
+
+1. CANDIDATE RETRIEVAL (parallel, ~10ms)
+   a. vector_search(new_memory.embedding, top=20, threshold=0.75) → candidates_v
+   b. for each entity in new_memory.entities:
+        GetMemoryFacts(entity_id) → related_memory_ids
+      fetch Memory for each → candidates_g
+   c. merge candidates_v + candidates_g, dedup by ID → candidates (max 30)
+
+2. HEURISTIC FILTER (~2ms)
+   for each candidate:
+     shared_entities = intersect(candidate.entities, new_memory.entities)
+     if len(shared_entities) == 0: skip
+
+     new_facts = new_memory.extracted_facts  // from triple extraction
+     cand_facts = candidate.extracted_facts
+
+     for each (nf, cf) in cartesian(new_facts, cand_facts):
+       if nf.relation_type == cf.relation_type (exclusive pair):
+         if nf.target_entity != cf.target_entity:
+           add candidate to heuristic_conflicts
+
+3. LLM CONFIRMATION (only for heuristic_conflicts, skip if &gt; budget)
+   prompt = contradiction_check_prompt(new_content, candidate_content)
+   if llm says contradicted: add to confirmed_contradictions
+   if similarity &gt; llm_confirm_threshold (0.82): skip LLM, auto-confirm
+
+4. RETURN confirmed_contradictions IDs
+</code></pre>
+<h3 id="62-graph-aware-recall-merge-algorithm">6.2 Graph-Aware Recall Merge Algorithm</h3>
+<pre><code>Input: query_text, query_embedding, limit, opts
+Output: []RecallResult (merged, ranked)
+
+1. PARALLEL FETCH
+   goroutine A: vector_search(embedding, limit*3) → []SearchResult{Memory, score}
+   goroutine B: RecallByGraph(query, embedding, limit*2) → []string{memory_id}
+               → fetch each memory → []SearchResult{Memory, score=1/hop_distance}
+
+2. RRF MERGE (Reciprocal Rank Fusion, k=60)
+   combined_score[id] += 1/(rank + k) for each list
+   sort by combined_score desc → merged_list
+
+3. MULTI-FACTOR RANKING (existing recall.go)
+   for each memory in merged_list[:limit*2]:
+     compute: similarity, recency, frequency, type_boost, scope_boost,
+              confidence, reinforcement, tag_affinity, graph_hop
+     graph_hop = 1.0 if in goroutine B results else 0.0
+     final_score = weighted_sum(all factors)
+
+4. SORT by final_score DESC, return top limit
+
+5. POST-FILTER: exclude valid_to IS NOT NULL (unless include_history)
+</code></pre>
+<h3 id="63-triple-extraction-algorithm-in-capture">6.3 Triple Extraction Algorithm (in capture)</h3>
+<pre><code>Input: user_msg, assistant_msg, session_id
+Output: ([]Entity upserted, []Fact upserted, Episode)
+
+1. ENTITY EXTRACTION
+   text = concat(user_msg, assistant_msg)
+   llm_extract_entities(text) → []raw_entities{name, type, context}
+
+2. ENTITY RESOLUTION (per entity, parallel up to 5)
+   for each raw_entity:
+     EntityResolver.Resolve(raw_entity) →
+       stage1: SearchEntities(name, embedding) → candidates
+       stage2: exact match / alias match / cosine &gt; 0.92 → fast-path
+       stage3: LLM haiku confirmation (if ambiguous)
+     result: existing_entity | new_entity
+
+3. FACT EXTRACTION
+   FactExtractor.Extract(text, known_entities) →
+     llm_extract_facts(text, entity_list) → []rawFact
+     normalize relation_type → canonical form
+     embed each fact string → fact_embedding
+
+4. FACT RESOLUTION (per fact)
+   for each rawFact:
+     GetFactsBetween(source_id, target_id) → existing_facts
+     FactResolver.Resolve(new_fact, existing_facts) →
+       &quot;insert&quot;: UpsertFact (new edge)
+       &quot;skip&quot;: AppendEpisode(fact_id, session_id)
+       &quot;invalidate&quot;: InvalidateFact(old_id) + UpsertFact (new edge)
+
+5. EPISODE CREATION
+   episode = {uuid, session_id, user_msg[:2000], assistant_msg[:2000],
+              memory_ids: [all memories from phase 1],
+              fact_ids: [all new facts from step 4]}
+   CreateEpisode(episode)
+
+6. MEMORY ↔ ENTITY LINKING
+   for each memory stored in phase 1:
+     for each entity resolved in step 2:
+       LinkMemoryToEntity(entity_id, memory_id)
+       // creates :MENTIONS edge for graph-aware recall
+</code></pre>
+<hr />
+<h2 id="7-migration-plan">7. Migration Plan</h2>
+<h3 id="71-backward-compatibility-guarantee">7.1 Backward Compatibility Guarantee</h3>
+<p>All changes must be backward-compatible:
+- Existing memories without <code>valid_from/valid_to</code> are treated as currently valid
+- Existing facts without <code>invalid_at</code> are treated as currently active<br />
+- All existing CLI commands work unchanged (new flags are additive)</p>
+<h3 id="72-migration-steps">7.2 Migration Steps</h3>
+<p><strong>Step 1: Schema migration (zero-downtime)</strong></p>
+<pre><code>cortex migrate --add-temporal-indexes
+</code></pre>
+<p>Add new indexes without modifying existing data. Existing memories continue working with <code>valid_to = NULL</code> behavior.</p>
+<p>Implemented as <code>cmd_migrate.go</code> calling <code>store.MigrateSchema(ctx)</code>:</p>
+<pre><code class="language-cypher">-- Set valid_from = created_at for all existing memories without valid_from
+MATCH (m:Memory) 
+WHERE m.valid_from IS NULL
+SET m.valid_from = m.created_at
+</code></pre>
+<p><strong>Step 2: Episode backfill (optional, background)</strong></p>
+<pre><code>cortex migrate --backfill-episodes
+</code></pre>
+<p>For existing memories that have <code>source = "capture"</code>, create Episode nodes linking them (using <code>session_id</code> from tags if present). Best-effort.</p>
+<p><strong>Step 3: Fact temporal fields (no-op for existing)</strong></p>
+<p>Existing <code>Fact</code> edges may not have <code>valid_at/invalid_at</code> set. These are treated as:
+- <code>valid_at = NULL</code> → "unknown start time, assume always valid"
+- <code>invalid_at = NULL</code> → currently active</p>
+<p>No migration needed — just handle NULL in queries.</p>
+<h3 id="73-migration-command">7.3 Migration Command</h3>
+<pre><code class="language-go">// cmd/openclaw-cortex/cmd_migrate.go (new file)
+var migrateCmd = &amp;cobra.Command{
+    Use:   &quot;migrate&quot;,
+    Short: &quot;Run schema migrations&quot;,
+    Flags: []Flag{
+        &quot;--add-temporal-indexes&quot;,
+        &quot;--backfill-episodes&quot;,
+        &quot;--dry-run&quot;,
+    },
+}
+</code></pre>
+<hr />
+<h2 id="8-performance-considerations">8. Performance Considerations</h2>
+<h3 id="81-recall-latency-budget">8.1 Recall Latency Budget</h3>
+<p>Target: <strong>&lt; 200ms</strong> at 1000 memories.</p>
+<p>Current baseline (estimated from architecture):
+- Vector search: ~20-40ms (Memgraph vector index)
+- Multi-factor ranking: ~5ms
+- Total: ~30-50ms</p>
+<p>With graph-aware recall:
+- Vector search (parallel): ~20-40ms
+- Graph traversal (parallel): ~30-60ms<br />
+- RRF merge: ~2ms
+- Multi-factor ranking: ~5ms
+- <strong>Total: ~60-80ms</strong> (parallel, bottleneck is graph traversal)</p>
+<p>At 1000 memories with proper indexes, this stays well under 200ms. Concern at 10,000+ memories — see §8.4.</p>
+<h3 id="82-index-strategy">8.2 Index Strategy</h3>
+<p><strong>Critical path indexes for recall:</strong></p>
+<pre><code class="language-cypher">-- Vector search: covered by existing indexes
+-- Temporal filter (new) — needs composite-like behavior:
+CREATE INDEX ON :Memory(valid_to);   -- NULL check for active memories
+
+-- Graph traversal from entity:
+-- :Entity has name_embedding vector index
+-- :RELATES_TO edges indexed by invalid_at (for active filter)
+CREATE INDEX ON :RELATES_TO(invalid_at);
+
+-- Memory ↔ Entity join:
+-- :MENTIONS relationship needs index on both sides
+CREATE INDEX ON :Memory(uuid);   -- already exists
+CREATE INDEX ON :Entity(uuid);   -- already exists
+</code></pre>
+<p><strong>Note:</strong> Memgraph relationship property indexes (<code>:RELATES_TO(invalid_at)</code>) may have limitations in 2.21 — verify support before relying on them. Fallback: filter in application layer.</p>
+<h3 id="83-contradiction-detection-latency">8.3 Contradiction Detection Latency</h3>
+<p>Contradiction detection runs during <code>capture</code>, not recall — latency is less critical. Budget: <strong>500ms maximum</strong> for contradiction check.</p>
+<p>Breakdown:
+- Stage 1 (vector search + entity lookup): ~40ms
+- Stage 2 (heuristic): ~2ms
+- Stage 3 (LLM, if needed): ~150ms
+- <strong>Total: ~200ms typical, 500ms worst case</strong></p>
+<p>Skip LLM if <code>cfg.Contradiction.LLMTimeoutMs</code> is exceeded via context deadline.</p>
+<h3 id="84-scalability-projections">8.4 Scalability Projections</h3>
+<table>
+<thead>
+<tr>
+<th>Memory Count</th>
+<th>Vector Recall</th>
+<th>Graph Recall</th>
+<th>Total (parallel)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,000</td>
+<td>~25ms</td>
+<td>~35ms</td>
+<td>~50ms ✅</td>
+</tr>
+<tr>
+<td>10,000</td>
+<td>~40ms</td>
+<td>~80ms</td>
+<td>~90ms ✅</td>
+</tr>
+<tr>
+<td>100,000</td>
+<td>~80ms</td>
+<td>~200ms</td>
+<td>~200ms ⚠️</td>
+</tr>
+<tr>
+<td>1M</td>
+<td>~200ms</td>
+<td>~800ms</td>
+<td>&gt;200ms ❌</td>
+</tr>
+</tbody>
+</table>
+<p>For &gt;10K memories, add:
+1. <strong>Pre-filter by project/scope</strong> before vector search (already supported via SearchFilters)
+2. <strong>Entity community indexes</strong> (<code>community_id</code> on Entity already exists) — limit BFS to same community
+3. <strong>Fact embedding index</strong> — search fact embeddings directly instead of BFS from entities</p>
+<h3 id="85-triple-extraction-latency">8.5 Triple Extraction Latency</h3>
+<p>Triple extraction runs in parallel with memory extraction during <code>capture</code>. LLM calls dominate:
+- Entity extraction: ~200ms (one LLM call)<br />
+- Fact extraction: ~300ms (one LLM call)
+- Fact resolution: ~150ms per fact needing LLM (parallelized)</p>
+<p><strong>Total: ~600ms-1.5s</strong> (acceptable for capture; not in recall path)</p>
+<p>Use <code>--no-triples</code> flag to skip if latency is critical.</p>
+<hr />
+<h2 id="9-implementation-phases">9. Implementation Phases</h2>
+<h3 id="phase-1-temporal-versioning-1-2-days">Phase 1: Temporal Versioning (1-2 days)</h3>
+<p><strong>Value:</strong> High — immediately improves fact accuracy for evolving information<br />
+<strong>Risk:</strong> Low — additive schema change, no breaking changes</p>
+<p>Tasks:
+1. Add <code>ValidFrom</code>, <code>ValidTo *time.Time</code> to <code>models.Memory</code>
+2. Add <code>InvalidateMemory</code> to <code>store.Store</code> interface + implement in <code>MemgraphStore</code>
+3. Add temporal indexes to <code>EnsureSchema</code>
+4. Modify <code>Upsert</code> to set <code>valid_from</code> and call <code>InvalidateMemory</code> when <code>supersedes_id</code> is set
+5. Add <code>IncludeInvalidated</code> + <code>AsOf</code> to <code>SearchFilters</code>
+6. Filter <code>valid_to IS NULL</code> by default in <code>Search</code>, <code>Recall</code>, <code>List</code>
+7. Add <code>--include-history</code> flag to <code>recall</code> and <code>list</code> commands
+8. Add migration: <code>SET m.valid_from = m.created_at WHERE m.valid_from IS NULL</code>
+9. Tests: TestTemporalVersioning, TestAsOfQuery, TestInvalidateMemory</p>
+<h3 id="phase-2-wire-triple-extraction-in-capture-2-3-days">Phase 2: Wire Triple Extraction in Capture (2-3 days)</h3>
+<p><strong>Value:</strong> High — unlocks structured knowledge graph from conversations<br />
+<strong>Risk:</strong> Medium — existing FactExtractor/EntityResolver need integration testing</p>
+<p>Tasks:
+1. Add <code>models.Episode</code> struct + <code>CreateEpisode</code> to <code>graph.Client</code>
+2. Create <code>internal/capture/triple_extractor.go</code> wrapping existing resolvers
+3. Add relation type normalization (<code>graph/relation_types.go</code>)
+4. Modify <code>cmd_capture.go</code> to run triple extraction in parallel
+5. Create Episode node after both phases complete
+6. Verify <code>LinkMemoryToEntity</code> is called for extracted entities (needed for Phase 4)
+7. Tests: TestTripleExtraction, TestEpisodeCreation, TestCapturePipeline</p>
+<h3 id="phase-3-contradiction-detection-2-days">Phase 3: Contradiction Detection (2 days)</h3>
+<p><strong>Value:</strong> High — prevents knowledge rot from stale facts<br />
+<strong>Risk:</strong> Medium — LLM dependency, needs careful timeout handling</p>
+<p>Tasks:
+1. Create <code>internal/capture/contradiction.go</code> with <code>ContradictionDetector</code>
+2. Implement 3-stage pipeline (vector candidates → heuristic → LLM)
+3. Add <code>ContradictionConfig</code> to config
+4. Wire into <code>cmd_capture.go</code> after memory extraction, before storage
+5. Integrate with temporal versioning: contradicted memories get <code>valid_to</code> set
+6. Tests: TestContradictionDetection, TestAutoInvalidation, TestContradictionTimeout</p>
+<h3 id="phase-4-graph-aware-recall-2-3-days">Phase 4: Graph-Aware Recall (2-3 days)</h3>
+<p><strong>Value:</strong> High — richer, more connected recall<br />
+<strong>Risk:</strong> Medium — requires Phase 2 for <code>:MENTIONS</code> edges to exist; RecallByGraph needs implementation</p>
+<p>Tasks:
+1. Implement <code>RecallByGraph</code> in <code>MemgraphStore</code> (Cypher: entity vector search + BFS + memory lookup)
+2. Add <code>rrf.go</code> to <code>internal/recall/</code> with <code>rffMergeMemories</code>
+3. Add <code>RecallHybrid</code> to <code>recall.Ranker</code>
+4. Add <code>GraphHop</code> weight to <code>Weights</code> struct; adjust default weights
+5. Wire <code>RecallHybrid</code> into <code>cmd_recall.go</code> (default behavior)
+6. Add <code>--no-graph</code> flag to disable
+7. Benchmark: verify &lt;200ms at 1000 memories
+8. Tests: TestGraphAwareRecall, TestRRFMerge, TestRecallHybridWeights</p>
+<h3 id="phase-5-history-migration-commands-1-day">Phase 5: History &amp; Migration Commands (1 day)</h3>
+<p><strong>Value:</strong> Medium — operational completeness<br />
+<strong>Risk:</strong> Low</p>
+<p>Tasks:
+1. <code>cmd_history.go</code> — show Memory version chain + Entity fact history
+2. <code>cmd_migrate.go</code> — temporal backfill + episode backfill
+3. Add <code>--as-of</code> to <code>recall</code> and <code>search</code> commands</p>
+<hr />
+<h2 id="10-code-level-design">10. Code-Level Design</h2>
+<h3 id="101-files-to-modify">10.1 Files to Modify</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/models/memory.go</code></td>
+<td>Add <code>ValidFrom</code>, <code>ValidTo *time.Time</code></td>
+</tr>
+<tr>
+<td><code>internal/models/episode.go</code></td>
+<td><strong>NEW</strong> — Episode struct</td>
+</tr>
+<tr>
+<td><code>internal/store/store.go</code></td>
+<td>Add <code>InvalidateMemory</code>, <code>SearchWithTemporalFilter</code>; extend <code>SearchFilters</code></td>
+</tr>
+<tr>
+<td><code>internal/memgraph/store.go</code></td>
+<td>Implement <code>InvalidateMemory</code>; modify <code>Upsert</code> for temporal; modify <code>Search</code> for default valid_to filter; implement <code>RecallByGraph</code></td>
+</tr>
+<tr>
+<td><code>internal/memgraph/graph.go</code></td>
+<td>Add <code>EnsureSchema</code> entries for temporal indexes + Episode; implement <code>CreateEpisode</code>, <code>GetActiveFactsForEntity</code></td>
+</tr>
+<tr>
+<td><code>internal/graph/client.go</code></td>
+<td>Add <code>CreateEpisode</code>, <code>GetEpisodesForMemory</code>, <code>GetActiveFactsForEntity</code></td>
+</tr>
+<tr>
+<td><code>internal/graph/mock_client.go</code></td>
+<td>Implement new interface methods</td>
+</tr>
+<tr>
+<td><code>internal/graph/types.go</code></td>
+<td>Add <code>EpisodeResult</code> type</td>
+</tr>
+<tr>
+<td><code>internal/graph/relation_types.go</code></td>
+<td><strong>NEW</strong> — canonical relation type map + <code>NormalizeRelationType</code></td>
+</tr>
+<tr>
+<td><code>internal/recall/recall.go</code></td>
+<td>Add <code>GraphHop</code> weight; add <code>RecallHybrid</code>; add <code>RecallOptions.UseGraph</code></td>
+</tr>
+<tr>
+<td><code>internal/recall/rrf.go</code></td>
+<td><strong>NEW</strong> — <code>rffMergeMemories</code></td>
+</tr>
+<tr>
+<td><code>internal/capture/triple_extractor.go</code></td>
+<td><strong>NEW</strong> — <code>TripleExtractor</code> wrapping existing graph package</td>
+</tr>
+<tr>
+<td><code>internal/capture/contradiction.go</code></td>
+<td><strong>NEW</strong> — <code>ContradictionDetector</code></td>
+</tr>
+<tr>
+<td><code>internal/config/config.go</code></td>
+<td>Add <code>ContradictionConfig</code>, <code>GraphConfig.TripleExtraction</code>, <code>RecallConfig.UseGraph</code></td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_capture.go</code></td>
+<td>Parallel triple extraction + contradiction detection</td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_recall.go</code></td>
+<td>Use <code>RecallHybrid</code>; add <code>--no-graph</code>, <code>--include-history</code>, <code>--as-of</code></td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_history.go</code></td>
+<td><strong>NEW</strong></td>
+</tr>
+<tr>
+<td><code>cmd/openclaw-cortex/cmd_migrate.go</code></td>
+<td><strong>NEW</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="102-new-interfaces">10.2 New Interfaces</h3>
+<pre><code class="language-go">// internal/capture/interfaces.go (or inline in respective files)
+
+type ContradictionDetector interface {
+    FindContradictions(ctx context.Context, newMemory models.Memory, embedding []float32) ([]string, error)
+}
+
+type TripleExtractor interface {
+    Extract(ctx context.Context, userMsg, assistantMsg, sessionID string) ([]models.Fact, []models.Entity, error)
+}
+
+type EpisodeStore interface {
+    CreateEpisode(ctx context.Context, ep models.Episode) error
+    GetEpisodesForMemory(ctx context.Context, memoryID string) ([]models.Episode, error)
+}
+</code></pre>
+<h3 id="103-config-additions">10.3 Config Additions</h3>
+<pre><code class="language-go">// internal/config/config.go additions
+
+type ContradictionConfig struct {
+    Enabled               bool    `mapstructure:&quot;enabled&quot;`
+    SimilarityThreshold   float64 `mapstructure:&quot;similarity_threshold&quot;`    // default: 0.75
+    MaxCandidates         int     `mapstructure:&quot;max_candidates&quot;`           // default: 20
+    LLMConfirmThreshold   float64 `mapstructure:&quot;llm_confirm_threshold&quot;`    // default: 0.82
+    LLMTimeoutMs          int     `mapstructure:&quot;llm_timeout_ms&quot;`           // default: 150
+}
+
+type GraphConfig struct {
+    // ... existing fields ...
+    TripleExtraction bool `mapstructure:&quot;triple_extraction&quot;` // default: true (if LLM configured)
+    MaxBFSHops       int  `mapstructure:&quot;max_bfs_hops&quot;`      // default: 2
+}
+
+type RecallConfig struct {
+    // ... existing fields ...
+    UseGraph       bool `mapstructure:&quot;use_graph&quot;`        // default: true
+    GraphHopWeight float64 `mapstructure:&quot;graph_hop_weight&quot;` // default: 0.12
+}
+</code></pre>
+<h3 id="104-cypher-query-templates">10.4 Cypher Query Templates</h3>
+<p><strong>RecallByGraph (MemgraphStore implementation):</strong></p>
+<pre><code class="language-cypher">// Step 1: Find entities matching query embedding
+CALL vector_search.search(&quot;entity_name_embedding&quot;, $search_limit, $query_embedding)
+YIELD node AS entity, similarity AS entity_score
+WHERE entity_score &gt;= $min_entity_score
+
+// Step 2: BFS traversal to related entities (up to $hops hops)
+MATCH p = (entity)-[:RELATES_TO*1..$hops]-(related)
+WHERE related:Entity
+
+// Step 3: Find memories linked to traversed entities
+MATCH (related)&lt;-[:MENTIONS]-(m:Memory)
+WHERE m.valid_to IS NULL
+
+// Aggregate: give higher score to closer entities
+WITH m.uuid AS memory_id, 
+     max(entity_score / length(p)) AS graph_score
+ORDER BY graph_score DESC
+LIMIT $limit
+
+RETURN memory_id, graph_score
+</code></pre>
+<p><strong>InvalidateMemory:</strong></p>
+<pre><code class="language-cypher">MATCH (m:Memory {uuid: $id})
+SET m.valid_to = $valid_to
+RETURN m.uuid
+</code></pre>
+<p><strong>GetHistory (chain traversal):</strong></p>
+<pre><code class="language-cypher">MATCH (m:Memory {uuid: $start_id})
+WITH m
+OPTIONAL MATCH chain = (m)-[:SUPERSEDES*]-&gt;(older:Memory)
+RETURN m, nodes(chain) AS history
+ORDER BY m.created_at DESC
+</code></pre>
+<hr />
+<h2 id="11-testing-strategy">11. Testing Strategy</h2>
+<h3 id="unit-tests">Unit Tests</h3>
+<ul>
+<li><code>TestTemporalVersioning</code> — store/recall with valid_from/valid_to</li>
+<li><code>TestContradictionDetector</code> — heuristic + LLM path</li>
+<li><code>TestTripleExtractor</code> — mock LLM responses, verify entity/fact output</li>
+<li><code>TestRecallHybrid</code> — mock graph client, verify RRF merge</li>
+<li><code>TestRRFMerge</code> — pure algorithmic test</li>
+<li><code>TestRelationNormalization</code> — canonical mapping table</li>
+</ul>
+<h3 id="integration-tests-against-real-memgraph">Integration Tests (against real Memgraph)</h3>
+<ul>
+<li><code>TestGraphAwareRecallE2E</code> — store facts, query via graph traversal, verify recall finds connected memories</li>
+<li><code>TestTemporalChainE2E</code> — store v1, supersede with v2, verify v1 is invalidated, recall returns v2</li>
+<li><code>TestContradictionE2E</code> — store "Ajit works at Pixis", then "Ajit works at Booking.com", verify auto-invalidation</li>
+</ul>
+<h3 id="performance-tests">Performance Tests</h3>
+<ul>
+<li><code>BenchmarkRecallHybrid_1000</code> — must complete &lt;200ms</li>
+<li><code>BenchmarkContradictionCheck_1000</code> — must complete &lt;500ms</li>
+</ul>
+<hr />
+<h2 id="12-open-questions">12. Open Questions</h2>
+<ol>
+<li>
+<p><strong><code>:MENTIONS</code> edge population:</strong> Does the current <code>cmd_capture.go</code> call <code>LinkMemoryToEntity</code>? If not, graph-aware recall Phase 4 won't work until Phase 2 (triple extraction) is wired. Need to verify.</p>
+</li>
+<li>
+<p><strong>Relationship property indexes in Memgraph 2.21:</strong> The spec assumes <code>CREATE INDEX ON :RELATES_TO(invalid_at)</code> works. Memgraph docs show relationship property indexes were added in 2.5. Need to verify query plan with vs without this index.</p>
+</li>
+<li>
+<p><strong>LLM for contradiction detection:</strong> If the configured model is slow (e.g., claude-opus) and <code>llm_timeout_ms = 150</code>, contradiction LLM step will frequently be skipped. Consider defaulting to a faster model (haiku/flash) for contradiction checks specifically. Add <code>ContradictionConfig.Model</code> field.</p>
+</li>
+<li>
+<p><strong>Embedding <code>fact_embedding</code>:</strong> The <code>Fact</code> model has <code>FactEmbedding []float32</code>. Is this currently populated and stored in Memgraph? If yes, direct fact vector search is available as an alternative to BFS-based graph recall. If no, add embedding step in <code>TripleExtractor.Extract</code>.</p>
+</li>
+<li>
+<p><strong><code>valid_to</code> vs <code>valid_until</code>:</strong> Two temporal fields with different semantics (<code>valid_until</code> = TTL, <code>valid_to</code> = supersession). This could confuse users. Consider renaming <code>valid_until</code> → <code>ttl_expires_at</code> in a future refactor (out of scope for this spec but worth flagging).</p>
+</li>
+</ol>
+<hr />
+<h2 id="summary">Summary</h2>
+<p>The codebase already has strong foundations for all four features. The primary work is:</p>
+<ol>
+<li><strong>Temporal versioning</strong> (~1-2 days): Wire <code>valid_from/valid_to</code> to Upsert + Search/Recall queries  </li>
+<li><strong>Triple extraction in capture</strong> (~2-3 days): Call existing graph pipeline from <code>cmd_capture.go</code>  </li>
+<li><strong>Contradiction detection</strong> (~2 days): New <code>ContradictionDetector</code> using existing FactResolver pattern  </li>
+<li><strong>Graph-aware recall</strong> (~2-3 days): Implement <code>RecallByGraph</code> in Memgraph + wire into <code>recall.Ranker</code>  </li>
+</ol>
+<p>Total estimated effort: <strong>7-10 days</strong> for a single focused engineer working on this sequentially. With parallel agents, phases 1+3 can run simultaneously, and phase 2+4 can follow. Realistic parallel timeline: <strong>4-5 days</strong>.</p>
+<p>The highest-value, lowest-risk item to ship first is <strong>Phase 1 (Temporal Versioning)</strong> — it's purely additive, requires no LLM, and immediately prevents stale knowledge from polluting recall results.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

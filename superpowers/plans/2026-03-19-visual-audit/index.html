@@ -1,0 +1,1135 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/plans/2026-03-19-visual-audit/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Visual Audit Implementation Plan - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#visual-audit-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Visual Audit Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="visual-audit-implementation-plan">Visual Audit Implementation Plan</h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Produce a complete visual audit report for <code>web/</code> (marketing + docs) and <code>apps/admin/</code> (developer dashboard) covering 6 quality dimensions, plus a prioritized implementation plan for every finding.</p>
+<p><strong>Architecture:</strong> Two parallel audit agents (one per site) read source code using a shared rubric, then findings are merged into a unified report. Tasks 2 and 3 are independent and MUST run in parallel. Task 4 (merge) depends on both completing. The output is a single markdown report committed to the repo.</p>
+<p><strong>Tech Stack:</strong> Static source code analysis (no live browser). Next.js 16 App Router, Tailwind CSS 3.4.17 (<code>web/</code>), Tailwind v4 + shadcn/ui (<code>apps/admin/</code>), Framer Motion, Geist fonts.</p>
+<hr />
+<h2 id="file-structure">File Structure</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/superpowers/specs/2026-03-19-visual-audit-design.md</code></td>
+<td>Spec — read this, do not modify</td>
+</tr>
+<tr>
+<td><code>docs/superpowers/specs/2026-03-19-visual-audit-report.md</code></td>
+<td><strong>Output</strong> — create this in Task 4</td>
+</tr>
+</tbody>
+</table>
+<p>No source files are modified by this plan. This is a read-only audit.</p>
+<hr />
+<h2 id="task-1-read-the-spec-and-understand-the-rubric">Task 1: Read the Spec and Understand the Rubric</h2>
+<p><strong>Files:</strong>
+- Read: <code>docs/superpowers/specs/2026-03-19-visual-audit-design.md</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Read the full spec</strong></li>
+</ul>
+<p>Open and read <code>docs/superpowers/specs/2026-03-19-visual-audit-design.md</code> in full.
+  Confirm you understand:
+  - The 6 audit dimensions and what to check for each
+  - The 4 severity levels (Critical / High / Medium / Low) and their definitions
+  - The canonical page lists for both sites
+  - The static-code limitation (no live rendering; flag unverifiable items)
+  - The report structure and implementation plan tier ordering (severity-first)</p>
+<ul>
+<li>[ ] <strong>Step 2: Verify the page inventories exist</strong></li>
+</ul>
+<p>Confirm:
+  - <code>web/app/</code> directory exists and contains the expected route folders
+  - <code>web/content/docs/</code> contains the 10 <code>.mdx</code> files: <code>getting-started.mdx</code>, <code>configuration.mdx</code>, <code>cli-reference.mdx</code>, <code>architecture.mdx</code>, <code>api.mdx</code>, <code>hooks.mdx</code>, <code>mcp.mdx</code>, <code>deployment.mdx</code>, <code>benchmarks.mdx</code>, <code>faq.mdx</code>
+  - <code>apps/admin/app/</code> directory exists and contains the expected route folders
+  - Both <code>web/tailwind.config.ts</code> and <code>apps/admin/</code> tailwind config are readable</p>
+<hr />
+<h2 id="task-2-audit-web-marketing-docs-site">Task 2: Audit <code>web/</code> (Marketing + Docs Site)</h2>
+<p><strong>⚡ Run in parallel with Task 3.</strong></p>
+<p><strong>Files to read (in order):</strong>
+- <code>web/package.json</code>
+- <code>web/tailwind.config.ts</code>
+- <code>web/app/globals.css</code>
+- <code>web/app/layout.tsx</code>
+- <code>web/app/page.tsx</code> (Home)
+- <code>web/app/features/page.tsx</code>
+- <code>web/app/compare/page.tsx</code>
+- <code>web/app/playground/page.tsx</code>
+- <code>web/app/blog/page.tsx</code> + any <code>[slug]/page.tsx</code>
+- <code>web/app/docs/[[...slug]]/page.tsx</code>
+- All components imported from the above pages (one level of static imports)
+- <code>web/components/ui/</code> directory (all files)
+- <code>web/content/docs/*.mdx</code> — read 2–3 representative docs pages to assess content formatting</p>
+<ul>
+<li>[ ] <strong>Step 1: Read design system baseline</strong></li>
+</ul>
+<p>Read <code>web/package.json</code>, <code>web/tailwind.config.ts</code>, <code>web/app/globals.css</code>.
+  Note:
+  - Color tokens defined (are indigo/emerald/zinc used consistently or are there raw hex overrides?)
+  - Typography scale (are font-size/weight classes consistent across pages?)
+  - Spacing tokens (are custom spacing values added, or is standard Tailwind scale used?)
+  - Any custom CSS that could conflict with utility classes</p>
+<ul>
+<li>[ ] <strong>Step 2: Read root layout and shared components</strong></li>
+</ul>
+<p>Read <code>web/app/layout.tsx</code>.
+  Note:
+  - Confirm <code>dark</code> class is hardcoded on <code>&lt;html&gt;</code> (spec says <code>layout.tsx:80</code>)
+  - Font loading strategy — are Inter and JetBrains Mono loaded via <code>next/font</code>?
+  - Meta/OG tags — are they present?
+  - Skip-nav link — is there one?
+  - Any global accessibility patterns (focus-visible styles in globals.css?)</p>
+<ul>
+<li>[ ] <strong>Step 3: Audit Home page (<code>/</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/page.tsx</code> and all components it imports.
+  Evaluate all 6 dimensions. Record findings in this format:</p>
+<p><code>| Page | Dimension | Issue | Severity | Evidence |
+  |------|-----------|-------|----------|----------|
+  | /    | ...       | ...   | ...      | file:line or description |</code></p>
+<p>Dimension checklist for each page:
+  1. <strong>Design consistency</strong>: Typography matches scale? Colors from tokens? Consistent spacing? Border-radius consistent with other pages?
+  2. <strong>Accessibility</strong>: All images have <code>alt</code>? Interactive elements have ARIA labels where needed? Color contrast adequate (check text-zinc-400 on zinc-950 — this is borderline WCAG AA)? Focus indicators visible?
+  3. <strong>Responsive layout</strong>: <code>sm:</code>/<code>md:</code>/<code>lg:</code> breakpoints present where needed? Any fixed widths that could overflow on mobile? Flag anything unverifiable from source.
+  4. <strong>UX flows</strong>: CTAs clear and hierarchically ordered? Navigation links cover expected destinations? Any dead-ends (pages with no way back)?
+  5. <strong>Performance</strong>: <code>&lt;Image&gt;</code> from <code>next/image</code> used for all images? No <code>&lt;img&gt;</code> tags? No render-blocking scripts?
+  6. <strong>Brand/visual polish</strong>: Consistent with the declared design language? Visual hierarchy reads naturally?</p>
+<ul>
+<li>[ ] <strong>Step 4: Audit Features page (<code>/features</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/features/page.tsx</code> and its imports. Apply the same 6-dimension checklist. Record findings.</p>
+<ul>
+<li>[ ] <strong>Step 5: Audit Compare page (<code>/compare</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/compare/page.tsx</code> and its imports. Apply checklist. Record findings.</p>
+<ul>
+<li>[ ] <strong>Step 6: Audit Playground page (<code>/playground</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/playground/page.tsx</code> and its imports. Apply checklist. Record findings.
+  Pay extra attention to: interactive elements (keyboard accessibility), code display (is <code>&lt;pre&gt;</code>/<code>&lt;code&gt;</code> semantic?), responsive behavior of interactive panels.</p>
+<ul>
+<li>[ ] <strong>Step 7: Audit Blog pages (<code>/blog</code>, <code>/blog/[slug]</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/blog/page.tsx</code> and <code>web/app/blog/[slug]/page.tsx</code> (or equivalent). Apply checklist. Record findings.
+  Check: pagination/listing accessibility, article semantic HTML (<code>&lt;article&gt;</code>, <code>&lt;time&gt;</code>, headings), reading width on large screens.</p>
+<ul>
+<li>[ ] <strong>Step 8: Audit Docs pages (<code>/docs/[slug]</code>)</strong></li>
+</ul>
+<p>Read <code>web/app/docs/[[...slug]]/page.tsx</code>.
+  Read 3 representative <code>.mdx</code> files from <code>web/content/docs/</code>: <code>getting-started.mdx</code>, <code>cli-reference.mdx</code>, <code>api.mdx</code>.
+  Apply checklist. Record findings.
+  Special attention: code block accessibility, heading hierarchy in MDX, sidebar navigation (keyboard nav?), search (if present), docs-specific UX (prev/next links?).</p>
+<ul>
+<li>[ ] <strong>Step 9: Audit shared UI components</strong></li>
+</ul>
+<p>Read all files in <code>web/components/ui/</code> (button, card, badge, callout, code-block, steps, etc.).
+  Check:
+  - Button: focus ring present? disabled state handled? ARIA attributes?
+  - Card: semantic HTML (is it <code>&lt;article&gt;</code> or <code>&lt;section&gt;</code> where appropriate)?
+  - Code block: <code>&lt;pre&gt;&lt;code&gt;</code> with <code>lang</code> attribute? Copy button accessible?
+  - Any component that wraps interactive elements: keyboard support?</p>
+<ul>
+<li>[ ] <strong>Step 10: Compile web/ findings table</strong></li>
+</ul>
+<p>Produce a complete findings table for <code>web/</code>:
+  <code>| Page | Dimension | Issue | Severity | Evidence |</code>
+  Include a per-dimension summary:
+  - Design consistency: N Critical, N High, N Medium, N Low
+  - Accessibility: ...
+  - Responsive layout: ...
+  - UX flows: ...
+  - Performance: ...
+  - Brand/visual polish: ...</p>
+<hr />
+<h2 id="task-3-audit-appsadmin-developer-dashboard">Task 3: Audit <code>apps/admin/</code> (Developer Dashboard)</h2>
+<p><strong>⚡ Run in parallel with Task 2.</strong></p>
+<p><strong>Files to read (in order):</strong>
+- <code>apps/admin/package.json</code>
+- <code>apps/admin/tailwind.config.*</code> (find the config file)
+- <code>apps/admin/app/globals.css</code>
+- <code>apps/admin/app/layout.tsx</code>
+- <code>apps/admin/app/page.tsx</code> (Dashboard)
+- <code>apps/admin/app/memories/page.tsx</code>
+- <code>apps/admin/app/memories/[id]/page.tsx</code>
+- <code>apps/admin/app/entities/page.tsx</code>
+- <code>apps/admin/app/conflicts/page.tsx</code>
+- <code>apps/admin/app/settings/page.tsx</code>
+- All components imported from the above pages (one level of static imports)
+- <code>apps/admin/components/ui/</code> directory (shadcn components: badge, button, card, dialog, input, select, table)</p>
+<ul>
+<li>[ ] <strong>Step 1: Read design system baseline</strong></li>
+</ul>
+<p>Read <code>apps/admin/package.json</code>, tailwind config, <code>apps/admin/app/globals.css</code>.
+  Note:
+  - OKLch CSS variables defined — are they used consistently or are there raw color overrides?
+  - Is <code>@layer base</code> properly setting up the CSS variable system?
+  - Typography scale — is Geist used consistently?
+  - shadcn/ui <code>components.json</code> — what's the configured style (default/new-york) and baseColor?</p>
+<ul>
+<li>[ ] <strong>Step 2: Read root layout and shared components</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/layout.tsx</code>.
+  Note:
+  - Font loading — Geist loaded via <code>next/font/google</code> or local?
+  - Dark mode class application
+  - Skip-nav link present?
+  - Global focus-visible styles?
+  - Sidebar/nav structure — semantic (<code>&lt;nav&gt;</code> with <code>aria-label</code>?)</p>
+<ul>
+<li>[ ] <strong>Step 3: Audit Dashboard page (<code>/</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/page.tsx</code> and all components it imports.
+  Apply the 6-dimension checklist (same as Task 2, Step 3).</p>
+<p>Extra admin-dashboard considerations:
+  - Data tables: are they <code>&lt;table&gt;</code> elements with proper <code>&lt;thead&gt;</code>, <code>&lt;th scope&gt;</code>, <code>&lt;tbody&gt;</code>? Or divs?
+  - Empty states: does <code>loading.tsx</code> / <code>error.tsx</code> exist at the app or page level?
+  - Stats/metrics: are numbers legible at small viewport?
+  - Action buttons: do they have descriptive <code>aria-label</code> (not just icon buttons with no label)?</p>
+<ul>
+<li>[ ] <strong>Step 4: Audit Memories list page (<code>/memories</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/memories/page.tsx</code> and imports. Apply checklist. Record findings.
+  Check: table/list semantics, search/filter accessibility, pagination, empty state.</p>
+<ul>
+<li>[ ] <strong>Step 5: Audit Memory Detail page (<code>/memories/[id]</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/memories/[id]/page.tsx</code> and imports. Apply checklist. Record findings.
+  Check: back navigation, data display hierarchy, any edit/delete actions (confirmation dialogs?).</p>
+<ul>
+<li>[ ] <strong>Step 6: Audit Entities page (<code>/entities</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/entities/page.tsx</code> and imports. Apply checklist. Record findings.</p>
+<ul>
+<li>[ ] <strong>Step 7: Audit Conflicts page (<code>/conflicts</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/conflicts/page.tsx</code> and imports. Apply checklist. Record findings.
+  Extra: conflict resolution UX — are action buttons clearly differentiated? Is the consequence of each action clear?</p>
+<ul>
+<li>[ ] <strong>Step 8: Audit Settings page (<code>/settings</code>)</strong></li>
+</ul>
+<p>Read <code>apps/admin/app/settings/page.tsx</code> and imports. Apply checklist. Record findings.
+  Check: form accessibility (labels associated with inputs?), save/reset feedback states, error states.</p>
+<ul>
+<li>[ ] <strong>Step 9: Audit shadcn/ui components</strong></li>
+</ul>
+<p>Read all files in <code>apps/admin/components/ui/</code>.
+  Check each component against shadcn defaults:
+  - Are components using the OKLch CSS variables (not hardcoded colors)?
+  - <code>Dialog</code>: focus trap implemented? <code>aria-labelledby</code>?
+  - <code>Table</code>: proper semantic elements?
+  - <code>Input</code>: <code>id</code> linkable to <code>&lt;label&gt;</code>?
+  - <code>Select</code>: keyboard navigable? <code>aria-expanded</code>?
+  - Any component that deviates from shadcn defaults — note the deviation and assess if intentional</p>
+<ul>
+<li>[ ] <strong>Step 10: Check App Router convention files</strong></li>
+</ul>
+<p>For each route in <code>apps/admin/app/</code>, check if these files exist:
+  - <code>loading.tsx</code> — skeleton/spinner for suspense boundaries
+  - <code>error.tsx</code> — error boundary UI
+  - <code>not-found.tsx</code> — 404 handling</p>
+<p>Check the same for <code>web/app/</code>.</p>
+<p>Record which routes are missing these files as UX flow findings.</p>
+<ul>
+<li>[ ] <strong>Step 11: Compile apps/admin/ findings table</strong></li>
+</ul>
+<p>Produce a complete findings table for <code>apps/admin/</code>:
+  <code>| Page | Dimension | Issue | Severity | Evidence |</code>
+  Include per-dimension summary counts (same format as Task 2, Step 10).</p>
+<hr />
+<h2 id="task-4-merge-findings-and-write-the-report">Task 4: Merge Findings and Write the Report</h2>
+<p><strong>Depends on:</strong> Task 2 and Task 3 both complete.</p>
+<p><strong>Files:</strong>
+- Create: <code>docs/superpowers/specs/2026-03-19-visual-audit-report.md</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Identify cross-site issues</strong></li>
+</ul>
+<p>Compare the <code>web/</code> and <code>apps/admin/</code> findings tables.
+  Look for patterns that appear in both:
+  - Same missing App Router convention files
+  - Same accessibility gaps (e.g., both missing skip-nav)
+  - Same performance pattern (e.g., both using <code>&lt;img&gt;</code> instead of <code>&lt;Image&gt;</code>)
+  - Same UX gap (e.g., no breadcrumbs on detail pages)</p>
+<p>List cross-site issues separately — these may warrant a shared fix.</p>
+<ul>
+<li>[ ] <strong>Step 2: Assign unified priority</strong></li>
+</ul>
+<p>Combine all findings into one list. Sort by severity:
+  - Critical findings first
+  - High severity next
+  - Within each severity tier, order by effort estimate (quickest fix first)</p>
+<p>Assign each finding a short fix description and an effort estimate:
+  - Quick Win: &lt; 1 hour (e.g., add <code>alt</code> attribute, add <code>aria-label</code>, add <code>loading.tsx</code>)
+  - Medium: &lt; 1 day (e.g., refactor nav to use <code>&lt;nav&gt;</code> with ARIA, add focus rings globally)
+  - Major: &gt; 1 day (e.g., full responsive overhaul of a complex layout, rebuild a data table with proper semantics)</p>
+<ul>
+<li>[ ] <strong>Step 3: Write the report</strong></li>
+</ul>
+<p>Create <code>docs/superpowers/specs/2026-03-19-visual-audit-report.md</code> with this exact structure:</p>
+<p>```markdown
+  # Visual Audit Report
+  <strong>Date:</strong> 2026-03-19
+  <strong>Sites audited:</strong> web/ (marketing + docs), apps/admin/ (developer dashboard)</p>
+<hr />
+<p>## 1. Executive Summary</p>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>Critical</th>
+<th>High</th>
+<th>Medium</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>web/</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+</tr>
+<tr>
+<td>apps/admin/</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+<td>N</td>
+</tr>
+</tbody>
+</table>
+<p>### Top 3 Priority Fixes
+  1. [Most critical finding — 1 sentence]
+  2. [Second most critical — 1 sentence]
+  3. [Third most critical — 1 sentence]</p>
+<hr />
+<p>## 2. Per-Site Findings</p>
+<p>### web/ (Marketing + Docs)</p>
+<p>#### Design Consistency
+  | Page | Issue | Severity | Evidence |
+  ...</p>
+<p>#### Accessibility
+  ...</p>
+<p>#### Responsive Layout
+  ...</p>
+<p>#### UX Flows
+  ...</p>
+<p>#### Performance
+  ...</p>
+<p>#### Brand/Visual Polish
+  ...</p>
+<p><strong>Dimension summary:</strong>
+  | Dimension | Critical | High | Medium | Low |
+  ...</p>
+<hr />
+<p>### apps/admin/ (Developer Dashboard)
+  [Same structure as web/ section]</p>
+<hr />
+<p>## 3. Cross-Site Issues
+  | Issue | Severity | Sites Affected | Evidence |
+  ...</p>
+<hr />
+<p>## 4. Implementation Plan</p>
+<blockquote>
+<p>Tiers are ordered by severity. Within each tier, fixes are ordered Quick Win → Medium → Major.</p>
+</blockquote>
+<p>### Tier 1 — Critical</p>
+<p>#### Fix 1: [Title]
+  - <strong>Severity:</strong> Critical
+  - <strong>Site(s):</strong> web/ | apps/admin/ | both
+  - <strong>Files:</strong> <code>exact/path/to/file.tsx</code>
+  - <strong>What to change:</strong> [Specific, actionable description — no vague "improve X"]
+  - <strong>Why:</strong> [One sentence on user impact]
+  - <strong>Effort:</strong> Quick Win / Medium / Major</p>
+<p>[Repeat for each Critical finding]</p>
+<p>### Tier 2 — High
+  [Same format]</p>
+<p>### Tier 3 — Medium
+  [Same format]</p>
+<p>### Tier 4 — Low
+  [Same format]</p>
+<hr />
+<p>## 5. Appendix: Page Inventory</p>
+<p>### web/
+  | Page | Design | A11y | Responsive | UX | Perf | Brand | Notes |
+  | / | ✅/⚠️/❌ | ... | ... | ... | ... | ... | |
+  ...</p>
+<p>### apps/admin/
+  | Page | Design | A11y | Responsive | UX | Perf | Brand | Notes |
+  ...</p>
+<p>Legend: ✅ No issues | ⚠️ Medium/Low issues only | ❌ Critical or High issues
+  ```</p>
+<ul>
+<li>[ ] <strong>Step 4: Self-check completeness</strong></li>
+</ul>
+<p>Verify before saving:
+  - Every page from both canonical page lists appears in the findings and appendix
+  - All 10 docs pages (<code>getting-started</code>, <code>configuration</code>, <code>cli-reference</code>, <code>architecture</code>, <code>api</code>, <code>hooks</code>, <code>mcp</code>, <code>deployment</code>, <code>benchmarks</code>, <code>faq</code>) are individually listed in the appendix
+  - Every finding in the findings tables has a corresponding fix in the implementation plan
+  - No implementation plan fix says anything vague like "improve accessibility" — each must name a specific change and a specific file
+  - Every finding flagged as "unverifiable from source" in the responsive dimension is noted as such (not marked pass or fail)</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit the report</strong></li>
+</ul>
+<p>```bash
+  git add docs/superpowers/specs/2026-03-19-visual-audit-report.md
+  git commit -m "docs: add visual audit report for web/ and apps/admin/</p>
+<p>Covers 6 dimensions across both sites: design consistency, accessibility,
+  responsive layout, UX flows, performance, and brand/visual polish.
+  Includes prioritized implementation plan ordered by severity tier.</p>
+<p>Co-Authored-By: Claude Sonnet 4.6 <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#110;&#111;&#114;&#101;&#112;&#108;&#121;&#64;&#97;&#110;&#116;&#104;&#114;&#111;&#112;&#105;&#99;&#46;&#99;&#111;&#109;">&#110;&#111;&#114;&#101;&#112;&#108;&#121;&#64;&#97;&#110;&#116;&#104;&#114;&#111;&#112;&#105;&#99;&#46;&#99;&#111;&#109;</a>"
+  ```</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1032 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Hybrid semantic memory system for AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://ajitpratap0.github.io/openclaw-cortex/superpowers/specs/2026-03-17-v0.9.0-architecture-security-review-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v0.9.0 Architecture & Security Review — Design Spec - OpenClaw Cortex</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#v090-architecture-security-review-design-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OpenClaw Cortex" class="md-header__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenClaw Cortex
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v0.9.0 Architecture &amp; Security Review — Design Spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../ARCHITECTURE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../hooks/" class="md-tabs__link">
+          
+  
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../benchmarks/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmarks
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../DEPLOYMENT/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Deployment
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OpenClaw Cortex" class="md-nav__button md-logo" aria-label="OpenClaw Cortex" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenClaw Cortex
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ajitpratap0/openclaw-cortex" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integrations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Hooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="v090-architecture-security-review-design-spec">v0.9.0 Architecture &amp; Security Review — Design Spec</h1>
+<p><strong>Date:</strong> 2026-03-17
+<strong>Version:</strong> draft-2.0
+<strong>Target:</strong> openclaw-cortex v0.9.0</p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>This spec documents a full architecture and security review of openclaw-cortex v0.8.0 (main branch) and defines the scope for v0.9.0. The review identified 9 security/reliability findings and 5 architectural gaps. v0.9.0 addresses all critical and medium findings, adds Sentry + Prometheus observability, and ships three user-facing features: multi-user namespacing, streaming recall, and batch capture.</p>
+<p>Work is organized into three tracks. Track 1 PRs are fully independent. Track 2 and Track 3 are serialized within each track; across tracks they share overlapping files and must be sequenced to avoid merge conflicts (see PR Sequencing).</p>
+<hr />
+<h2 id="current-architecture-v080-snapshot">Current Architecture (v0.8.0 Snapshot)</h2>
+<h3 id="stack">Stack</h3>
+<ul>
+<li><strong>Language:</strong> Go 1.25</li>
+<li><strong>Storage:</strong> Memgraph (unified graph + vector DB, Bolt protocol, neo4j-go-driver)</li>
+<li><strong>Embeddings:</strong> Ollama (<code>nomic-embed-text</code>, 768-dim) or OpenAI (<code>text-embedding-3-small</code>)</li>
+<li><strong>LLM:</strong> Claude Haiku via Anthropic SDK or OpenClaw gateway (OpenAI-compatible endpoint)</li>
+<li><strong>CLI:</strong> cobra + viper</li>
+<li><strong>Testing:</strong> black-box tests in <code>tests/</code>, <code>internal/store/mock_store.go</code> (<code>MockStore</code>), golangci-lint v2</li>
+</ul>
+<h3 id="runtime-modes">Runtime Modes</h3>
+<ol>
+<li><strong>CLI</strong> — <code>openclaw-cortex &lt;command&gt;</code> (capture, recall, search, store, lifecycle, etc.)</li>
+<li><strong>HTTP API server</strong> — <code>openclaw-cortex serve</code> (REST on <code>:8080</code>)</li>
+<li><strong>MCP server</strong> — <code>openclaw-cortex mcp</code> (stdio transport, tools: remember/recall/forget/search/stats/entity_*)</li>
+</ol>
+<h3 id="key-internal-packages">Key Internal Packages</h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Key Types</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal/memgraph/</code></td>
+<td><code>MemgraphStore</code> (CRUD + vector search + graph traversal), <code>GraphAdapter</code> (implements <code>graph.Client</code>)</td>
+</tr>
+<tr>
+<td><code>internal/recall/</code></td>
+<td><code>Recaller</code> (8-factor scoring, RRF graph merge), <code>Reasoner</code> (LLM re-ranking)</td>
+</tr>
+<tr>
+<td><code>internal/capture/</code></td>
+<td><code>ClaudeCapturer</code>, <code>EntityExtractor</code>, <code>ConflictDetector</code>, <code>MemoryContradictionDetector</code></td>
+</tr>
+<tr>
+<td><code>internal/graph/</code></td>
+<td><code>graph.Client</code> interface, <code>FactExtractor</code>, <code>EntityResolver</code>, <code>FactResolver</code></td>
+</tr>
+<tr>
+<td><code>internal/api/</code></td>
+<td>HTTP API server with Bearer auth middleware</td>
+</tr>
+<tr>
+<td><code>internal/mcp/</code></td>
+<td>MCP server (mcp-go, stdio transport)</td>
+</tr>
+<tr>
+<td><code>internal/hooks/</code></td>
+<td><code>PreTurnHook</code>, <code>PostTurnHook</code> for Claude Code integration</td>
+</tr>
+<tr>
+<td><code>internal/llm/</code></td>
+<td><code>LLMClient</code> interface, <code>AnthropicClient</code>, <code>GatewayClient</code></td>
+</tr>
+<tr>
+<td><code>internal/lifecycle/</code></td>
+<td>TTL expiry, session decay</td>
+</tr>
+<tr>
+<td><code>internal/config/</code></td>
+<td>Viper config with env var overrides and validation</td>
+</tr>
+<tr>
+<td><code>internal/store/</code></td>
+<td><code>Store</code> interface, <code>MockStore</code> (tests)</td>
+</tr>
+</tbody>
+</table>
+<p>Note: <code>GraphAdapter</code> lives in <code>internal/memgraph/graph.go</code>, not <code>internal/graph/</code>. The <code>graph.Client</code> interface is defined in <code>internal/graph/client.go</code>.</p>
+<h3 id="existing-security-controls-preserve">Existing Security Controls (preserve)</h3>
+<ul>
+<li>XML-escaping on all LLM prompt inputs in capture, reasoner, conflict detector, fact extractor</li>
+<li><code>crypto/subtle.ConstantTimeCompare</code> for Bearer token auth</li>
+<li>Per-operation context timeouts on all Memgraph sessions (10s read / 30s write)</li>
+<li><code>http.MaxBytesReader</code> (1 MB) on all POST handlers</li>
+<li>Config validation at load time; API key masking in <code>String()</code> methods</li>
+<li><code>store.ErrNotFound</code> sentinel for proper error discrimination</li>
+<li>HTTP server timeouts: ReadHeader 10s, Read 30s, Write 60s, Idle 120s</li>
+</ul>
+<hr />
+<h2 id="security-reliability-findings">Security &amp; Reliability Findings</h2>
+<h3 id="critical">Critical</h3>
+<p><strong>S1 — GatewayClient has no HTTP timeout</strong>
+- File: <code>internal/llm/gateway.go:23</code>
+- <code>NewGatewayClient</code> creates <code>&amp;http.Client{}</code> with no timeout. If the gateway hangs, all LLM-dependent paths (capture, contradiction detection, re-ranking, fact extraction) block indefinitely.
+- Fix: Add configurable timeout (default 60s) via <code>claude.gateway_timeout_seconds</code> config field.
+- PR: 1.1</p>
+<p><strong>S2 — HTTP API auth disabled by default, no TLS</strong>
+- File: <code>internal/api/server.go:73</code>, <code>cmd/openclaw-cortex/cmd_serve.go:38</code>
+- <code>api.auth_token</code> defaults to <code>""</code>, which disables all auth. The serve command logs a warning but proceeds. There is no TLS support.
+- Fix: Require explicit <code>--unsafe-no-auth</code> flag to run without auth; add <code>--tls-cert</code> / <code>--tls-key</code> flags.
+- PR: 1.2</p>
+<p><strong>S3 — Vector dimension hardcoded in DDL</strong>
+- File: <code>internal/memgraph/graph.go:56</code>
+- The Memgraph vector index DDL string hardcodes <code>"dimension": 768</code> independent of <code>memory.vector_dimension</code> config. Schema and config can silently drift.
+- Fix: <code>GraphAdapter.EnsureSchema</code> accepts a <code>vectorDim int</code> parameter; <code>MemgraphStore.EnsureCollection</code> reads <code>cfg.Memory.VectorDimension</code> and passes it to <code>NewGraphAdapter(...).EnsureSchema(ctx, dim)</code>.
+- PR: 1.3</p>
+<h3 id="medium">Medium</h3>
+<p><strong>S4 — Pagination cursor is a raw SKIP integer</strong>
+- File: <code>internal/memgraph/store.go:289</code>, <code>internal/api/server.go:401</code>
+- The cursor is a plaintext decimal string encoding the SKIP offset. Clients can forge arbitrary offsets and the implementation detail is exposed.
+- Fix: Opaque HMAC-SHA256 signed cursor (encodes offset + timestamp).
+- PR: 1.4</p>
+<p><strong>S5 — No rate limiting on HTTP API</strong>
+- File: <code>internal/api/server.go</code>
+- No per-IP or global rate limiting. A client can flood embedding generation and Memgraph simultaneously.
+- Fix: Per-IP token bucket middleware using <code>golang.org/x/time/rate</code>.
+- PR: 1.2</p>
+<p><strong>S6 — Entity search fetches all results then filters in-process</strong>
+- File: <code>internal/api/server.go:566</code>, <code>internal/store/store.go:52</code>
+- <code>handleSearchEntities</code> calls <code>store.SearchEntities(ctx, name)</code> which has no limit parameter, then filters by type and truncates in-process. O(N) for large entity sets.
+- Fix: Add <code>limit int</code> and <code>entityType string</code> parameters to <code>store.Store.SearchEntities</code>; push filtering into the Cypher query in <code>MemgraphStore</code>.
+- PR: 1.4</p>
+<p><strong>S7 — Unnecessary re-embed on update when content unchanged</strong>
+- File: <code>internal/api/server.go:322</code>
+- <code>handleUpdate</code> re-embeds existing content when no <code>content</code> field is provided in the request. This incurs unnecessary latency and embedding cost.
+- Fix: Skip re-embed when the <code>content</code> field is empty in the update request.
+- PR: 1.4</p>
+<h3 id="low-documentation">Low / Documentation</h3>
+<p><strong>S8 — SECURITY.md references Qdrant (removed in v0.7.0)</strong>
+- File: <code>SECURITY.md:45</code>
+- Out-of-scope section says "Vulnerabilities in Qdrant, Ollama, or the Anthropic API themselves". Qdrant was replaced by Memgraph in v0.7.0.
+- Fix: Update to reference Memgraph.
+- PR: 1.4</p>
+<p><strong>S9 — Memgraph URI logged at INFO level</strong>
+- File: <code>internal/memgraph/store.go:59</code>
+- <code>logger.Info("connected to Memgraph", "uri", uri)</code> logs the full connection URI which may contain embedded credentials.
+- Fix: Downgrade to <code>logger.Debug</code> and redact credentials from URI before logging.
+- PR: 1.4</p>
+<hr />
+<h2 id="architecture-findings">Architecture Findings</h2>
+<p><strong>A1 — No multi-user namespace isolation</strong>
+- The <code>project</code> string is the only tenant boundary. There is no <code>user_id</code> concept anywhere in models, store, or API. Multiple users sharing one Cortex instance have no isolation.
+- Required for any shared or team deployment.
+- PR: 3.1</p>
+<p><strong>A2 — PostTurnHook pipeline is synchronous and monolithic</strong>
+- <code>PostTurnHook</code> runs capture, entity extraction, fact extraction, contradiction detection, reinforcement, and dedup sequentially in one function. Any slow LLM call blocks the whole turn.
+- Makes latency tuning and failure isolation difficult.
+- <strong>Not in v0.9.0 scope</strong> (requires larger refactor). Documented for v1.0.0.</p>
+<p><strong>A3 — No backpressure on LLM calls</strong>
+- Up to 4 serial Claude calls per capture turn. No concurrency control, no circuit breaker. Under load, rate limit errors cascade silently.
+- Partial mitigation in v0.9.0 via Sentry span visibility; full fix (worker pool + circuit breaker) in v1.0.0.
+- <strong>Not in v0.9.0 scope.</strong></p>
+<p><strong>A4 — Graph traversal depth is global, not per-caller</strong>
+- Depth is set in config and applies equally to hook (latency-sensitive) and CLI (latency-tolerant) callers.
+- Partial mitigation already in place via separate <code>graph_budget_ms</code> vs <code>graph_budget_cli_ms</code> config fields. No action in v0.9.0.</p>
+<p><strong>A5 — SearchEntities has no limit parameter in Store interface</strong>
+- <code>store.Store.SearchEntities(ctx, name)</code> returns unbounded results.
+- Fixed as part of S6 (PR 1.4).</p>
+<hr />
+<h2 id="v090-scope">v0.9.0 Scope</h2>
+<h3 id="track-1-security-reliability-4-prs-all-independent">Track 1 — Security &amp; Reliability (4 PRs, all independent)</h3>
+<p><strong>PR 1.1 — <code>fix/gateway-timeout</code></strong>
+- Files: <code>internal/llm/gateway.go</code>, <code>internal/config/config.go</code>
+- Add <code>TimeoutSeconds int</code> to <code>ClaudeConfig</code>; default 60
+- Pass <code>http.Client{Timeout: duration}</code> to <code>NewGatewayClient</code>
+- Add <code>claude.gateway_timeout_seconds</code> / <code>OPENCLAW_CORTEX_CLAUDE_GATEWAY_TIMEOUT</code> env binding
+- Tests: mock HTTP server that sleeps; verify timeout error is returned</p>
+<p><strong>PR 1.2 — <code>fix/api-hardening</code></strong> (~5 files)
+- Files: <code>cmd/openclaw-cortex/cmd_serve.go</code>, <code>internal/api/server.go</code>, <code>internal/api/ratelimit.go</code> (new), <code>internal/config/config.go</code>
+- Serve command: add <code>--unsafe-no-auth</code> flag; fail-fast if auth token empty and flag not set
+- Serve command: add <code>--tls-cert</code> / <code>--tls-key</code> flags; call <code>httpSrv.ListenAndServeTLS</code> when both provided
+- New <code>internal/api/ratelimit.go</code>: per-IP token bucket middleware (<code>golang.org/x/time/rate</code>); configurable via <code>api.rate_limit_rps</code> (default 100) and <code>api.rate_limit_burst</code> (default 20)
+- Tests: verify 429 on burst, verify auth rejection, verify TLS handshake with self-signed cert</p>
+<p><strong>PR 1.3 — <code>fix/schema-dim-from-config</code></strong> (~2 files)
+- Files: <code>internal/memgraph/graph.go</code>, <code>internal/memgraph/store.go</code>
+- <code>GraphAdapter.EnsureSchema(ctx context.Context, vectorDim int)</code> — add <code>vectorDim</code> parameter; use <code>fmt.Sprintf</code> to inject into DDL string
+- <code>MemgraphStore.EnsureCollection(ctx)</code> reads <code>s.vectorDim</code> (stored at construction time from config) and passes to <code>EnsureSchema</code>
+- <code>memgraph.New(...)</code> gains a <code>vectorDim int</code> parameter; <code>cmd_migrate.go</code> and <code>cmd_serve.go</code> pass <code>cfg.Memory.VectorDimension</code>
+- Tests: assert DDL contains correct dimension string for non-default dim</p>
+<p><strong>PR 1.4 — <code>fix/misc-hardening</code></strong> (~6 files)
+- Files: <code>internal/memgraph/store.go</code>, <code>internal/api/server.go</code>, <code>internal/store/store.go</code>, <code>SECURITY.md</code>, <code>pkg/cursor/cursor.go</code> (new), <code>internal/config/config.go</code>
+- New <code>pkg/cursor/cursor.go</code>: HMAC-SHA256 signed cursor encoding <code>{skip, timestamp}</code>; <code>Sign(skip int64, secret []byte) string</code> and <code>Verify(cursor string, secret []byte) (int64, error)</code>
+- <code>api.cursor_secret</code> config field (auto-generated on first run if empty)
+- <code>handleList</code> uses <code>cursor.Sign</code> / <code>cursor.Verify</code>; returns 400 on tampered cursor
+- <code>store.Store.SearchEntities</code> signature changes to <code>SearchEntities(ctx, name string, entityType string, limit int) ([]models.Entity, error)</code>; <code>MemgraphStore</code> pushes type filter + LIMIT into Cypher; <code>MockStore</code> updated accordingly
+- <code>memgraph/store.go:59</code> downgrade to <code>logger.Debug</code>; redact user info from URI using <code>url.Parse</code> + <code>url.Redacted()</code>
+- <code>internal/api/server.go:322</code> skip re-embed when content field is empty in update request
+- <code>SECURITY.md</code> update Qdrant → Memgraph
+- Tests: tampered cursor returns 400; round-trip cursor; entity search respects limit; no re-embed on content-unchanged update</p>
+<hr />
+<h3 id="track-2-observability-2-prs-serialized">Track 2 — Observability (2 PRs, serialized)</h3>
+<p>PR 2.1 must merge before 2.2 because both modify <code>internal/api/server.go</code>.</p>
+<p><strong>PR 2.1 — <code>feat/sentry</code></strong> (~24 files — flagged as large; see note)
+- Files: <code>internal/config/config.go</code>, <code>internal/sentry/sentry.go</code> (new), <code>internal/api/server.go</code>, <code>cmd/openclaw-cortex/main.go</code>, all 20 <code>cmd_*.go</code> files
+- <strong>Size note:</strong> This PR is large because Sentry error capture must be wired into every <code>cmd.RunE</code>. The changes per file are mechanical (1–3 lines each). Consider reviewing as a stack of 3 commits: (1) <code>internal/sentry/</code> package + config, (2) HTTP middleware, (3) CLI wiring.
+- New <code>internal/sentry/sentry.go</code>: <code>Init(dsn, environment, release string)</code> and <code>Flush()</code> wrappers; no-op when DSN empty
+- Config: <code>sentry.dsn</code>, <code>sentry.environment</code> (default "production"), env: <code>SENTRY_DSN</code>
+- HTTP: Sentry middleware wrapping <code>srv.Handler()</code> (captures panics + 5xx)
+- CLI: wrap each <code>cmd.RunE</code> return path with <code>sentry.CaptureException</code> on non-nil error
+- Spans: add <code>sentry.StartSpan</code> around <code>embedder.Embed</code>, <code>store.Search</code>, <code>store.Upsert</code>, <code>llm.Complete</code>
+- <code>main.go</code>: call <code>sentry.Init</code> in <code>PersistentPreRunE</code>; call <code>sentry.Flush(2s)</code> on exit
+- Tests: mock Sentry transport; verify span emitted for happy path; verify error captured on failure</p>
+<p><strong>PR 2.2 — <code>feat/prometheus-metrics</code></strong> (~3 files)
+- Files: <code>internal/metrics/metrics.go</code> (rewrite), <code>internal/api/server.go</code>, <code>cmd/openclaw-cortex/cmd_serve.go</code>
+- <strong>Migration note:</strong> <code>internal/metrics/metrics.go</code> currently uses <code>expvar.Int</code> counters exposed at <code>/debug/vars</code>. This PR replaces <code>expvar</code> counters with <code>prometheus/client_golang</code> types. All call sites using <code>metrics.Inc(metrics.RecallTotal)</code> etc. will change signature. The <code>/debug/vars</code> endpoint is removed; <code>/metrics</code> replaces it. Call sites in <code>internal/hooks/hooks.go</code> and <code>internal/recall/recall.go</code> are updated.
+- Counters: <code>cortex_memories_stored_total{source}</code>, <code>cortex_recalls_total</code>, <code>cortex_llm_calls_total{op}</code>, <code>cortex_llm_errors_total{op}</code>
+- Histograms: <code>cortex_recall_latency_ms</code> (buckets: 10, 50, 100, 250, 500, 1000, 2500), <code>cortex_embed_latency_ms</code>, <code>cortex_llm_latency_ms{op}</code>
+- Gauges: <code>cortex_memory_count{type,scope}</code> (updated on upsert/delete; lazy-refreshed on <code>/metrics</code> scrape)
+- <code>GET /metrics</code> route — no auth required (Prometheus convention); registered before auth middleware
+- Tests: scrape <code>/metrics</code> after operations; assert counter increments; assert histogram observes latency</p>
+<hr />
+<h3 id="track-3-features-3-prs-serialized">Track 3 — Features (3 PRs, serialized)</h3>
+<p>PR 3.1 must merge before 3.2 and 3.3 because it changes the <code>Store</code> interface and <code>models.Memory</code>.</p>
+<p><strong>PR 3.1 — <code>feat/user-namespacing</code></strong> (~30 files — split recommended)
+- <strong>Size note:</strong> This is the largest PR in the release. Recommended split into two sub-PRs on the same branch:
+  - <strong>3.1a</strong> (model + store layer, ~8 files): <code>internal/models/memory.go</code>, <code>internal/models/entity.go</code>, <code>internal/store/store.go</code>, <code>internal/memgraph/store.go</code>, <code>internal/memgraph/graph.go</code>, <code>internal/store/mock_store.go</code>, <code>internal/config/config.go</code>, migration command
+  - <strong>3.1b</strong> (API/MCP/CLI propagation, ~22 files): <code>internal/api/server.go</code>, <code>internal/mcp/server.go</code>, <code>internal/hooks/hooks.go</code>, all <code>cmd_*.go</code>
+- Add <code>UserID string</code> field to <code>models.Memory</code> and <code>models.Entity</code>
+- Add <code>UserID *string</code> to <code>store.SearchFilters</code>
+- Memgraph schema: <code>CREATE INDEX ON :Memory(user_id)</code>, <code>CREATE INDEX ON :Entity(user_id)</code>
+- All Cypher WHERE clauses include <code>user_id</code> filter when set
+- Config: <code>user.default_user_id</code> (default <code>"default"</code>); env: <code>OPENCLAW_CORTEX_USER_ID</code>; <code>--user</code> flag on all commands
+- HTTP API: read <code>X-User-ID</code> header; falls back to config default
+- MCP: <code>user_id</code> optional parameter on <code>remember</code>, <code>recall</code>, <code>search</code>, <code>forget</code> tools
+- Hooks: use <code>session_id</code> as user scope when no explicit user set
+- Migration: <code>cortex migrate --add-user-id</code> backfills <code>user_id = "default"</code> on existing Memory and Entity nodes
+- Tests: verify cross-user isolation (user A cannot recall user B's memories)</p>
+<p><strong>PR 3.2 — <code>feat/streaming-recall</code></strong> (~2 files)
+- Files: <code>internal/api/server.go</code>, <code>internal/recall/recall.go</code>
+- New <code>GET /v1/recall/stream</code> endpoint; accepts same query params as <code>POST /v1/recall</code>
+- Response: <code>Content-Type: text/event-stream</code>; each SSE event is one ranked memory JSON object
+- Flush after each memory so client starts rendering immediately
+- Graceful fallback: if <code>Accept</code> is <code>application/json</code>, behaves identically to <code>POST /v1/recall</code>
+- Recaller exposes a channel-based variant; handler reads and flushes
+- Tests: verify SSE event format; verify ordering matches non-streaming recall</p>
+<p><strong>PR 3.3 — <code>feat/batch-capture</code></strong> (~3 files)
+- Files: <code>cmd/openclaw-cortex/cmd_capture_batch.go</code> (new), <code>internal/capture/batch.go</code> (new), <code>cmd/openclaw-cortex/main.go</code>
+- <strong>Relationship to existing <code>cmd_store_batch.go</code>:</strong> <code>store-batch</code> is a low-level bulk-upsert of pre-formed memory records (no LLM extraction). <code>capture-batch</code> is higher-level: it runs the full capture pipeline (LLM extraction, entity extraction, fact extraction) on raw conversation turns. These are different commands; both are kept.
+- New <code>cortex capture-batch</code> command reading JSONL from stdin
+- Input format per line: <code>{"user": "...", "assistant": "...", "project": "...", "user_id": "..."}</code>
+- New <code>capture.BatchCapturer</code>: worker pool, configurable <code>--concurrency</code> (default 4, max 16)
+- Progress to stderr: <code>processed N/total, stored M memories, skipped K (low quality)</code>
+- <code>--dry-run</code>: runs extraction, no store writes; prints extracted memories as JSONL to stdout
+- <code>--stats</code>: prints summary JSON to stdout on completion
+- Error handling: failed lines logged to stderr with line number; processing continues
+- Tests: verify concurrency bound; verify dry-run produces no store writes; verify JSONL parse errors non-fatal</p>
+<hr />
+<h2 id="observability-decision">Observability Decision</h2>
+<p><strong>Sentry</strong> (PR 2.1) handles error tracking and performance tracing — actionable alerts when things break. SaaS, no infrastructure needed. No-op when DSN is unset.</p>
+<p><strong>Prometheus</strong> (PR 2.2) handles operational metrics — dashboards, latency trends, capacity planning. Requires a running Prometheus + Grafana stack. The <code>/metrics</code> endpoint is always available regardless.</p>
+<p>These are complementary. Sentry ships first (lower friction, immediate value). The existing <code>expvar</code> metrics in <code>internal/metrics/metrics.go</code> are replaced by Prometheus types in PR 2.2; this is a breaking change to the metrics API but <code>/debug/vars</code> was never documented as stable.</p>
+<hr />
+<h2 id="what-is-not-in-v090">What is NOT in v0.9.0</h2>
+<p>Documented for v1.0.0:</p>
+<ul>
+<li><strong>A2 — PostTurnHook async refactor</strong>: Decompose into a pipeline with per-stage goroutines and a result channel. Requires careful back-pressure design.</li>
+<li><strong>A3 — LLM circuit breaker</strong>: Worker pool + exponential backoff + circuit breaker for all LLM call sites.</li>
+<li><strong>Web UI memory browser</strong>: Deferred; requires frontend build pipeline.</li>
+<li><strong>Pluggable embedding providers</strong> (Cohere, Gemini): Deferred.</li>
+</ul>
+<hr />
+<h2 id="pr-sequencing">PR Sequencing</h2>
+<p>Track 2 and Track 3 share files (<code>internal/api/server.go</code>, <code>cmd_*.go</code>). To avoid merge conflicts, they are serialized:</p>
+<pre><code>Week 1:  1.1, 1.2, 1.3, 1.4  (all parallel — no shared files)
+Week 2:  3.1a (model + store layer)
+Week 3:  3.1b (API/MCP/CLI) → 2.1 (Sentry)
+Week 4:  2.2 (Prometheus) → 3.2 (streaming recall)
+Week 5:  3.3 (batch capture) → release v0.9.0
+</code></pre>
+<p>Track 1 establishes the security baseline and should ship first. PR 3.1a (model layer) unblocks 3.1b and all subsequent PRs that need the <code>UserID</code> field. PR 2.1 (Sentry) touches all <code>cmd_*.go</code> files and must follow 3.1b. PRs 2.2 and 3.2 both modify <code>internal/api/server.go</code> and must be serialized.</p>
+<hr />
+<h2 id="files-created-or-modified-per-track">Files Created or Modified Per Track</h2>
+<h3 id="track-1-9-files">Track 1 (~9 files)</h3>
+<ul>
+<li>Modified: <code>internal/llm/gateway.go</code>, <code>internal/config/config.go</code>, <code>cmd/openclaw-cortex/cmd_serve.go</code>, <code>internal/api/server.go</code>, <code>internal/memgraph/graph.go</code>, <code>internal/memgraph/store.go</code>, <code>internal/store/store.go</code>, <code>SECURITY.md</code></li>
+<li>New: <code>pkg/cursor/cursor.go</code>, <code>internal/api/ratelimit.go</code></li>
+</ul>
+<h3 id="track-2-27-files">Track 2 (~27 files)</h3>
+<ul>
+<li>Modified: <code>internal/config/config.go</code>, <code>internal/api/server.go</code>, <code>cmd/openclaw-cortex/main.go</code>, all 20 <code>cmd_*.go</code>, <code>internal/metrics/metrics.go</code>, <code>internal/hooks/hooks.go</code>, <code>internal/recall/recall.go</code></li>
+<li>New: <code>internal/sentry/sentry.go</code></li>
+</ul>
+<h3 id="track-3-32-files">Track 3 (~32 files)</h3>
+<ul>
+<li>Modified: <code>internal/models/memory.go</code>, <code>internal/models/entity.go</code>, <code>internal/store/store.go</code>, <code>internal/memgraph/store.go</code>, <code>internal/memgraph/graph.go</code>, <code>internal/store/mock_store.go</code>, <code>internal/api/server.go</code>, <code>internal/mcp/server.go</code>, <code>internal/hooks/hooks.go</code>, <code>internal/config/config.go</code>, all 20 <code>cmd_*.go</code>, <code>cmd/openclaw-cortex/main.go</code></li>
+<li>New: <code>cmd/openclaw-cortex/cmd_capture_batch.go</code>, <code>internal/capture/batch.go</code></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
