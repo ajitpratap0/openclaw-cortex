@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.10.0"><img src="https://img.shields.io/github/v/release/ajitpratap0/openclaw-cortex?label=release" alt="Release v0.10.0"></a>
+  <a href="https://github.com/ajitpratap0/openclaw-cortex/releases/tag/v0.11.0"><img src="https://img.shields.io/github/v/release/ajitpratap0/openclaw-cortex?label=release" alt="Release v0.11.0"></a>
   <a href="https://github.com/ajitpratap0/openclaw-cortex/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ajitpratap0/openclaw-cortex/ci.yml?branch=main&label=CI" alt="CI"></a>
   <a href="https://goreportcard.com/report/github.com/ajitpratap0/openclaw-cortex"><img src="https://goreportcard.com/badge/github.com/ajitpratap0/openclaw-cortex" alt="Go Report Card"></a>
 </p>
