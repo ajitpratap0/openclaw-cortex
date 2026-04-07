@@ -4,7 +4,7 @@ import FeaturesNav from "./features-nav";
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "Deep dive into OpenClaw Cortex features: 8-factor recall scoring, graph traversal, temporal versioning, contradiction detection, episodic memory, and smart capture.",
+    "Deep dive into OpenClaw Cortex features: 9-factor recall scoring, graph traversal, temporal versioning, contradiction detection, episodic memory, and smart capture.",
 };
 
 const sections = [
@@ -40,24 +40,25 @@ export default function FeaturesPage() {
           <section id="recall-scoring" className="scroll-mt-24">
             <h2 className="text-2xl font-bold text-zinc-50 mb-3">Recall Scoring</h2>
             <p className="text-zinc-300 leading-relaxed mb-8">
-              Every retrieved memory receives a composite score from eight independent factors.
+              Every retrieved memory receives a composite score from nine independent factors.
               The weighted sum balances immediate semantic relevance with long-term signals like
-              access frequency and memory type, ensuring the most useful facts surface first —
-              not just the most similar ones.
+              access frequency, memory type, and graph proximity — ensuring the most useful facts
+              surface first, not just the most similar ones.
             </p>
 
             {/* Formula */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8 overflow-x-auto">
               <p className="text-sm text-zinc-500 mb-3 font-mono uppercase tracking-wide">Final score formula</p>
               <code className="text-emerald-300 font-mono text-sm leading-loose whitespace-nowrap">
-                score = 0.35 × similarity<br />
-                {"       "}+ 0.15 × recency<br />
-                {"       "}+ 0.10 × frequency<br />
+                score = 0.45 × similarity<br />
+                {"       "}+ 0.08 × recency<br />
+                {"       "}+ 0.05 × frequency<br />
                 {"       "}+ 0.10 × typeBoost<br />
                 {"       "}+ 0.08 × scopeBoost<br />
-                {"       "}+ 0.10 × confidence<br />
+                {"       "}+ 0.07 × confidence<br />
                 {"       "}+ 0.07 × reinforcement<br />
-                {"       "}+ 0.05 × tagAffinity
+                {"       "}+ 0.05 × tagAffinity<br />
+                {"       "}+ 0.05 × graphProximity
               </code>
             </div>
 
@@ -66,14 +67,15 @@ export default function FeaturesPage() {
               <p className="text-sm text-zinc-500 mb-5 font-mono uppercase tracking-wide">Factor weights</p>
               <div className="space-y-3">
                 {[
-                  { label: "Similarity", weight: 35, color: "bg-indigo-500" },
-                  { label: "Recency", weight: 15, color: "bg-emerald-500" },
-                  { label: "Confidence", weight: 10, color: "bg-amber-500" },
-                  { label: "Frequency", weight: 10, color: "bg-sky-500" },
+                  { label: "Similarity", weight: 45, color: "bg-indigo-500" },
                   { label: "Type boost", weight: 10, color: "bg-violet-500" },
-                  { label: "Reinforcement", weight: 7, color: "bg-rose-500" },
+                  { label: "Recency", weight: 8, color: "bg-emerald-500" },
                   { label: "Scope boost", weight: 8, color: "bg-teal-500" },
+                  { label: "Confidence", weight: 7, color: "bg-amber-500" },
+                  { label: "Reinforcement", weight: 7, color: "bg-rose-500" },
+                  { label: "Frequency", weight: 5, color: "bg-sky-500" },
                   { label: "Tag affinity", weight: 5, color: "bg-orange-500" },
+                  { label: "Graph proximity", weight: 5, color: "bg-fuchsia-500" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-3">
                     <span className="text-xs text-zinc-400 w-24 flex-shrink-0">{item.label}</span>
